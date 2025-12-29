@@ -1,0 +1,10 @@
+model WebhookLog {
+  id        String   @id @default(uuid())
+  eventId   String   @unique // Stripe event ID
+  eventType String
+  processed Boolean  @default(false)
+  createdAt DateTime @default(now())
+  
+  @@index([eventId])
+  @@map("webhook_logs")
+}

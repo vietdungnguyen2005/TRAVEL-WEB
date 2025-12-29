@@ -1,0 +1,228 @@
+// This is your Prisma schema file for Travel/Hotel Booking System
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// Enum định nghĩa vai trò người dùng
+enum Role {
+  ADMIN
+  CUSTOMER
+}
+
+// Enum trạng thái đặt phòng
+enum BookingStatus {
+  PENDING      // Đang chờ thanh toán
+  CONFIRMED    // Đã xác nhận
+  CANCELLED    // Đã hủy
+  COMPLETED    // Đã hoàn thành (check-out)
+  ON_HOLD      // Đang giữ chỗ tạm thời
+}
+
+// 1. Model Người dùng
+model User {
+  id            String    @id @default(uuid())
+  email         String    @unique
+  password      String?   // Hash, nullable vì có thể login bằng OAuth
+  name          String?
+  phone         String?
+  role          Role      @default(CUSTOMER)
+  emailVerified DateTime?
+  image         String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  
+  bookings      Booking[]
+  reviews       Review[]
+  accounts      Account[]
+  sessions      Session[]
+  
+  @@map("users")
+}
+
+// NextAuth Account model
+model Account {
+  id                String  @id @default(uuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@map("accounts")
+}
+
+// NextAuth Session model
+model Session {
+  id           String   @id @default(uuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("sessions")
+}
+
+// NextAuth VerificationToken model
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+  @@map("verification_tokens")
+}
+
+// 2. Model Loại phòng (Room Category)
+model RoomType {
+  id            String   @id @default(uuid())
+  name          String   // VD: Deluxe, Suite, Standard
+  slug          String   @unique // URL-friendly: deluxe-room
+  description   String   @db.Text
+  pricePerNight Decimal  @db.Decimal(10, 2)
+  capacity      Int      // Số người tối đa
+  bedCount      Int      @default(1)
+  size          Int?     // Diện tích m2
+  amenities     String[] // ["Wifi", "AC", "TV", "Mini Bar"]
+  images        String[] // URLs từ Cloudinary
+  featured      Boolean  @default(false) // Phòng nổi bật
+  available     Boolean  @default(true)  // Còn kinh doanh không
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  
+  rooms         Room[]
+  reviews       Review[]
+  seasonalPrices SeasonalPrice[]
+  
+  @@map("room_types")
+}
+
+// 3. Model Giá theo mùa (Seasonal Pricing)
+model SeasonalPrice {
+  id            String   @id @default(uuid())
+  roomTypeId    String
+  name          String   // VD: "Tết Nguyên Đán 2025"
+  startDate     DateTime
+  endDate       DateTime
+  pricePerNight Decimal  @db.Decimal(10, 2)
+  createdAt     DateTime @default(now())
+  
+  roomType      RoomType @relation(fields: [roomTypeId], references: [id], onDelete: Cascade)
+  
+  @@map("seasonal_prices")
+}
+
+// 4. Model Phòng vật lý (Physical Room)
+model Room {
+  id          String   @id @default(uuid())
+  roomNumber  String   @unique // Số phòng: 101, 102, 201
+  roomTypeId  String
+  floor       Int?     // Tầng
+  view        String?  // "Sea View", "City View"
+  status      String   @default("AVAILABLE") // AVAILABLE, MAINTENANCE, OCCUPIED
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  roomType    RoomType @relation(fields: [roomTypeId], references: [id], onDelete: Cascade)
+  bookings    Booking[]
+  
+  @@map("rooms")
+}
+
+// 5. Model Đặt phòng
+model Booking {
+  id              String        @id @default(uuid())
+  userId          String
+  roomId          String
+  checkIn         DateTime
+  checkOut        DateTime
+  numberOfGuests  Int           @default(1)
+  totalPrice      Decimal       @db.Decimal(10, 2)
+  status          BookingStatus @default(PENDING)
+  
+  // Thông tin khách (nếu không có tài khoản)
+  guestName       String?
+  guestEmail      String?
+  guestPhone      String?
+  
+  // Thanh toán
+  paymentMethod   String?       // STRIPE, VNPAY, MOMO, CASH
+  paymentRef      String?       // Mã giao dịch từ cổng thanh toán
+  paymentStatus   String?       // PAID, UNPAID, REFUNDED
+  paidAt          DateTime?
+  
+  // Notes & Special Requests
+  specialRequests String?       @db.Text
+  adminNotes      String?       @db.Text
+  
+  // Hold timeout (cho tính năng giữ chỗ tạm thời)
+  holdExpiresAt   DateTime?
+  
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  
+  user            User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  room            Room          @relation(fields: [roomId], references: [id], onDelete: Restrict)
+  reviews         Review[]
+  
+  @@index([checkIn, checkOut])
+  @@index([status])
+  @@map("bookings")
+}
+
+// 6. Model Đánh giá (Reviews)
+model Review {
+  id          String   @id @default(uuid())
+  rating      Int      // 1-5 stars
+  comment     String?  @db.Text
+  userId      String
+  bookingId   String   @unique
+  roomTypeId  String
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  booking     Booking  @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  roomType    RoomType @relation(fields: [roomTypeId], references: [id], onDelete: Cascade)
+  
+  @@index([roomTypeId])
+  @@index([rating])
+  @@map("reviews")
+}
+
+// 7. Model Cài đặt hệ thống
+model Setting {
+  id        String   @id @default(uuid())
+  key       String   @unique
+  value     String   @db.Text
+  updatedAt DateTime @updatedAt
+  
+  @@map("settings")
+}
+
+// 8. Model Webhook Log (for idempotency)
+model WebhookLog {
+  id        String   @id @default(uuid())
+  eventId   String   @unique // Stripe event ID
+  eventType String
+  processed Boolean  @default(false)
+  createdAt DateTime @default(now())
+  
+  @@index([eventId])
+  @@map("webhook_logs")
+}
