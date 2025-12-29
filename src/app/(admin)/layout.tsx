@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import Link from "next/link";
-import { Home, Calendar, Bed, Users, BarChart3, Settings } from "lucide-react";
+import { Home, Calendar, Bed, Users, BarChart3, Settings, Image } from "lucide-react";
 
 export default async function AdminLayout({
   children,
@@ -26,9 +26,19 @@ export default async function AdminLayout({
       icon: Calendar,
     },
     {
+      href: "/admin/room-types",
+      label: "Quản lý loại phòng",
+      icon: Bed,
+    },
+    {
       href: "/admin/rooms",
       label: "Quản lý phòng",
       icon: Bed,
+    },
+    {
+      href: "/admin/hero-images",
+      label: "Ảnh trang chủ",
+      icon: Image,
     },
     {
       href: "/admin/users",

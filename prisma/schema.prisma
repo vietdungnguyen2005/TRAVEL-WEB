@@ -226,3 +226,20 @@ model WebhookLog {
   @@index([eventId])
   @@map("webhook_logs")
 }
+
+// 9. Model Hero Image (for homepage carousel)
+model HeroImage {
+  id          String   @id @default(uuid())
+  title       String   // Tiêu đề overlay
+  subtitle    String?  // Mô tả phụ
+  imageUrl    String   // URL ảnh từ Cloudinary
+  buttonText  String?  // Text nút CTA
+  buttonLink  String?  // Link nút CTA
+  order       Int      @default(0) // Thứ tự hiển thị
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  @@index([active, order])
+  @@map("hero_images")
+}

@@ -48,3 +48,17 @@ export interface DashboardStats {
   pendingBookings: number;
   upcomingCheckIns: number;
 }
+
+// Hero Image types
+export interface HeroImage {
+  id: string;
+  title: string;
+  subtitle?: string;
+  imageUrl: string;
+  buttonText?: string;
+  buttonLink?: string;
+  order: number;
+  active: boolean;
+  createdAt?: Date;
+  updatedAt?: Date;
+}
