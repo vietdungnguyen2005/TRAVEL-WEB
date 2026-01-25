@@ -1,0 +1,42 @@
+{
+    "compilerOptions": {
+        "target": "ES2022",
+        "module": "commonjs",
+        "lib": [
+            "ES2022"
+        ],
+        "moduleResolution": "node",
+        "esModuleInterop": true,
+        "skipLibCheck": true,
+        "strict": true,
+        "resolveJsonModule": true,
+        "declaration": true,
+        "declarationMap": true,
+        "sourceMap": true,
+        "outDir": "./dist",
+        "rootDir": ".",
+        "baseUrl": ".",
+        "paths": {
+            "@travel-web/contracts": [
+                "./packages/contracts/src"
+            ],
+            "@travel-web/shared": [
+                "./packages/shared/src"
+            ],
+            "middlewares/*": [
+                "./apps/gateway/src/middlewares/*"
+            ],
+            "routes/*": [
+                "./apps/gateway/src/routes/*"
+            ]
+        }
+    },
+    "exclude": [
+        "node_modules",
+        "dist"
+    ],
+    "include": [
+        "**/*.ts",
+        "**/*.d.ts"
+    ]
+}

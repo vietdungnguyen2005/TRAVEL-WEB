@@ -1,0 +1,17 @@
+{
+  "headers": {
+    "x-nextjs-stale-time": "300",
+    "x-nextjs-prerender": "1",
+    "x-next-cache-tags": "_N_T_/layout,_N_T_/(customer)/layout,_N_T_/(customer)/booking/layout,_N_T_/(customer)/booking/success/layout,_N_T_/(customer)/booking/success/page,_N_T_/booking/success"
+  },
+  "segmentPaths": [
+    "/_tree",
+    "/_full",
+    "/!KGN1c3RvbWVyKQ/booking/success/__PAGE__",
+    "/!KGN1c3RvbWVyKQ/booking/success",
+    "/!KGN1c3RvbWVyKQ/booking",
+    "/!KGN1c3RvbWVyKQ",
+    "/_index",
+    "/_head"
+  ]
+}

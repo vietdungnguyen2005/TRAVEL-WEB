@@ -1,0 +1,566 @@
+{
+  "version": 3,
+  "pages404": true,
+  "appType": "app",
+  "caseSensitive": false,
+  "basePath": "",
+  "redirects": [
+    {
+      "source": "/:path+/",
+      "destination": "/:path+",
+      "internal": true,
+      "priority": true,
+      "statusCode": 308,
+      "regex": "^(?:/((?:[^/]+?)(?:/(?:[^/]+?))*))/$"
+    }
+  ],
+  "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        {
+          "key": "X-DNS-Prefetch-Control",
+          "value": "on"
+        },
+        {
+          "key": "Strict-Transport-Security",
+          "value": "max-age=63072000; includeSubDomains; preload"
+        },
+        {
+          "key": "X-Frame-Options",
+          "value": "SAMEORIGIN"
+        },
+        {
+          "key": "X-Content-Type-Options",
+          "value": "nosniff"
+        },
+        {
+          "key": "X-XSS-Protection",
+          "value": "1; mode=block"
+        },
+        {
+          "key": "Referrer-Policy",
+          "value": "origin-when-cross-origin"
+        },
+        {
+          "key": "Permissions-Policy",
+          "value": "camera=(), microphone=(), geolocation=()"
+        }
+      ],
+      "regex": "^(?:/(.*))(?:/)?$"
+    }
+  ],
+  "rewrites": {
+    "beforeFiles": [],
+    "afterFiles": [],
+    "fallback": []
+  },
+  "dynamicRoutes": [
+    {
+      "page": "/api/admin/bookings/[id]/status",
+      "regex": "^/api/admin/bookings/([^/]+?)/status(?:/)?$",
+      "routeKeys": {
+        "nxtPid": "nxtPid"
+      },
+      "namedRegex": "^/api/admin/bookings/(?<nxtPid>[^/]+?)/status(?:/)?$"
+    },
+    {
+      "page": "/api/admin/hero-images/[id]",
+      "regex": "^/api/admin/hero\\-images/([^/]+?)(?:/)?$",
+      "routeKeys": {
+        "nxtPid": "nxtPid"
+      },
+      "namedRegex": "^/api/admin/hero\\-images/(?<nxtPid>[^/]+?)(?:/)?$"
+    },
+    {
+      "page": "/api/admin/room-types/[id]",
+      "regex": "^/api/admin/room\\-types/([^/]+?)(?:/)?$",
+      "routeKeys": {
+        "nxtPid": "nxtPid"
+      },
+      "namedRegex": "^/api/admin/room\\-types/(?<nxtPid>[^/]+?)(?:/)?$"
+    },
+    {
+      "page": "/api/admin/rooms/[id]",
+      "regex": "^/api/admin/rooms/([^/]+?)(?:/)?$",
+      "routeKeys": {
+        "nxtPid": "nxtPid"
+      },
+      "namedRegex": "^/api/admin/rooms/(?<nxtPid>[^/]+?)(?:/)?$"
+    },
+    {
+      "page": "/api/admin/users/[id]/role",
+      "regex": "^/api/admin/users/([^/]+?)/role(?:/)?$",
+      "routeKeys": {
+        "nxtPid": "nxtPid"
+      },
+      "namedRegex": "^/api/admin/users/(?<nxtPid>[^/]+?)/role(?:/)?$"
+    },
+    {
+      "page": "/api/auth/[...nextauth]",
+      "regex": "^/api/auth/(.+?)(?:/)?$",
+      "routeKeys": {
+        "nxtPnextauth": "nxtPnextauth"
+      },
+      "namedRegex": "^/api/auth/(?<nxtPnextauth>.+?)(?:/)?$"
+    },
+    {
+      "page": "/api/booking/[id]",
+      "regex": "^/api/booking/([^/]+?)(?:/)?$",
+      "routeKeys": {
+        "nxtPid": "nxtPid"
+      },
+      "namedRegex": "^/api/booking/(?<nxtPid>[^/]+?)(?:/)?$"
+    },
+    {
+      "page": "/api/bookings/[id]/cancel",
+      "regex": "^/api/bookings/([^/]+?)/cancel(?:/)?$",
+      "routeKeys": {
+        "nxtPid": "nxtPid"
+      },
+      "namedRegex": "^/api/bookings/(?<nxtPid>[^/]+?)/cancel(?:/)?$"
+    },
+    {
+      "page": "/api/reviews/room-type/[id]",
+      "regex": "^/api/reviews/room\\-type/([^/]+?)(?:/)?$",
+      "routeKeys": {
+        "nxtPid": "nxtPid"
+      },
+      "namedRegex": "^/api/reviews/room\\-type/(?<nxtPid>[^/]+?)(?:/)?$"
+    },
+    {
+      "page": "/booking/payment/[id]",
+      "regex": "^/booking/payment/([^/]+?)(?:/)?$",
+      "routeKeys": {
+        "nxtPid": "nxtPid"
+      },
+      "namedRegex": "^/booking/payment/(?<nxtPid>[^/]+?)(?:/)?$"
+    },
+    {
+      "page": "/booking/success/[id]",
+      "regex": "^/booking/success/([^/]+?)(?:/)?$",
+      "routeKeys": {
+        "nxtPid": "nxtPid"
+      },
+      "namedRegex": "^/booking/success/(?<nxtPid>[^/]+?)(?:/)?$"
+    },
+    {
+      "page": "/rooms/[id]",
+      "regex": "^/rooms/([^/]+?)(?:/)?$",
+      "routeKeys": {
+        "nxtPid": "nxtPid"
+      },
+      "namedRegex": "^/rooms/(?<nxtPid>[^/]+?)(?:/)?$"
+    }
+  ],
+  "staticRoutes": [
+    {
+      "page": "/",
+      "regex": "^/(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/(?:/)?$"
+    },
+    {
+      "page": "/_global-error",
+      "regex": "^/_global\\-error(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/_global\\-error(?:/)?$"
+    },
+    {
+      "page": "/_not-found",
+      "regex": "^/_not\\-found(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/_not\\-found(?:/)?$"
+    },
+    {
+      "page": "/about",
+      "regex": "^/about(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/about(?:/)?$"
+    },
+    {
+      "page": "/admin",
+      "regex": "^/admin(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/admin(?:/)?$"
+    },
+    {
+      "page": "/admin/analytics",
+      "regex": "^/admin/analytics(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/admin/analytics(?:/)?$"
+    },
+    {
+      "page": "/admin/bookings",
+      "regex": "^/admin/bookings(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/admin/bookings(?:/)?$"
+    },
+    {
+      "page": "/admin/email-test",
+      "regex": "^/admin/email\\-test(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/admin/email\\-test(?:/)?$"
+    },
+    {
+      "page": "/admin/hero-images",
+      "regex": "^/admin/hero\\-images(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/admin/hero\\-images(?:/)?$"
+    },
+    {
+      "page": "/admin/room-types",
+      "regex": "^/admin/room\\-types(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/admin/room\\-types(?:/)?$"
+    },
+    {
+      "page": "/admin/rooms",
+      "regex": "^/admin/rooms(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/admin/rooms(?:/)?$"
+    },
+    {
+      "page": "/admin/users",
+      "regex": "^/admin/users(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/admin/users(?:/)?$"
+    },
+    {
+      "page": "/api/admin/analytics",
+      "regex": "^/api/admin/analytics(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/admin/analytics(?:/)?$"
+    },
+    {
+      "page": "/api/admin/bookings",
+      "regex": "^/api/admin/bookings(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/admin/bookings(?:/)?$"
+    },
+    {
+      "page": "/api/admin/hero-images",
+      "regex": "^/api/admin/hero\\-images(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/admin/hero\\-images(?:/)?$"
+    },
+    {
+      "page": "/api/admin/room-types",
+      "regex": "^/api/admin/room\\-types(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/admin/room\\-types(?:/)?$"
+    },
+    {
+      "page": "/api/admin/rooms",
+      "regex": "^/api/admin/rooms(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/admin/rooms(?:/)?$"
+    },
+    {
+      "page": "/api/admin/users",
+      "regex": "^/api/admin/users(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/admin/users(?:/)?$"
+    },
+    {
+      "page": "/api/auth/forgot-password",
+      "regex": "^/api/auth/forgot\\-password(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/auth/forgot\\-password(?:/)?$"
+    },
+    {
+      "page": "/api/auth/register",
+      "regex": "^/api/auth/register(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/auth/register(?:/)?$"
+    },
+    {
+      "page": "/api/auth/reset-password",
+      "regex": "^/api/auth/reset\\-password(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/auth/reset\\-password(?:/)?$"
+    },
+    {
+      "page": "/api/auth/send-verification",
+      "regex": "^/api/auth/send\\-verification(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/auth/send\\-verification(?:/)?$"
+    },
+    {
+      "page": "/api/auth/verify-email",
+      "regex": "^/api/auth/verify\\-email(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/auth/verify\\-email(?:/)?$"
+    },
+    {
+      "page": "/api/auth/verify-reset-token",
+      "regex": "^/api/auth/verify\\-reset\\-token(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/auth/verify\\-reset\\-token(?:/)?$"
+    },
+    {
+      "page": "/api/booking/check-availability",
+      "regex": "^/api/booking/check\\-availability(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/booking/check\\-availability(?:/)?$"
+    },
+    {
+      "page": "/api/booking/hold",
+      "regex": "^/api/booking/hold(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/booking/hold(?:/)?$"
+    },
+    {
+      "page": "/api/bookings",
+      "regex": "^/api/bookings(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/bookings(?:/)?$"
+    },
+    {
+      "page": "/api/bookings/my-bookings",
+      "regex": "^/api/bookings/my\\-bookings(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/bookings/my\\-bookings(?:/)?$"
+    },
+    {
+      "page": "/api/cron/cleanup-holds",
+      "regex": "^/api/cron/cleanup\\-holds(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/cron/cleanup\\-holds(?:/)?$"
+    },
+    {
+      "page": "/api/health",
+      "regex": "^/api/health(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/health(?:/)?$"
+    },
+    {
+      "page": "/api/hero-images",
+      "regex": "^/api/hero\\-images(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/hero\\-images(?:/)?$"
+    },
+    {
+      "page": "/api/payment/confirm",
+      "regex": "^/api/payment/confirm(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/payment/confirm(?:/)?$"
+    },
+    {
+      "page": "/api/payment/create-checkout",
+      "regex": "^/api/payment/create\\-checkout(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/payment/create\\-checkout(?:/)?$"
+    },
+    {
+      "page": "/api/payment/refund",
+      "regex": "^/api/payment/refund(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/payment/refund(?:/)?$"
+    },
+    {
+      "page": "/api/payment/verify",
+      "regex": "^/api/payment/verify(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/payment/verify(?:/)?$"
+    },
+    {
+      "page": "/api/payment/webhook",
+      "regex": "^/api/payment/webhook(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/payment/webhook(?:/)?$"
+    },
+    {
+      "page": "/api/reviews",
+      "regex": "^/api/reviews(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/reviews(?:/)?$"
+    },
+    {
+      "page": "/api/reviews/my-reviewable",
+      "regex": "^/api/reviews/my\\-reviewable(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/reviews/my\\-reviewable(?:/)?$"
+    },
+    {
+      "page": "/api/rooms",
+      "regex": "^/api/rooms(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/rooms(?:/)?$"
+    },
+    {
+      "page": "/api/rooms/availability",
+      "regex": "^/api/rooms/availability(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/rooms/availability(?:/)?$"
+    },
+    {
+      "page": "/api/test/email",
+      "regex": "^/api/test/email(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/test/email(?:/)?$"
+    },
+    {
+      "page": "/api/upload/avatar",
+      "regex": "^/api/upload/avatar(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/upload/avatar(?:/)?$"
+    },
+    {
+      "page": "/api/upload/image",
+      "regex": "^/api/upload/image(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/upload/image(?:/)?$"
+    },
+    {
+      "page": "/api/user/change-password",
+      "regex": "^/api/user/change\\-password(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/user/change\\-password(?:/)?$"
+    },
+    {
+      "page": "/api/user/profile",
+      "regex": "^/api/user/profile(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/user/profile(?:/)?$"
+    },
+    {
+      "page": "/api/webhooks/stripe",
+      "regex": "^/api/webhooks/stripe(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/webhooks/stripe(?:/)?$"
+    },
+    {
+      "page": "/auth/forgot-password",
+      "regex": "^/auth/forgot\\-password(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/auth/forgot\\-password(?:/)?$"
+    },
+    {
+      "page": "/auth/login",
+      "regex": "^/auth/login(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/auth/login(?:/)?$"
+    },
+    {
+      "page": "/auth/register",
+      "regex": "^/auth/register(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/auth/register(?:/)?$"
+    },
+    {
+      "page": "/auth/reset-password",
+      "regex": "^/auth/reset\\-password(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/auth/reset\\-password(?:/)?$"
+    },
+    {
+      "page": "/auth/verify-email",
+      "regex": "^/auth/verify\\-email(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/auth/verify\\-email(?:/)?$"
+    },
+    {
+      "page": "/booking/cancel",
+      "regex": "^/booking/cancel(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/booking/cancel(?:/)?$"
+    },
+    {
+      "page": "/booking/confirm",
+      "regex": "^/booking/confirm(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/booking/confirm(?:/)?$"
+    },
+    {
+      "page": "/booking/success",
+      "regex": "^/booking/success(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/booking/success(?:/)?$"
+    },
+    {
+      "page": "/contact",
+      "regex": "^/contact(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/contact(?:/)?$"
+    },
+    {
+      "page": "/dashboard",
+      "regex": "^/dashboard(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/dashboard(?:/)?$"
+    },
+    {
+      "page": "/dashboard/bookings",
+      "regex": "^/dashboard/bookings(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/dashboard/bookings(?:/)?$"
+    },
+    {
+      "page": "/dashboard/change-password",
+      "regex": "^/dashboard/change\\-password(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/dashboard/change\\-password(?:/)?$"
+    },
+    {
+      "page": "/dashboard/profile",
+      "regex": "^/dashboard/profile(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/dashboard/profile(?:/)?$"
+    },
+    {
+      "page": "/dashboard/reviews",
+      "regex": "^/dashboard/reviews(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/dashboard/reviews(?:/)?$"
+    },
+    {
+      "page": "/faq",
+      "regex": "^/faq(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/faq(?:/)?$"
+    },
+    {
+      "page": "/favicon.ico",
+      "regex": "^/favicon\\.ico(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/favicon\\.ico(?:/)?$"
+    },
+    {
+      "page": "/privacy",
+      "regex": "^/privacy(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/privacy(?:/)?$"
+    },
+    {
+      "page": "/rooms",
+      "regex": "^/rooms(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/rooms(?:/)?$"
+    },
+    {
+      "page": "/terms",
+      "regex": "^/terms(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/terms(?:/)?$"
+    }
+  ],
+  "dataRoutes": [],
+  "rsc": {
+    "header": "rsc",
+    "varyHeader": "rsc, next-router-state-tree, next-router-prefetch, next-router-segment-prefetch",
+    "prefetchHeader": "next-router-prefetch",
+    "didPostponeHeader": "x-nextjs-postponed",
+    "contentTypeHeader": "text/x-component",
+    "suffix": ".rsc",
+    "prefetchSegmentHeader": "next-router-segment-prefetch",
+    "prefetchSegmentSuffix": ".segment.rsc",
+    "prefetchSegmentDirSuffix": ".segments",
+    "clientParamParsing": false,
+    "dynamicRSCPrerender": false
+  },
+  "rewriteHeaders": {
+    "pathHeader": "x-nextjs-rewritten-path",
+    "queryHeader": "x-nextjs-rewritten-query"
+  }
+}

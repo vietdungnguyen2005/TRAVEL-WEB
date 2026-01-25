@@ -1,0 +1,26 @@
+{
+    "extends": "../../tsconfig.base.json",
+    "compilerOptions": {
+        "baseUrl": "./",
+        "paths": {
+            "@travel-web/shared": [
+                "../../packages/shared/src"
+            ],
+            "@travel-web/contracts": [
+                "../../packages/contracts/src"
+            ],
+            "src/lib/*": [
+                "../web/src/lib/*"
+            ]
+        },
+        "esModuleInterop": true
+    },
+    "include": [
+        "src/**/*",
+        "src/**/*.d.ts"
+    ],
+    "exclude": [
+        "node_modules",
+        "dist"
+    ]
+}

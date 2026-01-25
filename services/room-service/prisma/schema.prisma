@@ -1,0 +1,47 @@
+// Prisma schema for room-service
+
+// Generator for Prisma Client
+generator client {
+  provider = "prisma-client-js"
+  output   = "../node_modules/.prisma/room-client"
+}
+
+// Datasource configuration
+datasource db {
+  provider = "postgresql"
+  url      = env("ROOM_DATABASE_URL")
+}
+
+// Enum for room status
+enum RoomStatus {
+  AVAILABLE
+  OCCUPIED
+  MAINTENANCE
+}
+
+// RoomType model
+model RoomType {
+  id          String   @id @default(uuid())
+  name        String
+  description String
+  basePrice   Float
+  maxGuests   Int
+  amenities   String[]
+  images      String[]
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+// Room model
+model Room {
+  id          String   @id @default(uuid())
+  roomNumber  String   @unique
+  roomTypeId  String
+  status      RoomStatus @default(AVAILABLE)
+  floor       Int?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  roomType    RoomType @relation(fields: [roomTypeId], references: [id], onDelete: Cascade)
+}

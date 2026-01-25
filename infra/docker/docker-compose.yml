@@ -1,0 +1,112 @@
+version: '3.8'
+
+services:
+  # Databases
+  auth-db:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_DB: auth_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - auth-db-data:/var/lib/postgresql/data
+
+  booking-db:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_DB: booking_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5433:5432"
+    volumes:
+      - booking-db-data:/var/lib/postgresql/data
+
+  room-db:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_DB: room_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5434:5432"
+    volumes:
+      - room-db-data:/var/lib/postgresql/data
+
+  # Redis for caching & sessions
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+
+  # Services
+  auth-service:
+    build:
+      context: ../..
+      dockerfile: services/auth-service/Dockerfile
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@auth-db:5432/auth_db
+      PORT: 3001
+      JWT_SECRET: your-secret-key
+    ports:
+      - "3001:3001"
+    depends_on:
+      - auth-db
+    volumes:
+      - ../../services/auth-service:/app/services/auth-service
+      - ../../packages:/app/packages
+
+  booking-service:
+    build:
+      context: ../..
+      dockerfile: services/booking-service/Dockerfile
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@booking-db:5432/booking_db
+      PORT: 3002
+    ports:
+      - "3002:3002"
+    depends_on:
+      - booking-db
+    volumes:
+      - ../../services/booking-service:/app/services/booking-service
+      - ../../packages:/app/packages
+
+  # API Gateway
+  gateway:
+    build:
+      context: ../..
+      dockerfile: apps/gateway/Dockerfile
+    environment:
+      PORT: 3000
+      AUTH_SERVICE_URL: http://auth-service:3001
+      BOOKING_SERVICE_URL: http://booking-service:3002
+      ROOM_SERVICE_URL: http://room-service:3003
+    ports:
+      - "3000:3000"
+    depends_on:
+      - auth-service
+      - booking-service
+    volumes:
+      - ../../apps/gateway:/app/apps/gateway
+      - ../../packages:/app/packages
+
+  # Next.js Web App
+  web:
+    build:
+      context: ../..
+      dockerfile: apps/web/Dockerfile
+    environment:
+      NEXT_PUBLIC_API_URL: http://localhost:3000/api
+    ports:
+      - "3100:3000"
+    depends_on:
+      - gateway
+    volumes:
+      - ../../apps/web:/app/apps/web
+
+volumes:
+  auth-db-data:
+  booking-db-data:
+  room-db-data:

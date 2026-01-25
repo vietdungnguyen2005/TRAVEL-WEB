@@ -1,0 +1,201 @@
+version: "3.8"
+
+services:
+  auth-db:
+    image: postgres:15
+    container_name: auth-db
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: auth_db
+    volumes:
+      - auth-db-data:/var/lib/postgresql/data
+    networks:
+      - backend-network
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  booking-db:
+    image: postgres:15
+    container_name: booking-db
+    ports:
+      - "5433:5432"
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: booking_db
+    volumes:
+      - booking-db-data:/var/lib/postgresql/data
+    networks:
+      - backend-network
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  room-db:
+    image: postgres:15
+    container_name: room-db
+    ports:
+      - "5434:5432"
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: room_db
+    volumes:
+      - room-db-data:/var/lib/postgresql/data
+    networks:
+      - backend-network
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  payment-db:
+    image: postgres:15
+    container_name: payment-db
+    ports:
+      - "5435:5432"
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: payment_db
+    volumes:
+      - payment-db-data:/var/lib/postgresql/data
+    networks:
+      - backend-network
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  review-db:
+    image: postgres:15
+    container_name: review-db
+    ports:
+      - "5436:5432"
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: review_db
+    volumes:
+      - review-db-data:/var/lib/postgresql/data
+    networks:
+      - backend-network
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  auth-service:
+    build: ./services/auth-service
+    container_name: auth-service
+    ports:
+      - "3001:3001"
+    depends_on:
+      - auth-db
+    environment:
+      - PORT=3001
+      - AUTH_DATABASE_URL=postgresql://postgres:postgres@auth-db:5432/auth_db
+    networks:
+      - backend-network
+
+  booking-service:
+    build: ./services/booking-service
+    container_name: booking-service
+    ports:
+      - "3002:3002"
+    depends_on:
+      - booking-db
+    environment:
+      - PORT=3002
+      - BOOKING_DATABASE_URL=postgresql://postgres:postgres@booking-db:5432/booking_db
+    networks:
+      - backend-network
+
+  room-service:
+    build: ./services/room-service
+    container_name: room-service
+    ports:
+      - "3003:3003"
+    depends_on:
+      - room-db
+    environment:
+      - PORT=3003
+      - ROOM_DATABASE_URL=postgresql://postgres:postgres@room-db:5432/room_db
+    networks:
+      - backend-network
+
+  payment-service:
+    build: ./services/payment-service
+    container_name: payment-service
+    ports:
+      - "3004:3004"
+    depends_on:
+      - payment-db
+    environment:
+      - PORT=3004
+      - PAYMENT_DATABASE_URL=postgresql://postgres:postgres@payment-db:5432/payment_db
+    networks:
+      - backend-network
+
+  review-service:
+    build: ./services/review-service
+    container_name: review-service
+    ports:
+      - "3005:3005"
+    depends_on:
+      - review-db
+    environment:
+      - PORT=3005
+      - REVIEW_DATABASE_URL=postgresql://postgres:postgres@review-db:5432/review_db
+    networks:
+      - backend-network
+
+  notification-service:
+    build: ./services/notification-service
+    container_name: notification-service
+    ports:
+      - "3006:3006"
+    environment:
+      - PORT=3006
+      - EMAIL_FROM=
+      - SENDGRID_API_KEY=
+    networks:
+      - backend-network
+
+  api-gateway:
+    build: ./services/api-gateway
+    container_name: api-gateway
+    ports:
+      - "4000:4000"
+    depends_on:
+      - auth-service
+      - booking-service
+      - room-service
+      - payment-service
+      - review-service
+      - notification-service
+    environment:
+      - PORT=4000
+    networks:
+      - backend-network
+
+volumes:
+  auth-db-data:
+  booking-db-data:
+  room-db-data:
+  payment-db-data:
+  review-db-data:
+
+networks:
+  backend-network:

@@ -1,0 +1,17 @@
+{
+    "name": "@travel-web/contracts",
+    "version": "1.0.0",
+    "main": "dist/index.js",
+    "types": "dist/index.d.ts",
+    "scripts": {
+        "build": "tsc"
+    },
+    "devDependencies": {
+        "typescript": "^5.2.2"
+    },
+    "dependencies": {
+        "@prisma/client": "^7.3.0",
+        "dotenv": "^16.6.1",
+        "zod": "^4.3.6"
+    }
+}

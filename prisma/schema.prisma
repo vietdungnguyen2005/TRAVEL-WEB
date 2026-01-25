@@ -41,6 +41,7 @@ model User {
   reviews       Review[]
   accounts      Account[]
   sessions      Session[]
+  passwordResetTokens PasswordResetToken[]
   
   @@map("users")
 }
@@ -242,4 +243,16 @@ model HeroImage {
   
   @@index([active, order])
   @@map("hero_images")
+}
+
+// 10. Model Password Reset Token
+model PasswordResetToken {
+  id        String   @id @default(uuid())
+  userId    String
+  token     String   @unique
+  expiresAt DateTime
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("password_reset_tokens")
 }
