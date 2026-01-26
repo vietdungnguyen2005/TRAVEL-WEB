@@ -1,51 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
-import { findAvailableRooms } from '@/lib/booking-utils';
+import { gatewayFetch } from '@/lib/gateway';
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { roomTypeId, checkIn, checkOut } = body;
-
-    if (!roomTypeId || !checkIn || !checkOut) {
-      return NextResponse.json(
-        { error: 'Missing required fields' },
-        { status: 400 }
-      );
-    }
-
-    const checkInDate = new Date(checkIn);
-    const checkOutDate = new Date(checkOut);
-
-    if (checkOutDate <= checkInDate) {
-      return NextResponse.json(
-        { error: 'Check-out date must be after check-in date' },
-        { status: 400 }
-      );
-    }
-
-    if (checkInDate < new Date()) {
-      return NextResponse.json(
-        { error: 'Check-in date cannot be in the past' },
-        { status: 400 }
-      );
-    }
-
-    const availableRooms = await findAvailableRooms(
-      roomTypeId,
-      checkInDate,
-      checkOutDate
-    );
-
-    return NextResponse.json({
-      available: availableRooms.length > 0,
-      count: availableRooms.length,
-      rooms: availableRooms.map((room: any) => ({
-        id: room.id,
-        roomNumber: room.roomNumber,
-        floor: room.floor,
-        view: room.view,
-      })),
+    const upstream = await gatewayFetch(request, '/api/rooms/availability', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    const text = await upstream.text();
+    return new NextResponse(text, {
+      status: upstream.status,
+      headers: { 'content-type': upstream.headers.get('content-type') || 'application/json' },
     });
   } catch (error) {
     console.error('Error checking availability:', error);

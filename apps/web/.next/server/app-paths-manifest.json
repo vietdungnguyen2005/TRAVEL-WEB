@@ -49,15 +49,11 @@
   "/api/auth/send-verification/route": "app/api/auth/send-verification/route.js",
   "/api/auth/verify-email/route": "app/api/auth/verify-email/route.js",
   "/api/auth/verify-reset-token/route": "app/api/auth/verify-reset-token/route.js",
-  "/api/booking/[id]/route": "app/api/booking/[id]/route.js",
   "/api/booking/check-availability/route": "app/api/booking/check-availability/route.js",
   "/api/booking/hold/route": "app/api/booking/hold/route.js",
   "/api/bookings/[id]/cancel/route": "app/api/bookings/[id]/cancel/route.js",
   "/api/bookings/my-bookings/route": "app/api/bookings/my-bookings/route.js",
   "/api/bookings/route": "app/api/bookings/route.js",
-  "/api/cron/cleanup-holds/route": "app/api/cron/cleanup-holds/route.js",
-  "/api/health/route": "app/api/health/route.js",
-  "/api/hero-images/route": "app/api/hero-images/route.js",
   "/api/payment/confirm/route": "app/api/payment/confirm/route.js",
   "/api/payment/create-checkout/route": "app/api/payment/create-checkout/route.js",
   "/api/payment/refund/route": "app/api/payment/refund/route.js",
@@ -73,7 +69,6 @@
   "/api/upload/image/route": "app/api/upload/image/route.js",
   "/api/user/change-password/route": "app/api/user/change-password/route.js",
   "/api/user/profile/route": "app/api/user/profile/route.js",
-  "/api/webhooks/stripe/route": "app/api/webhooks/stripe/route.js",
   "/favicon.ico/route": "app/favicon.ico/route.js",
   "/page": "app/page.js"
 }

@@ -9,6 +9,8 @@ export default {
     seed: "ts-node --compiler-options {\"module\":\"CommonJS\"} ./prisma/seed.ts",
   },
   datasource: {
-    url: process.env.DATABASE_URL,
+    // Prefer DIRECT_URL for migrations (session mode) when using a pooler like Supabase/pgbouncer.
+    // FALLBACK: DATABASE_URL is used by the app at runtime (transaction mode).
+    url: process.env.DIRECT_URL || process.env.DATABASE_URL,
   },
 };

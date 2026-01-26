@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Loader2, CheckCircle2, XCircle } from "lucide-react";
 import Link from "next/link";
 import { toast } from "sonner";
+import { gatewayFetch } from "@/lib/gateway-client";
 
 function VerifyEmailContent() {
   const router = useRouter();
@@ -25,9 +26,8 @@ function VerifyEmailContent() {
 
     const verifyEmail = async () => {
       try {
-        const response = await fetch("/api/auth/verify-email", {
+        const response = await gatewayFetch("/api/auth/verify-email", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ token }),
         });
 

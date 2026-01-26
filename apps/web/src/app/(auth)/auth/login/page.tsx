@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
@@ -11,6 +10,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Separator } from "@/components/ui/separator";
 import { Hotel, Mail, Lock, Loader2 } from "lucide-react";
 import { toast } from "sonner";
+import { gatewayFetch } from "@/lib/gateway-client";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -25,33 +25,35 @@ export default function LoginPage() {
     const password = formData.get("password") as string;
 
     try {
-      const result = await signIn("credentials", {
-        email,
-        password,
-        redirect: false,
+      const res = await gatewayFetch("/api/auth/login", {
+        method: "POST",
+        body: JSON.stringify({ email, password }),
       });
 
-      if (result?.error) {
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
         toast.error("Đăng nhập thất bại", {
-          description: "Email hoặc mật khẩu không đúng"
+          description: data?.message || "Email hoặc mật khẩu không đúng",
         });
-      } else {
-        // Fetch session to check user role
-        const sessionRes = await fetch("/api/auth/session");
-        const session = await sessionRes.json();
-        
-        toast.success("Đăng nhập thành công!", {
-          description: `Chào mừng ${session?.user?.name || session?.user?.email}`
-        });
-        
-        // Redirect based on role
-        if (session?.user?.role === "ADMIN") {
-          router.push("/admin");
-        } else {
-          router.push("/dashboard");
-        }
-        router.refresh();
+        return;
       }
+
+      // Expected payload: { accessToken, user }
+      const token = data?.accessToken as string | undefined;
+      if (token) {
+        document.cookie = `access_token=${encodeURIComponent(token)}; Path=/; SameSite=Lax`;
+      }
+
+      toast.success("Đăng nhập thành công!", {
+        description: `Chào mừng ${data?.user?.name || data?.user?.email || email}`,
+      });
+
+      if (data?.user?.role === "ADMIN") {
+        router.push("/admin");
+      } else {
+        router.push("/dashboard");
+      }
+      router.refresh();
     } catch (error) {
       toast.error("Lỗi hệ thống", {
         description: "Đã có lỗi xảy ra. Vui lòng thử lại."
@@ -62,15 +64,10 @@ export default function LoginPage() {
   };
 
   const handleGoogleSignIn = async () => {
-    setLoading(true);
-    try {
-      await signIn("google", { callbackUrl: "/dashboard" });
-    } catch (error) {
-      toast.error("Lỗi đăng nhập", {
-        description: "Không thể đăng nhập với Google. Vui lòng thử lại."
-      });
-      setLoading(false);
-    }
+    toast.error("Chức năng chưa sẵn sàng", {
+      description:
+        "OAuth chưa được hỗ trợ vì đã loại bỏ NextAuth. Hãy dùng đăng nhập bằng email/mật khẩu.",
+    });
   };
 
   return (

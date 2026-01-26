@@ -105,14 +105,6 @@
       "namedRegex": "^/api/auth/(?<nxtPnextauth>.+?)(?:/)?$"
     },
     {
-      "page": "/api/booking/[id]",
-      "regex": "^/api/booking/([^/]+?)(?:/)?$",
-      "routeKeys": {
-        "nxtPid": "nxtPid"
-      },
-      "namedRegex": "^/api/booking/(?<nxtPid>[^/]+?)(?:/)?$"
-    },
-    {
       "page": "/api/bookings/[id]/cancel",
       "regex": "^/api/bookings/([^/]+?)/cancel(?:/)?$",
       "routeKeys": {
@@ -323,24 +315,6 @@
       "namedRegex": "^/api/bookings/my\\-bookings(?:/)?$"
     },
     {
-      "page": "/api/cron/cleanup-holds",
-      "regex": "^/api/cron/cleanup\\-holds(?:/)?$",
-      "routeKeys": {},
-      "namedRegex": "^/api/cron/cleanup\\-holds(?:/)?$"
-    },
-    {
-      "page": "/api/health",
-      "regex": "^/api/health(?:/)?$",
-      "routeKeys": {},
-      "namedRegex": "^/api/health(?:/)?$"
-    },
-    {
-      "page": "/api/hero-images",
-      "regex": "^/api/hero\\-images(?:/)?$",
-      "routeKeys": {},
-      "namedRegex": "^/api/hero\\-images(?:/)?$"
-    },
-    {
       "page": "/api/payment/confirm",
       "regex": "^/api/payment/confirm(?:/)?$",
       "routeKeys": {},
@@ -423,12 +397,6 @@
       "regex": "^/api/user/profile(?:/)?$",
       "routeKeys": {},
       "namedRegex": "^/api/user/profile(?:/)?$"
-    },
-    {
-      "page": "/api/webhooks/stripe",
-      "regex": "^/api/webhooks/stripe(?:/)?$",
-      "routeKeys": {},
-      "namedRegex": "^/api/webhooks/stripe(?:/)?$"
     },
     {
       "page": "/auth/forgot-password",

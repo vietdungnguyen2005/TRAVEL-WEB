@@ -11,6 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Loader2, CheckCircle, XCircle, AlertTriangle } from "lucide-react";
 import { differenceInDays } from "date-fns";
+import { gatewayFetch } from "@/lib/gateway-client";
 
 export default function BookingConfirmPage() {
   const router = useRouter();
@@ -43,9 +44,8 @@ export default function BookingConfirmPage() {
       setLoading(true);
       setError(null);
 
-      const response = await fetch("/api/booking/check-availability", {
+      const response = await gatewayFetch("/api/booking/check-availability", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           roomTypeId: bookingData.roomTypeId,
           checkIn: bookingData.checkIn,
@@ -79,9 +79,8 @@ export default function BookingConfirmPage() {
     if (!bookingData) return;
 
     try {
-      const response = await fetch("/api/booking/hold", {
+      const response = await gatewayFetch("/api/booking/hold", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           roomId,
           checkIn: bookingData.checkIn,
@@ -92,6 +91,7 @@ export default function BookingConfirmPage() {
           guestPhone: bookingData.guestPhone,
           totalPrice: bookingData.totalPrice,
         }),
+        attachAccessToken: true,
       });
 
       const data = await response.json();

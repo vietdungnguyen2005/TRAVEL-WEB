@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Star } from "lucide-react";
+import { gatewayFetch } from "@/lib/gateway-client";
 
 interface ReviewFormProps {
   bookingId: string;
@@ -20,7 +21,7 @@ export function ReviewForm({ bookingId, roomTypeName, onSuccess }: ReviewFormPro
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    
+
     if (rating === 0) {
       setError("Vui lòng chọn số sao đánh giá");
       return;
@@ -30,16 +31,14 @@ export function ReviewForm({ bookingId, roomTypeName, onSuccess }: ReviewFormPro
     setError("");
 
     try {
-      const response = await fetch("/api/reviews", {
+      const response = await gatewayFetch("/api/reviews", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
         body: JSON.stringify({
           bookingId,
           rating,
           comment: comment.trim() || null,
         }),
+        attachAccessToken: true,
       });
 
       if (!response.ok) {
@@ -74,11 +73,10 @@ export function ReviewForm({ bookingId, roomTypeName, onSuccess }: ReviewFormPro
               className="transition-transform hover:scale-110"
             >
               <Star
-                className={`w-8 h-8 ${
-                  star <= (hoveredRating || rating)
+                className={`w-8 h-8 ${star <= (hoveredRating || rating)
                     ? "fill-yellow-400 text-yellow-400"
                     : "text-gray-300"
-                }`}
+                  }`}
               />
             </button>
           ))}

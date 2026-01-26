@@ -1,0 +1,1 @@
+{"version":3,"file":"logging.middleware.d.ts","sourceRoot":"","sources":["../../../../../services/api-gateway/src/middlewares/logging.middleware.ts"],"names":[],"mappings":"AAAA,QAAA,IAAI,iBAAiB,EAAE,GAAG,CAAC;AAY3B,OAAO,EAAE,iBAAiB,EAAE,CAAC"}

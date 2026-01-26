@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import { Mail, Send, Loader2, CheckCircle2, XCircle } from "lucide-react";
+import { gatewayFetch } from "@/lib/gateway-client";
 
 export default function EmailTestPage() {
   const [loading, setLoading] = useState(false);
@@ -24,16 +25,14 @@ export default function EmailTestPage() {
     setLoading(true);
 
     try {
-      const response = await fetch("/api/test/email", {
+      const response = await gatewayFetch("/api/test/email", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
         body: JSON.stringify({
           type: emailType,
           email,
           name: name || undefined,
         }),
+        attachAccessToken: true,
       });
 
       const data = await response.json();
@@ -169,7 +168,7 @@ export default function EmailTestPage() {
             <div>
               <h3 className="font-semibold mb-2">2. Cấu hình .env</h3>
               <pre className="bg-muted p-3 rounded text-sm overflow-x-auto">
-{`RESEND_API_KEY="re_..."
+                {`RESEND_API_KEY="re_..."
 FROM_EMAIL="noreply@yourdomain.com"`}
               </pre>
             </div>

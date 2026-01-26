@@ -34,7 +34,7 @@ export async function POST(request: NextRequest) {
         }
 
         // Check if expired
-        if (resetToken.expires < new Date()) {
+        if (resetToken.expiresAt < new Date()) {
             // Delete expired token
             await prisma.passwordResetToken.delete({
                 where: { token },
@@ -49,7 +49,7 @@ export async function POST(request: NextRequest) {
         // Update user password
         const hashedPassword = await bcrypt.hash(sanitizeInput(password), 10);
         await prisma.user.update({
-            where: { email: resetToken.identifier },
+            where: { id: resetToken.userId },
             data: { password: hashedPassword },
         });
 

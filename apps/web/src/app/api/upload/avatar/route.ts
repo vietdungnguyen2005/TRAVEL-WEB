@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
+import { auth } from "@/lib/auth-session";
 import { uploadToCloudinary, isCloudinaryConfigured } from "@/lib/cloudinary-config";
 import { checkRateLimit, rateLimitPresets } from "@/lib/rate-limit";
 import { prisma } from "@/lib/prisma";
@@ -17,7 +17,7 @@ export async function POST(request: NextRequest) {
       `avatar_${session.user.id}`,
       rateLimitPresets.upload
     );
-    
+
     if (!rateLimitResult.success) {
       return NextResponse.json(
         { error: "Too many requests. Please try again later." },

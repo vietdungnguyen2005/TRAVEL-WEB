@@ -49,15 +49,11 @@
   "/api/auth/send-verification/route": "/api/auth/send-verification",
   "/api/auth/verify-email/route": "/api/auth/verify-email",
   "/api/auth/verify-reset-token/route": "/api/auth/verify-reset-token",
-  "/api/booking/[id]/route": "/api/booking/[id]",
   "/api/booking/check-availability/route": "/api/booking/check-availability",
   "/api/booking/hold/route": "/api/booking/hold",
   "/api/bookings/[id]/cancel/route": "/api/bookings/[id]/cancel",
   "/api/bookings/my-bookings/route": "/api/bookings/my-bookings",
   "/api/bookings/route": "/api/bookings",
-  "/api/cron/cleanup-holds/route": "/api/cron/cleanup-holds",
-  "/api/health/route": "/api/health",
-  "/api/hero-images/route": "/api/hero-images",
   "/api/payment/confirm/route": "/api/payment/confirm",
   "/api/payment/create-checkout/route": "/api/payment/create-checkout",
   "/api/payment/refund/route": "/api/payment/refund",
@@ -73,7 +69,6 @@
   "/api/upload/image/route": "/api/upload/image",
   "/api/user/change-password/route": "/api/user/change-password",
   "/api/user/profile/route": "/api/user/profile",
-  "/api/webhooks/stripe/route": "/api/webhooks/stripe",
   "/favicon.ico/route": "/favicon.ico",
   "/page": "/"
 }

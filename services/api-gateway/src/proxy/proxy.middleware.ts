@@ -1,30 +1,25 @@
 import { createProxyMiddleware } from 'http-proxy-middleware';
-import { services } from '../config/services.config';
+import { getServiceTarget } from '../discovery/service-resolver';
+
+type ServiceKey = 'authService' | 'bookingService' | 'roomService' | 'paymentService' | 'reviewService';
+
+function proxyTo(serviceKey: ServiceKey, pathPrefix: string) {
+    return createProxyMiddleware({
+        target: 'http://localhost', // placeholder; will be overridden by router()
+        changeOrigin: true,
+        pathRewrite: { [`^${pathPrefix}`]: '' },
+        router: async () => {
+            return await getServiceTarget(serviceKey);
+        },
+        proxyTimeout: Number(process.env.UPSTREAM_TIMEOUT_MS || 15_000),
+        timeout: Number(process.env.UPSTREAM_TIMEOUT_MS || 15_000),
+    });
+}
 
 export const proxyMiddleware = {
-    auth: createProxyMiddleware({
-        target: services.authService,
-        changeOrigin: true,
-        pathRewrite: { '^/api/auth': '' },
-    }),
-    bookings: createProxyMiddleware({
-        target: services.bookingService,
-        changeOrigin: true,
-        pathRewrite: { '^/api/bookings': '' },
-    }),
-    rooms: createProxyMiddleware({
-        target: services.roomService,
-        changeOrigin: true,
-        pathRewrite: { '^/api/rooms': '' },
-    }),
-    payments: createProxyMiddleware({
-        target: services.paymentService,
-        changeOrigin: true,
-        pathRewrite: { '^/api/payments': '' },
-    }),
-    reviews: createProxyMiddleware({
-        target: services.reviewService,
-        changeOrigin: true,
-        pathRewrite: { '^/api/reviews': '' },
-    }),
+    auth: proxyTo('authService', '/api/auth'),
+    bookings: proxyTo('bookingService', '/api/bookings'),
+    rooms: proxyTo('roomService', '/api/rooms'),
+    payments: proxyTo('paymentService', '/api/payments'),
+    reviews: proxyTo('reviewService', '/api/reviews'),
 };

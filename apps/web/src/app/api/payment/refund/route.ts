@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
-import { stripe } from "@/lib/stripe";
+import { auth } from "@/lib/auth-session";
 import { checkRateLimit } from "@/lib/rate-limit";
+import { gatewayFetch } from "@/lib/gateway";
 
 export async function POST(request: NextRequest) {
   try {
@@ -34,8 +33,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const session_user = session;
-
     const { bookingId, reason } = await request.json();
 
     // Validate input
@@ -46,114 +43,15 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Get booking with payment info
-    const booking = await prisma.booking.findUnique({
-      where: { id: bookingId },
-      include: {
-        user: true,
-        room: {
-          include: {
-            roomType: true,
-          },
-        },
-      },
+    const upstream = await gatewayFetch(request, '/api/payments/refund', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ bookingId, reason, userId: session.user.id }),
     });
-
-    if (!booking) {
-      return NextResponse.json(
-        { error: "Booking not found" },
-        { status: 404 }
-      );
-    }
-
-    // Verify ownership (user or admin)
-    if (booking.userId !== session.user.id && session.user.role !== "ADMIN") {
-      return NextResponse.json(
-        { error: "Unauthorized" },
-        { status: 403 }
-      );
-    }
-
-    // Check if booking is eligible for refund
-    if (booking.paymentStatus !== "PAID") {
-      return NextResponse.json(
-        { error: "Booking has not been paid" },
-        { status: 400 }
-      );
-    }
-
-    if (booking.status !== "CANCELLED") {
-      return NextResponse.json(
-        { error: "Booking must be cancelled first" },
-        { status: 400 }
-      );
-    }
-
-    if (!booking.paymentRef) {
-      return NextResponse.json(
-        { error: "No payment reference found" },
-        { status: 400 }
-      );
-    }
-
-    // Process refund via Stripe
-    let refund;
-    try {
-      // Get the payment intent from the session or charge
-      const paymentIntent = await stripe.paymentIntents.retrieve(
-        booking.paymentRef,
-        { expand: ['charges'] }
-      ) as any;
-
-      const charges = paymentIntent.charges;
-      if (!charges?.data || charges.data.length === 0) {
-        throw new Error("No charge found for this payment");
-      }
-
-      const chargeId = charges.data[0].id;
-
-      // Create refund
-      refund = await stripe.refunds.create({
-        charge: chargeId,
-        amount: Math.round(Number(booking.totalPrice)), // Full refund
-        reason: "requested_by_customer",
-        metadata: {
-          bookingId: booking.id,
-          userId: booking.userId,
-          reason: reason || "Customer request",
-        },
-      });
-    } catch (stripeError: any) {
-      console.error("Stripe refund error:", stripeError);
-      return NextResponse.json(
-        { 
-          error: "Refund processing failed",
-          details: stripeError.message 
-        },
-        { status: 500 }
-      );
-    }
-
-    // Update booking with refund info
-    const updatedBooking = await prisma.booking.update({
-      where: { id: bookingId },
-      data: {
-        paymentStatus: "REFUNDED",
-        adminNotes: booking.adminNotes 
-          ? `${booking.adminNotes}\n[REFUND] Stripe Refund ID: ${refund.id} - ${new Date().toISOString()}`
-          : `[REFUND] Stripe Refund ID: ${refund.id} - ${new Date().toISOString()}`,
-      },
-    });
-
-    return NextResponse.json({
-      success: true,
-      refund: {
-        id: refund.id,
-        amount: refund.amount / 100, // Convert from cents
-        currency: refund.currency,
-        status: refund.status,
-      },
-      booking: updatedBooking,
+    const text = await upstream.text();
+    return new NextResponse(text, {
+      status: upstream.status,
+      headers: { 'content-type': upstream.headers.get('content-type') || 'application/json' },
     });
   } catch (error: any) {
     console.error("Refund error:", error);

@@ -1,4 +1,4 @@
-import { auth } from "@/lib/auth";
+import { auth } from "@/lib/auth-session";
 import { Navbar } from "./navbar";
 import { Footer } from "./footer";
 

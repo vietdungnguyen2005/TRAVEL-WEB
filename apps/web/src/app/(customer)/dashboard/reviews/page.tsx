@@ -18,6 +18,7 @@ import { vi } from "date-fns/locale";
 import Image from "next/image";
 import Link from "next/link";
 import { ClientLayout } from "@/components/layout/client-layout";
+import { gatewayFetch } from "@/lib/gateway-client";
 
 interface ReviewableBooking {
   id: string;
@@ -46,7 +47,10 @@ export default function MyReviewsPage() {
 
   async function fetchReviewableBookings() {
     try {
-      const response = await fetch("/api/reviews/my-reviewable");
+      const response = await gatewayFetch("/api/reviews/my-reviewable", {
+        method: "GET",
+        attachAccessToken: true,
+      });
       if (!response.ok) {
         if (response.status === 401) {
           router.push("/auth/login?redirect=/dashboard/reviews");

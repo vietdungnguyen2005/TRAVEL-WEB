@@ -8,6 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { CheckCircle, Loader2, Home, Calendar } from "lucide-react";
 import { ClientLayout } from "@/components/layout/client-layout";
+import { gatewayFetch } from "@/lib/gateway-client";
 
 export default function BookingSuccessPage() {
   const router = useRouter();
@@ -26,10 +27,10 @@ export default function BookingSuccessPage() {
 
   const verifyPayment = async (id?: string | null) => {
     try {
-      const response = await fetch("/api/payment/verify", {
+      const response = await gatewayFetch("/api/payment/verify", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ sessionId: id ?? sessionId }),
+        attachAccessToken: true,
       });
 
       if (response.ok) {

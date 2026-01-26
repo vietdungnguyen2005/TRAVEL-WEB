@@ -5,6 +5,9 @@
     "scripts": {
         "build": "tsc"
     },
+    "dependencies": {
+        "axios": "^0.26.1"
+    },
     "devDependencies": {
         "typescript": "^5.2.2"
     }

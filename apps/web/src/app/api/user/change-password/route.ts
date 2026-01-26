@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
+import { auth } from "@/lib/auth-session";
 import { prisma } from "@/lib/prisma";
 import bcrypt from "bcryptjs";
 
@@ -46,7 +46,7 @@ export async function POST(request: NextRequest) {
 
     // Verify current password
     const isPasswordValid = await bcrypt.compare(currentPassword, user.password);
-    
+
     if (!isPasswordValid) {
       return NextResponse.json(
         { message: "Mật khẩu hiện tại không đúng" },
@@ -63,8 +63,8 @@ export async function POST(request: NextRequest) {
       data: { password: hashedPassword },
     });
 
-    return NextResponse.json({ 
-      message: "Password changed successfully" 
+    return NextResponse.json({
+      message: "Password changed successfully"
     });
   } catch (error) {
     console.error("Change password error:", error);

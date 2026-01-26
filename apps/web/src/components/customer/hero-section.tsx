@@ -22,6 +22,7 @@ import {
 } from "@/components/ui/select";
 import Image from "next/image";
 import Link from "next/link";
+import { gatewayFetch } from "@/lib/gateway-client";
 
 interface HeroImage {
   id: string;
@@ -59,7 +60,7 @@ export function HeroSection() {
 
   async function fetchHeroImages() {
     try {
-      const response = await fetch("/api/hero-images");
+      const response = await gatewayFetch("/api/hero-images", { method: "GET" });
       if (response.ok) {
         const data = await response.json();
         setHeroImages(data);
@@ -72,7 +73,7 @@ export function HeroSection() {
   }
 
   const handlePrevious = () => {
-    setCurrentIndex((prev) => 
+    setCurrentIndex((prev) =>
       prev === 0 ? heroImages.length - 1 : prev - 1
     );
   };

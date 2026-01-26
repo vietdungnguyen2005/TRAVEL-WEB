@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useSession } from "next-auth/react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,6 +11,7 @@ import { Separator } from "@/components/ui/separator";
 import { User, Mail, Phone, Lock, Upload, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { ClientLayout } from "@/components/layout/client-layout";
+import { gatewayFetch } from "@/lib/gateway-client";
 
 interface ProfileData {
   name: string;
@@ -21,7 +21,6 @@ interface ProfileData {
 }
 
 export default function ProfilePage() {
-  const { data: session, update } = useSession();
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [profileData, setProfileData] = useState<ProfileData>({
@@ -37,25 +36,35 @@ export default function ProfilePage() {
   });
 
   useEffect(() => {
-    if (session?.user) {
-      setProfileData({
-        name: session.user.name || "",
-        email: session.user.email || "",
-        phone: session.user.phone || "",
-        image: session.user.image || null,
-      });
-    }
-  }, [session]);
+    (async () => {
+      try {
+        const res = await gatewayFetch("/api/user/profile", {
+          method: "GET",
+          attachAccessToken: true,
+        });
+        if (!res.ok) return;
+        const data = await res.json();
+        setProfileData({
+          name: data?.name || "",
+          email: data?.email || "",
+          phone: data?.phone || "",
+          image: data?.image || null,
+        });
+      } catch {
+        // ignore
+      }
+    })();
+  }, []);
 
   const handleProfileUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
 
     try {
-      const response = await fetch("/api/user/profile", {
+      const response = await gatewayFetch("/api/user/profile", {
         method: "PUT",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(profileData),
+        attachAccessToken: true,
       });
 
       if (!response.ok) {
@@ -64,17 +73,6 @@ export default function ProfilePage() {
       }
 
       const data = await response.json();
-      
-      // Update session
-      await update({
-        ...session,
-        user: {
-          ...session?.user,
-          name: data.name,
-          phone: data.phone,
-          image: data.image,
-        },
-      });
 
       toast.success("Cập nhật thông tin thành công!");
     } catch (error: any) {
@@ -106,13 +104,13 @@ export default function ProfilePage() {
     setLoading(true);
 
     try {
-      const response = await fetch("/api/user/change-password", {
+      const response = await gatewayFetch("/api/user/change-password", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           currentPassword: passwordData.currentPassword,
           newPassword: passwordData.newPassword,
         }),
+        attachAccessToken: true,
       });
 
       if (!response.ok) {
@@ -159,9 +157,12 @@ export default function ProfilePage() {
       const formData = new FormData();
       formData.append("file", file);
 
-      const response = await fetch("/api/upload/image", {
+      const response = await gatewayFetch("/api/upload/image", {
         method: "POST",
         body: formData,
+        // Let browser set multipart boundary.
+        headers: {},
+        attachAccessToken: true,
       });
 
       if (!response.ok) {
@@ -169,25 +170,18 @@ export default function ProfilePage() {
       }
 
       const data = await response.json();
-      
+
       // Update profile with new avatar
       setProfileData({ ...profileData, image: data.url });
-      
+
       // Auto save avatar
-      const updateResponse = await fetch("/api/user/profile", {
+      const updateResponse = await gatewayFetch("/api/user/profile", {
         method: "PUT",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ image: data.url }),
+        attachAccessToken: true,
       });
 
       if (updateResponse.ok) {
-        await update({
-          ...session,
-          user: {
-            ...session?.user,
-            image: data.url,
-          },
-        });
         toast.success("Cập nhật avatar thành công!");
       }
     } catch (error) {
@@ -251,7 +245,7 @@ export default function ProfilePage() {
                   <h3 className="mt-4 text-lg font-semibold">{profileData.name}</h3>
                   <p className="text-sm text-muted-foreground">{profileData.email}</p>
                   <p className="text-xs text-muted-foreground mt-1">
-                    {session?.user?.role === "ADMIN" ? "Quản trị viên" : "Khách hàng"}
+                    Khách hàng
                   </p>
                 </div>
               </CardContent>

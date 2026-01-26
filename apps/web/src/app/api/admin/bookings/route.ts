@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { auth } from "@/lib/auth";
+import { auth } from "@/lib/auth-session";
 
 export async function GET(request: NextRequest) {
   try {
@@ -15,8 +15,8 @@ export async function GET(request: NextRequest) {
 
     // Whitelist valid statuses to prevent injection
     const validStatuses = ["PENDING", "CONFIRMED", "CANCELLED", "COMPLETED", "ON_HOLD"];
-    const where = status && status !== "ALL" && validStatuses.includes(status) 
-      ? { status: status as any } 
+    const where = status && status !== "ALL" && validStatuses.includes(status)
+      ? { status: status as any }
       : {};
 
     const bookings = await prisma.booking.findMany({

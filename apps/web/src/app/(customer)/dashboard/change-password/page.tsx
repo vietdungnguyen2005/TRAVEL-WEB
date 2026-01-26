@@ -9,10 +9,11 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Loader2, Lock, ArrowLeft } from "lucide-react";
 import Link from "next/link";
 import { toast } from "sonner";
+import { gatewayFetch } from "@/lib/gateway-client";
 
 export default function ChangePasswordPage() {
   const router = useRouter();
-  
+
   const [isLoading, setIsLoading] = useState(false);
   const [formData, setFormData] = useState({
     currentPassword: "",
@@ -36,9 +37,9 @@ export default function ChangePasswordPage() {
     setIsLoading(true);
 
     try {
-      const response = await fetch("/api/user/change-password", {
+      const response = await gatewayFetch("/api/user/change-password", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        attachAccessToken: true,
         body: JSON.stringify({
           currentPassword: formData.currentPassword,
           newPassword: formData.newPassword,
@@ -52,7 +53,7 @@ export default function ChangePasswordPage() {
       }
 
       toast.success("Đổi mật khẩu thành công!");
-      
+
       // Reset form
       setFormData({
         currentPassword: "",

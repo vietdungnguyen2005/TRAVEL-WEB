@@ -1,4 +1,7 @@
-// This is your Prisma schema file for Travel/Hotel Booking System
+// NOTE: This root Prisma schema is retained for reference but the project
+// now uses per-service Prisma schemas under `services/*/prisma/schema.prisma`.
+// Prefer running `prisma` commands from each service using `--schema=prisma/schema.prisma`.
+// This file is kept for historical purposes.
 // learn more about it in the docs: https://pris.ly/d/prisma-schema
 
 generator client {
@@ -255,4 +258,19 @@ model PasswordResetToken {
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("password_reset_tokens")
+}
+
+// Outbox table for reliable event publishing (Outbox pattern)
+model Outbox {
+  id            String   @id @default(uuid())
+  aggregateType String
+  aggregateId   String
+  eventType     String
+  payload       Json
+  published     Boolean  @default(false)
+  createdAt     DateTime @default(now())
+  publishedAt   DateTime?
+
+  @@index([published])
+  @@map("outbox")
 }

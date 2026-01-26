@@ -1,0 +1,1 @@
+{"version":3,"file":"route.d.ts","sourceRoot":"","sources":["../../../../../../../../../../apps/web/src/app/api/admin/users/[id]/role/route.ts"],"names":[],"mappings":"AAAA,OAAO,EAAE,WAAW,EAAE,YAAY,EAAE,MAAM,aAAa,CAAC;AAIxD,wBAAsB,KAAK,CACzB,OAAO,EAAE,WAAW,EACpB,EAAE,MAAM,EAAE,EAAE;IAAE,MAAM,EAAE,OAAO,CAAC;QAAE,EAAE,EAAE,MAAM,CAAA;KAAE,CAAC,CAAA;CAAE,8BAiDhD"}

@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { auth } from "@/lib/auth";
+import { auth } from "@/lib/auth-session";
 import Link from "next/link";
 import { Home, Calendar, Bed, Users, BarChart3, Settings, Image } from "lucide-react";
 

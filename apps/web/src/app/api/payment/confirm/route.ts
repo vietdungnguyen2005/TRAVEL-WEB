@@ -1,72 +1,25 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
-import { sendBookingConfirmationEmail } from "@/lib/email-service";
+import { gatewayFetch } from "@/lib/gateway";
 
 export async function POST(request: NextRequest) {
   try {
-    const { bookingId, paymentMethod } = await request.json();
+    const body = await request.json();
 
-    if (!bookingId) {
+    if (!body?.bookingId) {
       return NextResponse.json(
         { error: "Booking ID is required" },
         { status: 400 }
       );
     }
-
-    const booking = await prisma.booking.findUnique({
-      where: { id: bookingId },
+    const upstream = await gatewayFetch(request, '/api/payments/confirm', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(body),
     });
-
-    if (!booking) {
-      return NextResponse.json(
-        { error: "Booking not found" },
-        { status: 404 }
-      );
-    }
-
-    if (booking.status !== "ON_HOLD") {
-      return NextResponse.json(
-        { error: "Booking is not available for confirmation" },
-        { status: 400 }
-      );
-    }
-
-    // Update booking status to CONFIRMED
-    const updatedBooking = await prisma.booking.update({
-      where: { id: bookingId },
-      data: {
-        status: "CONFIRMED",
-        paymentStatus: paymentMethod === "CASH" ? "PENDING" : "PAID",
-        paymentMethod: paymentMethod || "CASH",
-        holdExpiresAt: null,
-      },
-      include: {
-        user: {
-          select: {
-            email: true,
-            name: true,
-          },
-        },
-        room: {
-          include: {
-            roomType: {
-              select: {
-                name: true,
-              },
-            },
-          },
-        },
-      },
-    });
-
-    // Send confirmation email (don't await to avoid blocking)
-    sendBookingConfirmationEmail(updatedBooking as any).catch((error) => {
-      console.error('Failed to send booking confirmation email:', error);
-    });
-
-    return NextResponse.json({
-      success: true,
-      booking: updatedBooking,
+    const text = await upstream.text();
+    return new NextResponse(text, {
+      status: upstream.status,
+      headers: { 'content-type': upstream.headers.get('content-type') || 'application/json' },
     });
   } catch (error: any) {
     console.error("Confirm payment error:", error);

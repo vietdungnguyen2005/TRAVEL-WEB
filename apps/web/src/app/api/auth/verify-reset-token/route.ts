@@ -1,46 +1,25 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { gatewayFetch } from "@/lib/gateway";
 
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
-    const token = searchParams.get("token");
+    const token = searchParams.get('token');
 
     if (!token) {
-      return NextResponse.json(
-        { error: "Token is required" },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'Token is required' }, { status: 400 });
     }
 
-    // Find token
-    const verificationToken = await prisma.verificationToken.findUnique({
-      where: { token },
-    });
+    const upstream = await gatewayFetch(
+      request,
+      `/api/auth/verify-reset-token?token=${encodeURIComponent(token)}`,
+      { method: 'GET' }
+    );
 
-    if (!verificationToken) {
-      return NextResponse.json(
-        { error: "Invalid token" },
-        { status: 400 }
-      );
-    }
-
-    // Check if expired
-    if (verificationToken.expires < new Date()) {
-      // Delete expired token
-      await prisma.verificationToken.delete({
-        where: { token },
-      });
-
-      return NextResponse.json(
-        { error: "Token expired" },
-        { status: 400 }
-      );
-    }
-
-    return NextResponse.json({
-      valid: true,
-      email: verificationToken.identifier,
+    const text = await upstream.text();
+    return new NextResponse(text, {
+      status: upstream.status,
+      headers: { 'content-type': upstream.headers.get('content-type') || 'application/json' },
     });
   } catch (error: any) {
     console.error("Verify token error:", error);

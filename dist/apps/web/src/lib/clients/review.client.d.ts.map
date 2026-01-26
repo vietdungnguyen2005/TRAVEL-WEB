@@ -1,0 +1,1 @@
+{"version":3,"file":"review.client.d.ts","sourceRoot":"","sources":["../../../../../../apps/web/src/lib/clients/review.client.ts"],"names":[],"mappings":"AACA,OAAO,EAAE,aAAa,EAAE,cAAc,EAAE,MAAM,uBAAuB,CAAC;AAEtE,QAAA,MAAM,YAAY;uBACS,aAAa,GAAG,OAAO,CAAC,cAAc,CAAC;kBAK5C,OAAO,CAAC,cAAc,EAAE,CAAC;CAI9C,CAAC;AAEF,eAAe,YAAY,CAAC"}

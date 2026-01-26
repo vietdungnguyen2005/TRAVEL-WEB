@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
-import { auth } from "@/lib/auth";
+import { auth } from "@/lib/auth-session";
+import { gatewayFetch } from "@/lib/gateway";
 
 export async function GET(request: NextRequest) {
   try {
@@ -13,30 +13,16 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const bookings = await prisma.booking.findMany({
-      where: {
-        userId: session.user.id,
-      },
-      include: {
-        room: {
-          include: {
-            roomType: {
-              select: {
-                name: true,
-                description: true,
-                images: true,
-                pricePerNight: true,
-              },
-            },
-          },
-        },
-      },
-      orderBy: {
-        createdAt: "desc",
-      },
+    const upstream = await gatewayFetch(
+      request,
+      `/api/bookings?userId=${encodeURIComponent(session.user.id)}`,
+      { method: 'GET' }
+    );
+    const text = await upstream.text();
+    return new NextResponse(text, {
+      status: upstream.status,
+      headers: { 'content-type': upstream.headers.get('content-type') || 'application/json' },
     });
-
-    return NextResponse.json(bookings);
   } catch (error: any) {
     console.error("Get bookings error:", error);
     return NextResponse.json(

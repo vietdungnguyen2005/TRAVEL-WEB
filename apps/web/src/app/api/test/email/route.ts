@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
+import { auth } from "@/lib/auth-session";
 import { sendBookingConfirmationEmail, sendCheckInReminderEmail, sendCancellationEmail } from "@/lib/email-service";
 
 export async function POST(request: NextRequest) {
@@ -40,15 +40,15 @@ export async function POST(request: NextRequest) {
       case "booking-confirmation":
         result = await sendBookingConfirmationEmail(mockBooking);
         break;
-      
+
       case "check-in-reminder":
         result = await sendCheckInReminderEmail(mockBooking);
         break;
-      
+
       case "cancellation":
         result = await sendCancellationEmail(mockBooking, 1500000, "Khách hàng yêu cầu hủy");
         break;
-      
+
       default:
         return NextResponse.json(
           { error: "Invalid email type. Use: booking-confirmation, check-in-reminder, or cancellation" },

@@ -1,5 +1,7 @@
 "use client";
 
+import { gatewayFetch } from "@/lib/gateway-client";
+
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -110,7 +112,10 @@ export default function RoomsManagement() {
   async function fetchRooms() {
     try {
       setLoading(true);
-      const response = await fetch("/api/admin/rooms");
+      const response = await gatewayFetch("/api/admin/rooms", {
+        method: "GET",
+        attachAccessToken: true,
+      });
       if (response.ok) {
         const data = await response.json();
         setRooms(data);
@@ -124,7 +129,10 @@ export default function RoomsManagement() {
 
   async function fetchRoomTypes() {
     try {
-      const response = await fetch("/api/room-types");
+      const response = await gatewayFetch("/api/admin/room-types", {
+        method: "GET",
+        attachAccessToken: true,
+      });
       if (response.ok) {
         const data = await response.json();
         setRoomTypes(data);

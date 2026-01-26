@@ -5,6 +5,7 @@ import { useState } from "react";
 import { BookingForm, BookingData } from "./booking-form";
 import { useBookingStore } from "@/store/booking-store";
 import { toast } from "sonner";
+import { gatewayFetch } from "@/lib/gateway-client";
 
 interface BookingFormClientProps {
   roomTypeId: string;
@@ -22,11 +23,8 @@ export function BookingFormClient({ roomTypeId, basePrice, capacity }: BookingFo
 
     try {
       // Check availability via API
-      const response = await fetch("/api/rooms/availability", {
+      const response = await gatewayFetch("/api/rooms/availability", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
         body: JSON.stringify({
           roomTypeId,
           checkIn: data.checkIn.toISOString(),

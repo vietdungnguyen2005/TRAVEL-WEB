@@ -10,6 +10,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Loader2, CheckCircle2, XCircle } from "lucide-react";
 import Link from "next/link";
 import { toast } from "sonner";
+import { gatewayFetch, gatewayUrl } from "@/lib/gateway-client";
 
 function ResetPasswordForm() {
   const router = useRouter();
@@ -31,7 +32,9 @@ function ResetPasswordForm() {
     // Verify token
     const verifyToken = async () => {
       try {
-        const response = await fetch(`/api/auth/verify-reset-token?token=${token}`);
+        const response = await fetch(
+          gatewayUrl(`/api/auth/verify-reset-token?token=${encodeURIComponent(token)}`)
+        );
         setIsValidToken(response.ok);
       } catch {
         setIsValidToken(false);
@@ -57,9 +60,8 @@ function ResetPasswordForm() {
     setIsLoading(true);
 
     try {
-      const response = await fetch("/api/auth/reset-password", {
+      const response = await gatewayFetch("/api/auth/reset-password", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ token, password }),
       });
 
@@ -71,7 +73,7 @@ function ResetPasswordForm() {
 
       setIsSuccess(true);
       toast.success("Đặt lại mật khẩu thành công!");
-      
+
       // Redirect to login after 2 seconds
       setTimeout(() => {
         router.push("/auth/login");

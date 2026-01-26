@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Hotel, Mail, Lock, User, Phone, Loader2 } from "lucide-react";
 import { toast } from "sonner";
+import { gatewayFetch } from "@/lib/gateway-client";
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -44,9 +45,8 @@ export default function RegisterPage() {
     }
 
     try {
-      const response = await fetch("/api/auth/register", {
+      const response = await gatewayFetch("/api/auth/register", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(data),
       });
 
@@ -58,7 +58,7 @@ export default function RegisterPage() {
       toast.success("Đăng ký thành công!", {
         description: "Bạn có thể đăng nhập ngay bây giờ"
       });
-      
+
       setTimeout(() => {
         router.push("/auth/login");
       }, 1000);

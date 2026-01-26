@@ -488,15 +488,6 @@ type RouteHandlerConfig<Route extends AppRouteHandlerRoutes = AppRouteHandlerRou
   type __Unused = __Check
 }
 
-// Validate ../../src/app/api/booking/[id]/route.ts
-{
-  type __IsExpected<Specific extends RouteHandlerConfig<"/api/booking/[id]">> = Specific
-  const handler = {} as typeof import("../../src/app/api/booking/[id]/route.js")
-  type __Check = __IsExpected<typeof handler>
-  // @ts-ignore
-  type __Unused = __Check
-}
-
 // Validate ../../src/app/api/booking/check-availability/route.ts
 {
   type __IsExpected<Specific extends RouteHandlerConfig<"/api/booking/check-availability">> = Specific
@@ -537,33 +528,6 @@ type RouteHandlerConfig<Route extends AppRouteHandlerRoutes = AppRouteHandlerRou
 {
   type __IsExpected<Specific extends RouteHandlerConfig<"/api/bookings">> = Specific
   const handler = {} as typeof import("../../src/app/api/bookings/route.js")
-  type __Check = __IsExpected<typeof handler>
-  // @ts-ignore
-  type __Unused = __Check
-}
-
-// Validate ../../src/app/api/cron/cleanup-holds/route.ts
-{
-  type __IsExpected<Specific extends RouteHandlerConfig<"/api/cron/cleanup-holds">> = Specific
-  const handler = {} as typeof import("../../src/app/api/cron/cleanup-holds/route.js")
-  type __Check = __IsExpected<typeof handler>
-  // @ts-ignore
-  type __Unused = __Check
-}
-
-// Validate ../../src/app/api/health/route.ts
-{
-  type __IsExpected<Specific extends RouteHandlerConfig<"/api/health">> = Specific
-  const handler = {} as typeof import("../../src/app/api/health/route.js")
-  type __Check = __IsExpected<typeof handler>
-  // @ts-ignore
-  type __Unused = __Check
-}
-
-// Validate ../../src/app/api/hero-images/route.ts
-{
-  type __IsExpected<Specific extends RouteHandlerConfig<"/api/hero-images">> = Specific
-  const handler = {} as typeof import("../../src/app/api/hero-images/route.js")
   type __Check = __IsExpected<typeof handler>
   // @ts-ignore
   type __Unused = __Check
@@ -699,15 +663,6 @@ type RouteHandlerConfig<Route extends AppRouteHandlerRoutes = AppRouteHandlerRou
 {
   type __IsExpected<Specific extends RouteHandlerConfig<"/api/user/profile">> = Specific
   const handler = {} as typeof import("../../src/app/api/user/profile/route.js")
-  type __Check = __IsExpected<typeof handler>
-  // @ts-ignore
-  type __Unused = __Check
-}
-
-// Validate ../../src/app/api/webhooks/stripe/route.ts
-{
-  type __IsExpected<Specific extends RouteHandlerConfig<"/api/webhooks/stripe">> = Specific
-  const handler = {} as typeof import("../../src/app/api/webhooks/stripe/route.js")
   type __Check = __IsExpected<typeof handler>
   // @ts-ignore
   type __Unused = __Check

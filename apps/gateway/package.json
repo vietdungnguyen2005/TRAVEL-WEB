@@ -2,6 +2,7 @@
     "name": "gateway",
     "version": "0.1.0",
     "private": true,
+    "description": "LEGACY/EXPERIMENTAL gateway. Prefer services/api-gateway (canonical) used by docker-compose.",
     "scripts": {
         "dev": "ts-node-dev src/index.ts",
         "build": "tsc",

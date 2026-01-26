@@ -1,21 +1,21 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createHoldBooking, checkRoomAvailability } from "@/lib/booking-utils";
-import { auth } from "@/lib/auth";
+import { auth } from "@/lib/auth-session";
+import { gatewayFetch } from "@/lib/gateway";
 
 export async function POST(request: NextRequest) {
   try {
     const session = await auth();
-    
+
     const body = await request.json();
-    const { 
-      roomId, 
-      checkIn, 
-      checkOut, 
+    const {
+      roomId,
+      checkIn,
+      checkOut,
       guests,
       guestName,
       guestEmail,
       guestPhone,
-      totalPrice 
+      totalPrice
     } = body;
 
     if (!roomId || !checkIn || !checkOut || !guests || !guestName || !guestEmail || !totalPrice) {
@@ -25,41 +25,28 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const checkInDate = new Date(checkIn);
-    const checkOutDate = new Date(checkOut);
-
-    // Check room availability first
-    const isAvailable = await checkRoomAvailability(
-      roomId,
-      checkInDate,
-      checkOutDate
-    );
-
-    if (!isAvailable) {
-      return NextResponse.json(
-        { error: "Room is not available for selected dates" },
-        { status: 409 }
-      );
-    }
-
     const userId = session?.user?.id || `guest_${Date.now()}`;
 
-    const booking = await createHoldBooking(
-      userId,
-      roomId,
-      checkInDate,
-      checkOutDate,
-      guests,
-      totalPrice
-    );
+    const upstream = await gatewayFetch(request, '/api/bookings/hold', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        userId,
+        roomId,
+        checkIn,
+        checkOut,
+        numberOfGuests: guests,
+        totalPrice,
+        guestName,
+        guestEmail,
+        guestPhone,
+      }),
+    });
 
-    return NextResponse.json({
-      success: true,
-      booking: {
-        id: booking.id,
-        holdExpiresAt: booking.holdExpiresAt,
-        totalPrice: booking.totalPrice,
-      }
+    const text = await upstream.text();
+    return new NextResponse(text, {
+      status: upstream.status,
+      headers: { 'content-type': upstream.headers.get('content-type') || 'application/json' },
     });
 
   } catch (error: any) {

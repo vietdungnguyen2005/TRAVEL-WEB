@@ -4,8 +4,15 @@ import { PrismaPg } from '@prisma/adapter-pg';
 import bcrypt from 'bcryptjs';
 
 // Create connection pool and adapter for seed
+// Prefer DIRECT_URL for session-mode connections (migrations/seeding) when available.
+const connectionString = process.env.DIRECT_URL || process.env.DATABASE_URL;
+if (process.env.DIRECT_URL) {
+  console.log('Using DIRECT_URL for seeding (preferred for migrations/pooler-unsafe ops)');
+} else {
+  console.log('Using DATABASE_URL for seeding');
+}
 const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
+  connectionString,
 });
 const adapter = new PrismaPg(pool);
 
@@ -18,7 +25,7 @@ async function main() {
 
   // 1. Tạo Admin user
   const hashedPassword = await bcrypt.hash('admin123', 10);
-  
+
   const admin = await prisma.user.upsert({
     where: { email: 'admin@travel.com' },
     update: {},
@@ -35,7 +42,7 @@ async function main() {
 
   // 2. Tạo Customer user
   const customerPassword = await bcrypt.hash('customer123', 10);
-  
+
   const customer = await prisma.user.upsert({
     where: { email: 'customer@example.com' },
     update: {},
@@ -117,7 +124,7 @@ async function main() {
 
   // 4. Tạo Physical Rooms (use upsert to be re-runnable)
   const rooms = [];
-  
+
   // Deluxe rooms: 201-205
   for (let i = 1; i <= 5; i++) {
     const room = await prisma.room.upsert({

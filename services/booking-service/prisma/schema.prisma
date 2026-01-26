@@ -4,7 +4,7 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")
+  url      = env("BOOKING_DATABASE_URL")
 }
 
 model Booking {
@@ -13,9 +13,11 @@ model Booking {
   userId     String
   checkIn    DateTime
   checkOut   DateTime
-  guests     Int
-  totalPrice Decimal       @db.Decimal(10, 2)
-  status     BookingStatus @default(PENDING)
+  numberOfGuests Int
+  totalPrice     Decimal       @db.Decimal(10, 2)
+  status         BookingStatus @default(PENDING)
+  holdExpiresAt  DateTime?
+  paymentStatus  String?
   createdAt  DateTime      @default(now())
   updatedAt  DateTime      @updatedAt
 
@@ -27,4 +29,19 @@ enum BookingStatus {
   CONFIRMED
   CANCELLED
   COMPLETED
+  ON_HOLD
+}
+
+model Outbox {
+  id            String   @id @default(uuid())
+  aggregateType String
+  aggregateId   String
+  eventType     String
+  payload       Json
+  published     Boolean  @default(false)
+  publishedAt   DateTime?
+  createdAt     DateTime @default(now())
+
+  @@index([published, createdAt])
+  @@map("outbox")
 }

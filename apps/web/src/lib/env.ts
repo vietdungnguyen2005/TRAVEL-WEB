@@ -3,8 +3,7 @@
 
 const requiredEnvVars = [
   "DATABASE_URL",
-  "NEXTAUTH_SECRET",
-  "NEXTAUTH_URL",
+  "NEXT_PUBLIC_API_GATEWAY_URL",
 ] as const;
 
 const optionalEnvVars = [

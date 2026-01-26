@@ -1,0 +1,1 @@
+{"version":3,"file":"room.client.d.ts","sourceRoot":"","sources":["../../../../../../apps/web/src/lib/clients/room.client.ts"],"names":[],"mappings":"AACA,OAAO,EAAE,YAAY,EAAE,MAAM,uBAAuB,CAAC;AAErD,QAAA,MAAM,UAAU;gBACI,OAAO,CAAC,YAAY,EAAE,CAAC;uBAKhB,MAAM,GAAG,OAAO,CAAC,YAAY,CAAC;CAIxD,CAAC;AAEF,eAAe,UAAU,CAAC"}

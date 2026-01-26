@@ -9,6 +9,7 @@ import Link from "next/link";
 import { format, differenceInDays } from "date-fns";
 import { Calendar, Users, Clock, CreditCard, Loader2 } from "lucide-react";
 import { toast } from "sonner";
+import { gatewayFetch } from "@/lib/gateway-client";
 
 interface BookingItemProps {
   booking: any;
@@ -53,10 +54,10 @@ export function BookingItem({ booking }: BookingItemProps) {
   const handlePayment = async () => {
     setPaying(true);
     try {
-      const response = await fetch("/api/payment/create-checkout", {
+      const response = await gatewayFetch("/api/payment/create-checkout", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ bookingId: booking.id }),
+        attachAccessToken: true,
       });
 
       if (!response.ok) {

@@ -18,6 +18,7 @@ import {
 import { ImageUpload } from "@/components/admin/image-upload";
 import { Plus, Edit, Trash2, Image as ImageIcon, MoveUp, MoveDown } from "lucide-react";
 import { toast } from "sonner";
+import { gatewayFetch } from "@/lib/gateway-client";
 import Image from "next/image";
 
 interface HeroImage {
@@ -57,7 +58,10 @@ export default function HeroImagesPage() {
 
   async function fetchHeroImages() {
     try {
-      const response = await fetch("/api/admin/hero-images");
+      const response = await gatewayFetch("/api/admin/hero-images", {
+        method: "GET",
+        attachAccessToken: true,
+      });
       if (response.ok) {
         const data = await response.json();
         setHeroImages(data);
@@ -95,7 +99,7 @@ export default function HeroImagesPage() {
     const url = editingImage
       ? `/api/admin/hero-images/${editingImage.id}`
       : "/api/admin/hero-images";
-    
+
     const method = editingImage ? "PUT" : "POST";
 
     try {
@@ -125,8 +129,9 @@ export default function HeroImagesPage() {
     if (!confirm("Bạn có chắc muốn xóa ảnh này?")) return;
 
     try {
-      const response = await fetch(`/api/admin/hero-images/${id}`, {
+      const response = await gatewayFetch(`/api/admin/hero-images/${id}`, {
         method: "DELETE",
+        attachAccessToken: true,
       });
 
       if (response.ok) {
@@ -143,10 +148,10 @@ export default function HeroImagesPage() {
 
   const handleToggleActive = async (image: HeroImage) => {
     try {
-      const response = await fetch(`/api/admin/hero-images/${image.id}`, {
+      const response = await gatewayFetch(`/api/admin/hero-images/${image.id}`, {
         method: "PUT",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ ...image, active: !image.active }),
+        attachAccessToken: true,
       });
 
       if (response.ok) {
@@ -166,10 +171,10 @@ export default function HeroImagesPage() {
     if (newOrder < 0 || newOrder >= heroImages.length) return;
 
     try {
-      const response = await fetch(`/api/admin/hero-images/${image.id}`, {
+      const response = await gatewayFetch(`/api/admin/hero-images/${image.id}`, {
         method: "PUT",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ ...image, order: newOrder }),
+        attachAccessToken: true,
       });
 
       if (response.ok) {

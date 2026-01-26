@@ -1,0 +1,1 @@
+{"version":3,"file":"service-resolver.d.ts","sourceRoot":"","sources":["../../../../../src/discovery/service-resolver.ts"],"names":[],"mappings":"AAAA,OAAO,EAAmB,aAAa,EAAE,MAAM,4BAA4B,CAAC;AAC5E,OAAO,EAAE,QAAQ,IAAI,cAAc,EAAE,MAAM,2BAA2B,CAAC;AAGvE,KAAK,WAAW,GAAG,MAAM,OAAO,cAAc,CAAC;AA0C/C,wBAAsB,gBAAgB,CAAC,UAAU,EAAE,WAAW,EAAE,IAAI,CAAC,EAAE,aAAa,mBAQnF"}

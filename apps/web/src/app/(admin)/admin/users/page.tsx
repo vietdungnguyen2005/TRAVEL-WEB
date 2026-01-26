@@ -15,6 +15,7 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { User, Search, Mail, Phone, Calendar, Shield } from "lucide-react";
 import { format } from "date-fns";
+import { gatewayFetch } from "@/lib/gateway-client";
 
 interface UserData {
   id: string;
@@ -64,7 +65,10 @@ export default function UsersManagement() {
   async function fetchUsers() {
     try {
       setLoading(true);
-      const response = await fetch("/api/admin/users");
+      const response = await gatewayFetch("/api/admin/users", {
+        method: "GET",
+        attachAccessToken: true,
+      });
       if (response.ok) {
         const data = await response.json();
         setUsers(data);
@@ -83,12 +87,10 @@ export default function UsersManagement() {
 
     try {
       setUpdating(userId);
-      const response = await fetch(`/api/admin/users/${userId}/role`, {
+      const response = await gatewayFetch(`/api/admin/users/${userId}/role`, {
         method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-        },
         body: JSON.stringify({ role: newRole }),
+        attachAccessToken: true,
       });
 
       if (response.ok) {

@@ -24,6 +24,7 @@ import { format } from "date-fns";
 import Image from "next/image";
 import Link from "next/link";
 import { ClientLayout } from "@/components/layout/client-layout";
+import { gatewayFetch } from "@/lib/gateway-client";
 
 interface Booking {
   id: string;
@@ -58,7 +59,10 @@ export default function DashboardPage() {
 
   const fetchBookings = async () => {
     try {
-      const response = await fetch("/api/bookings/my-bookings");
+      const response = await gatewayFetch("/api/bookings/my-bookings", {
+        method: "GET",
+        attachAccessToken: true,
+      });
       if (!response.ok) {
         if (response.status === 401) {
           router.push("/auth/login?redirect=/dashboard");
@@ -80,8 +84,9 @@ export default function DashboardPage() {
 
     setCancellingId(bookingId);
     try {
-      const response = await fetch(`/api/bookings/${bookingId}/cancel`, {
+      const response = await gatewayFetch(`/api/bookings/${bookingId}/cancel`, {
         method: "POST",
+        attachAccessToken: true,
       });
 
       if (!response.ok) {

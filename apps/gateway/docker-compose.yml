@@ -1,0 +1,324 @@
+version: "3.8"
+
+services:
+  prometheus:
+    image: prom/prometheus:v2.48.1
+    container_name: prometheus
+    volumes:
+      - ./infra/observability/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    ports:
+      - "9090:9090"
+    networks:
+      - backend-network
+
+  grafana:
+    image: grafana/grafana:10.2.3
+    container_name: grafana
+    ports:
+      - "3007:3000"
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+    depends_on:
+      - prometheus
+    networks:
+      - backend-network
+
+  consul:
+    image: consul:1.16
+    container_name: consul
+    command: ["agent", "-dev", "-client=0.0.0.0"]
+    ports:
+      - "8500:8500"
+    networks:
+      - backend-network
+
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: rabbitmq
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    environment:
+      RABBITMQ_DEFAULT_USER: guest
+      RABBITMQ_DEFAULT_PASS: guest
+    networks:
+      - backend-network
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  auth-db:
+    image: postgres:15
+    container_name: auth-db
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: auth_db
+    volumes:
+      - auth-db-data:/var/lib/postgresql/data
+    networks:
+      - backend-network
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  booking-db:
+    image: postgres:15
+    container_name: booking-db
+    ports:
+      - "5433:5432"
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: booking_db
+    volumes:
+      - booking-db-data:/var/lib/postgresql/data
+    networks:
+      - backend-network
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  room-db:
+    image: postgres:15
+    container_name: room-db
+    ports:
+      - "5434:5432"
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: room_db
+    volumes:
+      - room-db-data:/var/lib/postgresql/data
+    networks:
+      - backend-network
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  payment-db:
+    image: postgres:15
+    container_name: payment-db
+    ports:
+      - "5435:5432"
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: payment_db
+    volumes:
+      - payment-db-data:/var/lib/postgresql/data
+    networks:
+      - backend-network
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  review-db:
+    image: postgres:15
+    container_name: review-db
+    ports:
+      - "5436:5432"
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: review_db
+    volumes:
+      - review-db-data:/var/lib/postgresql/data
+    networks:
+      - backend-network
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  review-mongo:
+    image: mongo:7
+    container_name: review-mongo
+    ports:
+      - "27017:27017"
+    volumes:
+      - review-mongo-data:/data/db
+    networks:
+      - backend-network
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "mongosh",
+          "--quiet",
+          "mongodb://localhost:27017/admin",
+          "--eval",
+          "db.runCommand({ ping: 1 }).ok",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  notification-db:
+    image: postgres:15
+    container_name: notification-db
+    ports:
+      - "5437:5432"
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: notification_db
+    volumes:
+      - notification-db-data:/var/lib/postgresql/data
+    networks:
+      - backend-network
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: redis
+    ports:
+      - "6379:6379"
+    networks:
+      - backend-network
+
+  auth-service:
+    build: ./services/auth-service
+    container_name: auth-service
+    ports:
+      - "3001:3001"
+    depends_on:
+      - auth-db
+    environment:
+      - PORT=3001
+      - AUTH_DATABASE_URL=postgresql://postgres:postgres@auth-db:5432/auth_db
+    networks:
+      - backend-network
+
+  booking-service:
+    build: ./services/booking-service
+    container_name: booking-service
+    ports:
+      - "3002:3002"
+    depends_on:
+      - booking-db
+      - rabbitmq
+    environment:
+      - PORT=3002
+      - BOOKING_DATABASE_URL=postgresql://postgres:postgres@booking-db:5432/booking_db
+      - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672
+    networks:
+      - backend-network
+
+  room-service:
+    build: ./services/room-service
+    container_name: room-service
+    ports:
+      - "3003:3003"
+    depends_on:
+      - room-db
+      - rabbitmq
+    environment:
+      - PORT=3003
+      - ROOM_DATABASE_URL=postgresql://postgres:postgres@room-db:5432/room_db
+      - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672
+    networks:
+      - backend-network
+
+  payment-service:
+    build: ./services/payment-service
+    container_name: payment-service
+    ports:
+      - "3004:3004"
+    depends_on:
+      - payment-db
+      - rabbitmq
+    environment:
+      - PORT=3004
+      - PAYMENT_DATABASE_URL=postgresql://postgres:postgres@payment-db:5432/payment_db
+      - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672
+    networks:
+      - backend-network
+
+  review-service:
+    build: ./services/review-service
+    container_name: review-service
+    ports:
+      - "3005:3005"
+    depends_on:
+      - review-db
+    environment:
+      - PORT=3005
+      - REVIEW_DATABASE_URL=postgresql://postgres:postgres@review-db:5432/review_db
+    networks:
+      - backend-network
+
+  notification-service:
+    build: ./services/notification-service
+    container_name: notification-service
+    ports:
+      - "3006:3006"
+    depends_on:
+      - rabbitmq
+      - notification-db
+      - redis
+    environment:
+      - PORT=3006
+      - EMAIL_FROM=
+      - SENDGRID_API_KEY=
+      - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672
+      - NOTIFICATION_DATABASE_URL=postgresql://postgres:postgres@notification-db:5432/notification_db
+      - REDIS_URL=redis://redis:6379
+    networks:
+      - backend-network
+
+  api-gateway:
+    build: ./services/api-gateway
+    container_name: api-gateway
+    ports:
+      - "4000:4000"
+    depends_on:
+      - auth-service
+      - booking-service
+      - room-service
+      - payment-service
+      - review-service
+      - notification-service
+      - consul
+    environment:
+      PORT: 4000
+      AUTH_SERVICE_URL: http://auth-service:3001
+      BOOKING_SERVICE_URL: http://booking-service:3002
+      ROOM_SERVICE_URL: http://room-service:3003
+      PAYMENT_SERVICE_URL: http://payment-service:3004
+      REVIEW_SERVICE_URL: http://review-service:3005
+      SERVICE_DISCOVERY_MODE: ${SERVICE_DISCOVERY_MODE:-static}
+      CONSUL_URL: http://consul:8500
+      DISCOVERY_REFRESH_MS: 10000
+    networks:
+      - backend-network
+
+volumes:
+  auth-db-data:
+  booking-db-data:
+  room-db-data:
+  payment-db-data:
+  review-db-data:
+  notification-db-data:
+  review-mongo-data:
+
+networks:
+  backend-network:

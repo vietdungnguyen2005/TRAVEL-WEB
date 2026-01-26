@@ -1,6 +1,6 @@
 # 🏨 Travel Booking System
 
-> Hệ thống đặt phòng khách sạn/du lịch chuyên nghiệp với Next.js 15, TypeScript, Prisma và NextAuth v5.
+> Monorepo hệ thống đặt phòng theo hướng **microservice** (Express services + API Gateway) và một **web app** (Next.js) cho UI.
 
 **Status:** ✅ Production Ready | **Security Score:** A+ (100/100) | **Version:** 1.0.0
 
@@ -30,11 +30,74 @@
 - **Runtime:** Node.js 18+
 - **Package Manager:** npm/yarn/pnpm
 
-### Backend
-- **Database:** PostgreSQL 15+ (Supabase)
-- **ORM:** Prisma 7.2.0 (with connection pooling)
-- **Authentication:** NextAuth.js v5 (JWT + OAuth)
-- **API:** Next.js API Routes (REST)
+### Backend (Microservices)
+- **Services:** Node.js + Express (per-domain)
+- **Gateway:** `services/api-gateway` (**single entrypoint**, auth/rate limit/routing)
+- **Database:** PostgreSQL (DB per service trong `docker-compose.yml`)
+- **ORM:** Prisma (schema per service ở `services/*/prisma/schema.prisma`)
+- **Message broker:** RabbitMQ (event-driven)
+
+### Architecture (High-level)
+
+```mermaid
+flowchart TB
+  %% User Layer
+  U[User/Browser] --> WEB[Next.js Web App\napps/web\nUI Only]
+
+  %% Direct connection to API Gateway
+  U --> GW[API Gateway\nservices/api-gateway\n:4000\nAuth, Rate Limit, Routing]
+
+  %% Infrastructure Services
+  GW --> CONSUL[Service Discovery\nConsul/Eureka\n:8500]
+
+  %% Core Services
+  GW --> AUTH[Auth Service\nservices/auth-service\n:3001]
+  GW --> BOOK[Booking Service\nservices/booking-service\n:3002]
+  GW --> ROOM[Room Service\nservices/room-service\n:3003]
+  GW --> PAY[Payment Service\nservices/payment-service\n:3004]
+  GW --> REV[Review Service\nservices/review-service\n:3005]
+  GW --> NOTI[Notification Service\nservices/notification-service\n:3006]
+  GW --> UPLOAD[Upload Service\nservices/upload-service\n:3007]
+
+  %% Databases
+  AUTH --> AUTHDB[(PostgreSQL\nauth-db)]
+  BOOK --> BOOKDB[(PostgreSQL\nbooking-db)]
+  ROOM --> ROOMDB[(PostgreSQL\nroom-db)]
+  PAY --> PAYDB[(PostgreSQL\npayment-db)]
+  REV --> REVDB[(Review DB\n(planned MongoDB))]
+  NOTI --> REDIS[(Redis\nnotification queue)]
+  NOTI --> NOTIDB[(PostgreSQL\nnotification-db)]
+  UPLOAD --> S3[(S3/R2\nFile storage)]
+
+  %% Message Queue - Event Driven
+  BOOK --> MQ[RabbitMQ\n:5672]
+  PAY --> MQ
+  ROOM --> MQ
+  AUTH --> MQ
+  MQ --> NOTI
+  MQ --> ANALYTICS[Analytics Service\n:3008]
+
+  %% External Services
+  PAY --> STRIPE[Stripe API]
+  NOTI --> EMAIL[SendGrid/SES]
+  NOTI --> SMS[Twilio]
+
+  %% Monitoring & Logging
+  AUTH & BOOK & ROOM & PAY & REV & NOTI --> PROM[Prometheus\n:9090]
+  PROM --> GRAFANA[Grafana\n:3000]
+  AUTH & BOOK & ROOM & PAY & REV & NOTI --> ELK[ELK\n:9200]
+
+  %% Cache Layer
+  ROOM --> CACHE[(Redis Cache\nRoom availability)]
+  AUTH --> CACHE
+```
+
+Notes:
+- `apps/web` is **UI only**. It must not act as a proxy for backend APIs.
+- The gateway is the only public backend endpoint (`:4000`).
+- Service Discovery / Upload / Analytics / Observability blocks are **design targets**; the repo currently focuses on core services + RabbitMQ.
+
+> Ghi chú: kiến trúc mục tiêu là **UI-only web** + **API Gateway** làm entrypoint. Nếu còn Next.js API Routes trong `apps/web/src/app/api/*` thì đó là drift và nên migrate về services/gateway.
 
 ### Frontend
 - **UI Framework:** React 19
@@ -160,11 +223,36 @@ Copy file `.env.example` thành `.env`:
 cp .env.example .env
 ```
 
+### Gateway trùng lặp
+
+Repo có 2 dự án gateway:
+- `services/api-gateway` (**canonical**, dùng trong `docker-compose.yml`)
+- `apps/gateway` (**legacy/experimental**, không dùng trong compose mặc định)
+
+Khuyến nghị: giữ 1 gateway canonical để tránh architecture drift.
+
 ---
 
 ## 🔧 CẤU HÌNH MÔI TRƯỜNG
 
-### 🗄️ Database (Supabase)
+### � Service Discovery (Consul) — API Gateway
+
+Gateway hỗ trợ 2 chế độ resolve upstream services:
+
+- `SERVICE_DISCOVERY_MODE=static` (default): dùng `*_SERVICE_URL` như hiện tại (Docker DNS / env hardcode).
+- `SERVICE_DISCOVERY_MODE=consul`: gateway query Consul health API để lấy **healthy instances** và **round-robin** giữa nhiều instance.
+
+```bash
+# Default: static
+SERVICE_DISCOVERY_MODE=static
+
+# Consul mode
+SERVICE_DISCOVERY_MODE=consul
+CONSUL_URL=http://localhost:8500
+DISCOVERY_REFRESH_MS=10000
+```
+
+### �🗄️ Database (Supabase)
 ```bash
 # 1. Tạo tài khoản tại: https://supabase.com
 # 2. Tạo project mới
