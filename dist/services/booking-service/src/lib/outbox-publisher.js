@@ -2,9 +2,16 @@ import amqp from 'amqplib';
 import prisma from './prisma';
 import { Logger } from '@travel-web/shared';
 const logger = new Logger('OutboxPublisher');
-const RABBIT_URL = process.env.RABBITMQ_URL || 'amqp://localhost';
+const RABBIT_URL = process.env.RABBITMQ_URL;
 const EXCHANGE = process.env.RABBITMQ_EXCHANGE || 'events';
 async function publishOutbox() {
+    if (process.env.DISABLE_RABBITMQ === 'true') {
+        logger.warn('DISABLE_RABBITMQ=true; skipping outbox publisher');
+        return;
+    }
+    if (!RABBIT_URL) {
+        throw new Error('RABBITMQ_URL is not set');
+    }
     const conn = await amqp.connect(RABBIT_URL);
     const ch = await conn.createChannel();
     await ch.assertExchange(EXCHANGE, 'topic', { durable: true });

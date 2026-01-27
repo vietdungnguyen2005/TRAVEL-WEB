@@ -1,5 +1,5 @@
 import { Suspense } from "react";
-import { findRoomTypes } from "@/lib/prisma";
+import { gatewayFetch } from "@/lib/gateway-client";
 import { MainLayout } from "@/components/layout/main-layout";
 import { RoomCard } from "@/components/customer/room-card";
 import { RoomFiltersClient } from "@/components/customer/room-filters-client";
@@ -66,17 +66,26 @@ async function getRooms(searchParams: PageProps["searchParams"]) {
       break;
   }
 
-  let rooms = [] as any[];
   try {
-    rooms = await findRoomTypes({ where, orderBy } as any);
-  } catch (err) {
-    // If DB is down in dev, return empty list and log
-    // eslint-disable-next-line no-console
-    console.error('Prisma error fetching rooms:', err);
-    rooms = [];
-  }
+    const qs = new URLSearchParams();
+    if (minPrice) qs.set("minPrice", minPrice);
+    if (maxPrice) qs.set("maxPrice", maxPrice);
+    if (capacity) qs.set("capacity", capacity);
+    if (roomTypes) qs.set("roomTypes", roomTypes);
+    if (sortBy) qs.set("sortBy", sortBy);
 
-  return rooms;
+    const path = `/api/rooms${qs.toString() ? `?${qs.toString()}` : ""}`;
+    const res = await gatewayFetch(path, { method: "GET", cache: "no-store" });
+    if (!res.ok) return [];
+
+    const data = await res.json();
+    const rooms = Array.isArray(data) ? data : data?.data ?? [];
+    return Array.isArray(rooms) ? rooms : [];
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.error("Error fetching rooms:", err);
+    return [];
+  }
 }
 
 function RoomListSkeleton() {

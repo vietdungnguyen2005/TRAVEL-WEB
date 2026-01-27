@@ -42,7 +42,10 @@ export async function gatewayFetch(path: string, options: GatewayFetchOptions = 
         finalHeaders.set("Content-Type", "application/json");
     }
 
-    if (attachAccessToken) {
+    // Default to attaching access token unless explicitly disabled.
+    const shouldAttach = attachAccessToken !== false;
+
+    if (shouldAttach) {
         const token = getAccessTokenFromCookie();
         if (token && !finalHeaders.has("Authorization")) {
             finalHeaders.set("Authorization", `Bearer ${token}`);

@@ -1,6 +1,0 @@
-var R=require("../../../../chunks/[turbopack]_runtime.js")("server/app/api/auth/send-verification/route.js")
-R.c("server/chunks/[root-of-the-server]__dd6167cd._.js")
-R.c("server/chunks/[root-of-the-server]__0dba68e4._.js")
-R.c("server/chunks/0da96_web__next-internal_server_app_api_auth_send-verification_route_actions_1904acde.js")
-R.m(46775)
-module.exports=R.m(46775).exports

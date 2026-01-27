@@ -8,6 +8,13 @@ const prisma_1 = __importDefault(require("./prisma"));
 const shared_1 = require("@travel-web/shared");
 const logger = new shared_1.Logger('PaymentEventsConsumer');
 async function startPaymentEventsConsumer() {
+    if (process.env.DISABLE_RABBITMQ === 'true') {
+        logger.warn('DISABLE_RABBITMQ=true; skipping payment events consumer');
+        return;
+    }
+    if (!process.env.RABBITMQ_URL) {
+        throw new Error('RABBITMQ_URL is not set');
+    }
     const queue = process.env.RABBITMQ_QUEUE_PAYMENT_EVENTS || 'booking-service.payment-events';
     await (0, shared_1.rabbitConsume)({
         queue,

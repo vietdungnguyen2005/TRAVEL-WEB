@@ -20,7 +20,7 @@ model Review {
   roomTypeId  String
   rating      Int
   comment     String?
-  images      String[]?
+  images      String[]
   isVerified  Boolean  @default(false)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt

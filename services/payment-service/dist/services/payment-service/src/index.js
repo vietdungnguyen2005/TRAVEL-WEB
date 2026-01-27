@@ -7,8 +7,10 @@ const express_1 = __importDefault(require("express"));
 const stripe_1 = __importDefault(require("stripe"));
 const prisma_1 = __importDefault(require("./lib/prisma"));
 const shared_1 = require("@travel-web/shared");
+const dotenv_1 = require("dotenv");
 const app = (0, express_1.default)();
 const PORT = process.env.PORT || 3004;
+(0, dotenv_1.config)({ path: '../../.env' });
 const STRIPE_SECRET_KEY = process.env.STRIPE_SECRET_KEY;
 const STRIPE_WEBHOOK_SECRET = process.env.STRIPE_WEBHOOK_SECRET;
 const stripe = STRIPE_SECRET_KEY

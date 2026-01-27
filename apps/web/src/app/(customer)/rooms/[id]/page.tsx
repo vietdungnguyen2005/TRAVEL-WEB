@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { prisma } from "@/lib/prisma";
+import { gatewayFetch } from "@/lib/gateway-client";
 import { MainLayout } from "@/components/layout/main-layout";
 import { ImageGallery } from "@/components/customer/image-gallery";
 import { BookingFormClient } from "@/components/customer/booking-form-client"; import { ReviewsList } from "@/components/reviews/reviews-list"; import { Badge } from "@/components/ui/badge";
@@ -24,19 +24,13 @@ const amenityIcons: Record<string, any> = {
 
 async function getRoomType(id: string) {
   try {
-    const roomType = await prisma.roomType.findUnique({
-      where: { id },
-      include: {
-        rooms: {
-          where: { status: "AVAILABLE" },
-        },
-      },
-    });
-
-    return roomType;
+    const res = await gatewayFetch(`/api/rooms/${id}`, { method: "GET", cache: "no-store" });
+    if (!res.ok) return null;
+    const data = await res.json();
+    return data?.data ?? data;
   } catch (err) {
     // eslint-disable-next-line no-console
-    console.error('Prisma error fetching room type:', err);
+    console.error("Error fetching room type:", err);
     return null;
   }
 }

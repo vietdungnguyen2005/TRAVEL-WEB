@@ -7,9 +7,16 @@ const amqplib_1 = __importDefault(require("amqplib"));
 const prisma_1 = __importDefault(require("./prisma"));
 const shared_1 = require("@travel-web/shared");
 const logger = new shared_1.Logger('OutboxPublisher');
-const RABBIT_URL = process.env.RABBITMQ_URL || 'amqp://localhost';
 const EXCHANGE = process.env.RABBITMQ_EXCHANGE || 'events';
 async function publishOutbox() {
+    if (process.env.DISABLE_RABBITMQ === 'true') {
+        logger.warn('DISABLE_RABBITMQ=true; skipping outbox publisher');
+        return;
+    }
+    const RABBIT_URL = process.env.RABBITMQ_URL;
+    if (!RABBIT_URL) {
+        throw new Error('RABBITMQ_URL is not set');
+    }
     const conn = await amqplib_1.default.connect(RABBIT_URL);
     const ch = await conn.createChannel();
     await ch.assertExchange(EXCHANGE, 'topic', { durable: true });

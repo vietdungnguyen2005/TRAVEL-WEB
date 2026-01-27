@@ -7,10 +7,12 @@ const express_1 = __importDefault(require("express"));
 const shared_1 = require("@travel-web/shared");
 const routes_1 = require("./http/routes");
 const error_handler_1 = require("./http/middlewares/error-handler");
+const cookie_parser_1 = __importDefault(require("cookie-parser"));
 const logger = new shared_1.Logger('AuthService');
 const app = (0, express_1.default)();
 const PORT = process.env.PORT || 3001;
 app.use(express_1.default.json());
+app.use((0, cookie_parser_1.default)());
 app.use('/api/auth', routes_1.authRouter);
 app.get('/health', (_req, res) => {
     res.status(200).json({ ok: true, service: 'auth-service' });

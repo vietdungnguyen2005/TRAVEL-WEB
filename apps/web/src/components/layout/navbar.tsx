@@ -41,33 +41,29 @@ export function Navbar({ user }: NavbarProps) {
         <nav className="hidden md:flex items-center space-x-6">
           <Link
             href="/"
-            className={`text-sm font-medium transition-colors hover:text-primary ${
-              isActive("/") ? "text-primary" : "text-muted-foreground"
-            }`}
+            className={`text-sm font-medium transition-colors hover:text-primary ${isActive("/") ? "text-primary" : "text-muted-foreground"
+              }`}
           >
             Trang chủ
           </Link>
           <Link
             href="/rooms"
-            className={`text-sm font-medium transition-colors hover:text-primary ${
-              isActive("/rooms") ? "text-primary" : "text-muted-foreground"
-            }`}
+            className={`text-sm font-medium transition-colors hover:text-primary ${isActive("/rooms") ? "text-primary" : "text-muted-foreground"
+              }`}
           >
             Phòng
           </Link>
           <Link
             href="/about"
-            className={`text-sm font-medium transition-colors hover:text-primary ${
-              isActive("/about") ? "text-primary" : "text-muted-foreground"
-            }`}
+            className={`text-sm font-medium transition-colors hover:text-primary ${isActive("/about") ? "text-primary" : "text-muted-foreground"
+              }`}
           >
             Về chúng tôi
           </Link>
           <Link
             href="/contact"
-            className={`text-sm font-medium transition-colors hover:text-primary ${
-              isActive("/contact") ? "text-primary" : "text-muted-foreground"
-            }`}
+            className={`text-sm font-medium transition-colors hover:text-primary ${isActive("/contact") ? "text-primary" : "text-muted-foreground"
+              }`}
           >
             Liên hệ
           </Link>
@@ -128,7 +124,7 @@ export function Navbar({ user }: NavbarProps) {
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem asChild>
-                  <Link href="/api/auth/signout">
+                  <Link href="/auth/logout">
                     <LogOut className="mr-2 h-4 w-4" />
                     <span>Đăng xuất</span>
                   </Link>

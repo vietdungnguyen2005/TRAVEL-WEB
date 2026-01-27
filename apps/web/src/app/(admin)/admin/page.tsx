@@ -1,138 +1,54 @@
-import { prisma } from "@/lib/prisma";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Calendar, Bed, Users, DollarSign, TrendingUp, Clock } from "lucide-react";
 import { format, startOfMonth, endOfMonth, subMonths } from "date-fns";
 import { vi } from "date-fns/locale";
+import { gatewayFetch } from "@/lib/gateway-client";
 
-async function getStatistics() {
+export const dynamic = "force-dynamic";
+
+type AdminStats = {
+    totalBookings: number;
+    totalRooms: number;
+    totalUsers: number;
+    pendingBookings: number;
+    revenueThisMonth: number;
+    revenueGrowth: number;
+    bookingsThisMonth: number;
+    bookingGrowth: number;
+    recentBookings: any[];
+};
+
+const EMPTY_STATS: AdminStats = {
+    totalBookings: 0,
+    totalRooms: 0,
+    totalUsers: 0,
+    pendingBookings: 0,
+    revenueThisMonth: 0,
+    revenueGrowth: 0,
+    bookingsThisMonth: 0,
+    bookingGrowth: 0,
+    recentBookings: [],
+};
+
+async function getStatistics(): Promise<AdminStats> {
     try {
-        const now = new Date();
-        const firstDayThisMonth = startOfMonth(now);
-        const lastDayThisMonth = endOfMonth(now);
-        const firstDayLastMonth = startOfMonth(subMonths(now, 1));
-        const lastDayLastMonth = endOfMonth(subMonths(now, 1));
-
-        // Total counts
-        const [totalBookings, totalRooms, totalUsers, pendingBookings] = await Promise.all([
-            prisma.booking.count(),
-            prisma.room.count(),
-            prisma.user.count(),
-            prisma.booking.count({
-                where: { status: "PENDING" },
-            }),
-        ]);
-
-        // Revenue this month
-        const revenueThisMonth = await prisma.booking.aggregate({
-            where: {
-                status: { in: ["CONFIRMED", "COMPLETED"] },
-                createdAt: {
-                    gte: firstDayThisMonth,
-                    lte: lastDayThisMonth,
-                },
-            },
-            _sum: {
-                totalPrice: true,
-            },
+        // NOTE: UI-only web: stats should come from gateway/service, not Prisma directly.
+        // If this endpoint isn't implemented yet, we fall back to zeros so the admin page still renders.
+        const res = await gatewayFetch("/api/admin/stats", {
+            method: "GET",
+            cache: "no-store",
         });
-
-        // Revenue last month
-        const revenueLastMonth = await prisma.booking.aggregate({
-            where: {
-                status: { in: ["CONFIRMED", "COMPLETED"] },
-                createdAt: {
-                    gte: firstDayLastMonth,
-                    lte: lastDayLastMonth,
-                },
-            },
-            _sum: {
-                totalPrice: true,
-            },
-        });
-
-        // Bookings this month
-        const bookingsThisMonth = await prisma.booking.count({
-            where: {
-                createdAt: {
-                    gte: firstDayThisMonth,
-                    lte: lastDayThisMonth,
-                },
-            },
-        });
-
-        // Bookings last month
-        const bookingsLastMonth = await prisma.booking.count({
-            where: {
-                createdAt: {
-                    gte: firstDayLastMonth,
-                    lte: lastDayLastMonth,
-                },
-            },
-        });
-
-        // Recent bookings
-        const recentBookings = await prisma.booking.findMany({
-            take: 5,
-            orderBy: { createdAt: "desc" },
-            include: {
-                user: {
-                    select: {
-                        name: true,
-                        email: true,
-                    },
-                },
-                room: {
-                    include: {
-                        roomType: {
-                            select: {
-                                name: true,
-                            },
-                        },
-                    },
-                },
-            },
-        });
-
-        // Calculate growth rates
-        const revenueGrowth =
-            revenueLastMonth._sum.totalPrice && Number(revenueLastMonth._sum.totalPrice) > 0
-                ? ((Number(revenueThisMonth._sum.totalPrice || 0) -
-                    Number(revenueLastMonth._sum.totalPrice)) /
-                    Number(revenueLastMonth._sum.totalPrice)) *
-                100
-                : 0;
-
-        const bookingGrowth =
-            bookingsLastMonth > 0
-                ? ((bookingsThisMonth - bookingsLastMonth) / bookingsLastMonth) * 100
-                : 0;
-
+        if (!res.ok) return EMPTY_STATS;
+        const data = (await res.json()) as Partial<AdminStats>;
         return {
-            totalBookings,
-            totalRooms,
-            totalUsers,
-            pendingBookings,
-            revenueThisMonth: Number(revenueThisMonth._sum.totalPrice || 0),
-            revenueGrowth,
-            bookingsThisMonth,
-            bookingGrowth,
-            recentBookings,
+            ...EMPTY_STATS,
+            ...data,
+            recentBookings: Array.isArray(data.recentBookings) ? data.recentBookings : [],
         };
     } catch (err) {
-        // If DB is unreachable during build/prerender, return safe defaults
         // eslint-disable-next-line no-console
-        console.error('Prisma error in getStatistics:', err);
-        return {
-            totalBookings: 0,
-            totalRooms: 0,
-            totalUsers: 0,
-            pendingBookings: 0,
-            revenueThisMonth: 0,
-            revenueGrowth: 0,
-            bookingsThisMonth: 0,
-            bookingGrowth: 0,
-            recentBookings: [] as any[],
-        };
+        console.error("Error in getStatistics:", err);
+        return EMPTY_STATS;
     }
 }
 

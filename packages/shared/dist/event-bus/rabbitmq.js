@@ -12,8 +12,11 @@ const logger = new logger_1.Logger('RabbitMQ');
 let connection = null;
 let channel = null;
 async function rabbitConnect(config) {
-    const url = config?.url || process.env.RABBITMQ_URL || 'amqp://localhost';
+    const url = config?.url || process.env.RABBITMQ_URL;
     const exchange = config?.exchange || process.env.RABBITMQ_EXCHANGE || 'events';
+    if (!url) {
+        throw new Error('RABBITMQ_URL is not set');
+    }
     if (connection && channel)
         return { connection, channel, url, exchange };
     const conn = await amqplib_1.default.connect(url);

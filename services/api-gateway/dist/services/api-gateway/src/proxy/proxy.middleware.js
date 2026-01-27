@@ -5,7 +5,8 @@ const http_proxy_middleware_1 = require("http-proxy-middleware");
 const service_resolver_1 = require("../discovery/service-resolver");
 function proxyTo(serviceKey, pathPrefix) {
     return (0, http_proxy_middleware_1.createProxyMiddleware)({
-        target: 'http://localhost', // placeholder; will be overridden by router()
+        // Used by http-proxy-middleware for initial setup/logging; real routing happens via router().
+        target: (0, service_resolver_1.getServicePlaceholderTarget)(serviceKey),
         changeOrigin: true,
         pathRewrite: { [`^${pathPrefix}`]: '' },
         router: async () => {

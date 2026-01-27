@@ -50,6 +50,15 @@ export async function getServiceTarget(serviceKey: ServiceName, mode?: Discovery
 
     const entry = await resolveFromConsul(serviceKey);
     const target = rrPick(entry);
-    // fallback to static if consul has no passing instances
-    return target || staticServices[serviceKey];
+    if (target) return target;
+
+    // Production-like behavior: if discovery is enabled and no instances are healthy,
+    // fail fast instead of silently routing to a possibly stale static URL.
+    throw new Error(`[discovery] No passing instances for service '${serviceKey}' via Consul`);
+}
+
+// Used only as an initial placeholder for http-proxy-middleware setup/logging.
+// Actual routing is handled dynamically via getServiceTarget() in proxy router().
+export function getServicePlaceholderTarget(serviceKey: ServiceName) {
+    return staticServices[serviceKey];
 }

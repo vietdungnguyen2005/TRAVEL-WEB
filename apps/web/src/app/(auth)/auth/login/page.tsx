@@ -38,8 +38,8 @@ export default function LoginPage() {
         return;
       }
 
-      // Expected payload: { accessToken, user }
-      const token = data?.accessToken as string | undefined;
+      // Support both shapes: { token } (contracts) or legacy { accessToken }
+      const token = (data?.token || data?.accessToken) as string | undefined;
       if (token) {
         document.cookie = `access_token=${encodeURIComponent(token)}; Path=/; SameSite=Lax`;
       }
@@ -64,10 +64,10 @@ export default function LoginPage() {
   };
 
   const handleGoogleSignIn = async () => {
-    toast.error("Chức năng chưa sẵn sàng", {
-      description:
-        "OAuth chưa được hỗ trợ vì đã loại bỏ NextAuth. Hãy dùng đăng nhập bằng email/mật khẩu.",
-    });
+    const params = new URLSearchParams();
+    const urlRedirect = new URLSearchParams(window.location.search).get("redirect");
+    if (urlRedirect) params.set("redirect", urlRedirect);
+    window.location.href = `/api/auth/oauth/google${params.toString() ? `?${params.toString()}` : ""}`;
   };
 
   return (

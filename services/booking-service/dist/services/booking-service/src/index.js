@@ -4,6 +4,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = __importDefault(require("express"));
+const dotenv_1 = require("dotenv");
 const shared_1 = require("@travel-web/shared");
 const routes_1 = require("./http/routes");
 const error_handler_1 = require("./http/middlewares/error-handler");
@@ -14,6 +15,8 @@ const health_1 = require("./lib/health");
 const logger = new shared_1.Logger('BookingService');
 const app = (0, express_1.default)();
 const PORT = process.env.PORT || 3002;
+// Load env for local dev runs (turbo dev). In docker-compose, env is injected by the container.
+(0, dotenv_1.config)({ path: '../../.env' });
 app.use(express_1.default.json());
 app.use('/api/bookings', routes_1.bookingRouter);
 app.get('/healthz', health_1.healthHandler);

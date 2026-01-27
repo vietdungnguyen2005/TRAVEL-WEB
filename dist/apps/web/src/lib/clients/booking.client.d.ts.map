@@ -1,1 +1,0 @@
-{"version":3,"file":"booking.client.d.ts","sourceRoot":"","sources":["../../../../../../apps/web/src/lib/clients/booking.client.ts"],"names":[],"mappings":"AACA,OAAO,EAAE,cAAc,EAAE,eAAe,EAAE,MAAM,uBAAuB,CAAC;AAExE,QAAA,MAAM,aAAa;wBACS,cAAc,GAAG,OAAO,CAAC,eAAe,CAAC;mBAK9C,MAAM,GAAG,OAAO,CAAC,eAAe,CAAC;CAIvD,CAAC;AAEF,eAAe,aAAa,CAAC"}

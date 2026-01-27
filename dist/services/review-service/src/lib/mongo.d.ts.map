@@ -1,1 +1,1 @@
-{"version":3,"file":"mongo.d.ts","sourceRoot":"","sources":["../../../../../services/review-service/src/lib/mongo.ts"],"names":[],"mappings":"AAAA,OAAO,QAAQ,MAAM,UAAU,CAAC;AAIhC,wBAAsB,YAAY,6BAqBjC"}
+{"version":3,"file":"mongo.d.ts","sourceRoot":"","sources":["../../../../../services/review-service/src/lib/mongo.ts"],"names":[],"mappings":""}

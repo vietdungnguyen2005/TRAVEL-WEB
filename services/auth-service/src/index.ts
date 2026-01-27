@@ -2,12 +2,14 @@ import express from 'express';
 import { consulRegisterService, Logger } from '@travel-web/shared';
 import { authRouter } from './http/routes';
 import { errorHandler } from './http/middlewares/error-handler';
+import cookieParser from 'cookie-parser';
 
 const logger = new Logger('AuthService');
 const app = express();
 const PORT = process.env.PORT || 3001;
 
 app.use(express.json());
+app.use(cookieParser());
 app.use('/api/auth', authRouter);
 
 app.get('/health', (_req, res) => {

@@ -4,13 +4,22 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = __importDefault(require("express"));
+const dotenv_1 = require("dotenv");
 const shared_1 = require("@travel-web/shared");
 const prisma_1 = __importDefault(require("./lib/prisma"));
 const app = (0, express_1.default)();
 const PORT = process.env.PORT || 3006;
 const logger = new shared_1.Logger('NotificationService');
+(0, dotenv_1.config)({ path: '../../.env' });
 app.get('/health', (_req, res) => res.status(200).json({ ok: true, service: 'notification-service' }));
 async function startConsumers() {
+    if (process.env.DISABLE_RABBITMQ === 'true') {
+        logger.warn('DISABLE_RABBITMQ=true; skipping RabbitMQ consumers');
+        return;
+    }
+    if (!process.env.RABBITMQ_URL) {
+        throw new Error('RABBITMQ_URL is not set');
+    }
     const queue = process.env.RABBITMQ_QUEUE_NOTIFICATIONS || 'notification-service.events';
     await (0, shared_1.rabbitConsume)({
         queue,

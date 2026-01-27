@@ -2,6 +2,13 @@ import prisma from './prisma';
 import { Logger, rabbitConsume, rabbitPublish } from '@travel-web/shared';
 const logger = new Logger('PaymentEventsConsumer');
 export async function startPaymentEventsConsumer() {
+    if (process.env.DISABLE_RABBITMQ === 'true') {
+        logger.warn('DISABLE_RABBITMQ=true; skipping payment events consumer');
+        return;
+    }
+    if (!process.env.RABBITMQ_URL) {
+        throw new Error('RABBITMQ_URL is not set');
+    }
     const queue = process.env.RABBITMQ_QUEUE_PAYMENT_EVENTS || 'booking-service.payment-events';
     await rabbitConsume({
         queue,

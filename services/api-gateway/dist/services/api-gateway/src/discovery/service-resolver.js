@@ -1,6 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.getServiceTarget = getServiceTarget;
+exports.getServicePlaceholderTarget = getServicePlaceholderTarget;
 const discovery_config_1 = require("../config/discovery.config");
 const services_config_1 = require("../config/services.config");
 const consul_client_1 = require("./consul.client");
@@ -35,7 +36,15 @@ async function getServiceTarget(serviceKey, mode) {
         return services_config_1.services[serviceKey];
     const entry = await resolveFromConsul(serviceKey);
     const target = rrPick(entry);
-    // fallback to static if consul has no passing instances
-    return target || services_config_1.services[serviceKey];
+    if (target)
+        return target;
+    // Production-like behavior: if discovery is enabled and no instances are healthy,
+    // fail fast instead of silently routing to a possibly stale static URL.
+    throw new Error(`[discovery] No passing instances for service '${serviceKey}' via Consul`);
+}
+// Used only as an initial placeholder for http-proxy-middleware setup/logging.
+// Actual routing is handled dynamically via getServiceTarget() in proxy router().
+function getServicePlaceholderTarget(serviceKey) {
+    return services_config_1.services[serviceKey];
 }
 //# sourceMappingURL=service-resolver.js.map

@@ -2,26 +2,30 @@ import { MainLayout } from "@/components/layout/main-layout";
 import { HeroSection } from "@/components/customer/hero-section";
 import { FeaturedRooms } from "@/components/customer/featured-rooms";
 import { Features } from "@/components/customer/features";
-import { findRoomTypes } from "@/lib/prisma";
+import { gatewayFetch } from "@/lib/gateway-client";
+
+export const dynamic = "force-dynamic";
 
 export default async function Home() {
   let featuredRooms = [] as any[];
   try {
-    featuredRooms = await findRoomTypes({
-      where: {
-        featured: true,
-        available: true,
-      },
-      take: 3,
-      orderBy: {
-        pricePerNight: "asc",
-      },
+    // UI-only: load data from gateway instead of Prisma
+    const res = await gatewayFetch("/api/rooms", {
+      method: "GET",
+      cache: "no-store",
     });
+    if (res.ok) {
+      const data = await res.json();
+      featuredRooms = Array.isArray(data) ? data : data?.data ?? [];
+      // Best-effort filters on client side if gateway doesn't support query params yet
+      featuredRooms = featuredRooms
+        .filter((r: any) => r?.featured && r?.available)
+        .sort((a: any, b: any) => Number(a?.pricePerNight ?? 0) - Number(b?.pricePerNight ?? 0))
+        .slice(0, 3);
+    }
   } catch (err) {
-    // If Prisma is not reachable in dev, return empty list instead of crashing SSR
-    // Log the error for debugging
     // eslint-disable-next-line no-console
-    console.error('Prisma error on Home page:', err);
+    console.error("Error loading featured rooms:", err);
     featuredRooms = [];
   }
 

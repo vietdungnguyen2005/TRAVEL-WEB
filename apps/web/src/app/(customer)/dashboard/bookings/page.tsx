@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth-session";
-import { prisma } from "@/lib/prisma";
+import { gatewayFetchServer } from "@/lib/gateway-server";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -17,21 +17,21 @@ export default async function MyBookingsPage() {
     redirect("/auth/login");
   }
 
-  const bookings = await prisma.booking.findMany({
-    where: {
-      userId: session.user.id,
-    },
-    include: {
-      room: {
-        include: {
-          roomType: true,
-        },
-      },
-    },
-    orderBy: {
-      createdAt: "desc",
-    },
-  });
+  let bookings: any[] = [];
+  try {
+    const res = await gatewayFetchServer("/api/bookings/my-bookings", {
+      method: "GET",
+      cache: "no-store",
+    });
+    if (res.ok) {
+      const data = await res.json();
+      bookings = Array.isArray(data) ? data : data?.data ?? [];
+    }
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.error("Error fetching bookings:", err);
+    bookings = [];
+  }
 
   return (
     <ClientLayout>

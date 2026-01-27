@@ -27,8 +27,12 @@ let connection: ChannelModel | null = null;
 let channel: Channel | null = null;
 
 export async function rabbitConnect(config?: Partial<RabbitMqConfig>) {
-    const url = config?.url || process.env.RABBITMQ_URL || 'amqp://localhost';
+    const url = config?.url || process.env.RABBITMQ_URL;
     const exchange = config?.exchange || process.env.RABBITMQ_EXCHANGE || 'events';
+
+    if (!url) {
+        throw new Error('RABBITMQ_URL is not set');
+    }
 
     if (connection && channel) return { connection, channel, url, exchange };
 

@@ -1,5 +1,6 @@
 "use client";
 
+import type { ChangeEvent, FormEvent } from "react";
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -56,7 +57,7 @@ export default function ProfilePage() {
     })();
   }, []);
 
-  const handleProfileUpdate = async (e: React.FormEvent) => {
+  const handleProfileUpdate = async (e: FormEvent) => {
     e.preventDefault();
     setLoading(true);
 
@@ -84,7 +85,7 @@ export default function ProfilePage() {
     }
   };
 
-  const handlePasswordChange = async (e: React.FormEvent) => {
+  const handlePasswordChange = async (e: FormEvent) => {
     e.preventDefault();
 
     if (passwordData.newPassword !== passwordData.confirmPassword) {
@@ -133,7 +134,7 @@ export default function ProfilePage() {
     }
   };
 
-  const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleAvatarUpload = async (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -275,7 +276,7 @@ export default function ProfilePage() {
                           <Input
                             id="name"
                             value={profileData.name}
-                            onChange={(e) =>
+                            onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
                               setProfileData({ ...profileData, name: e.target.value })
                             }
                             className="pl-10"
@@ -309,7 +310,7 @@ export default function ProfilePage() {
                             id="phone"
                             type="tel"
                             value={profileData.phone}
-                            onChange={(e) =>
+                            onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
                               setProfileData({ ...profileData, phone: e.target.value })
                             }
                             className="pl-10"
@@ -343,7 +344,7 @@ export default function ProfilePage() {
                             id="currentPassword"
                             type="password"
                             value={passwordData.currentPassword}
-                            onChange={(e) =>
+                            onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
                               setPasswordData({
                                 ...passwordData,
                                 currentPassword: e.target.value,
@@ -363,7 +364,7 @@ export default function ProfilePage() {
                             id="newPassword"
                             type="password"
                             value={passwordData.newPassword}
-                            onChange={(e) =>
+                            onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
                               setPasswordData({
                                 ...passwordData,
                                 newPassword: e.target.value,
@@ -383,7 +384,7 @@ export default function ProfilePage() {
                             id="confirmPassword"
                             type="password"
                             value={passwordData.confirmPassword}
-                            onChange={(e) =>
+                            onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
                               setPasswordData({
                                 ...passwordData,
                                 confirmPassword: e.target.value,

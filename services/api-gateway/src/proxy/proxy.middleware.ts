@@ -1,13 +1,16 @@
 import { createProxyMiddleware } from 'http-proxy-middleware';
-import { getServiceTarget } from '../discovery/service-resolver';
+import { getServicePlaceholderTarget, getServiceTarget } from '../discovery/service-resolver';
 
 type ServiceKey = 'authService' | 'bookingService' | 'roomService' | 'paymentService' | 'reviewService';
 
 function proxyTo(serviceKey: ServiceKey, pathPrefix: string) {
     return createProxyMiddleware({
-        target: 'http://localhost', // placeholder; will be overridden by router()
+        // Used by http-proxy-middleware for initial setup/logging; real routing happens via router().
+        target: getServicePlaceholderTarget(serviceKey),
         changeOrigin: true,
-        pathRewrite: { [`^${pathPrefix}`]: '' },
+        // Keep the prefix because upstream services mount their routers under the same prefix
+        // e.g. auth-service mounts under `/api/auth`.
+        pathRewrite: undefined,
         router: async () => {
             return await getServiceTarget(serviceKey);
         },

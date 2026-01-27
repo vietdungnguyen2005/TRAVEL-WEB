@@ -1,1 +1,0 @@
-{"version":3,"file":"auth.client.d.ts","sourceRoot":"","sources":["../../../../../../apps/web/src/lib/clients/auth.client.ts"],"names":[],"mappings":"AACA,OAAO,EAAE,YAAY,EAAE,aAAa,EAAE,MAAM,uBAAuB,CAAC;AAEpE,QAAA,MAAM,UAAU;gBACI,YAAY,GAAG,OAAO,CAAC,aAAa,CAAC;mBAKlC,YAAY,GAAG,OAAO,CAAC,aAAa,CAAC;0BAK9B,MAAM,GAAG,OAAO,CAAC,IAAI,CAAC;CAGnD,CAAC;AAEF,eAAe,UAAU,CAAC"}

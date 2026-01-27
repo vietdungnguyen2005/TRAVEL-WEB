@@ -1,4 +1,5 @@
 import express from 'express';
+import { config as dotenvConfig } from 'dotenv';
 import { consulRegisterService, Logger, rabbitConsume } from '@travel-web/shared';
 import prisma from './lib/prisma';
 
@@ -6,9 +7,18 @@ const app = express();
 const PORT = process.env.PORT || 3006;
 const logger = new Logger('NotificationService');
 
+dotenvConfig({ path: '../../.env' });
+
 app.get('/health', (_req, res) => res.status(200).json({ ok: true, service: 'notification-service' }));
 
 async function startConsumers() {
+    if (process.env.DISABLE_RABBITMQ === 'true') {
+        logger.warn('DISABLE_RABBITMQ=true; skipping RabbitMQ consumers');
+        return;
+    }
+    if (!process.env.RABBITMQ_URL) {
+        throw new Error('RABBITMQ_URL is not set');
+    }
     const queue = process.env.RABBITMQ_QUEUE_NOTIFICATIONS || 'notification-service.events';
     await rabbitConsume(
         {

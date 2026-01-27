@@ -1,7 +1,12 @@
-import { Role, BookingStatus } from "@prisma/client";
-
-// Re-export Prisma enums
-export { Role, BookingStatus };
+// Web app is UI-only: do not depend on Prisma client types.
+// Keep lightweight string unions here.
+export type Role = 'ADMIN' | 'CUSTOMER';
+export type BookingStatus =
+  | 'PENDING'
+  | 'CONFIRMED'
+  | 'CANCELLED'
+  | 'COMPLETED'
+  | 'REFUNDED';
 
 // Booking types
 export interface BookingFormData {

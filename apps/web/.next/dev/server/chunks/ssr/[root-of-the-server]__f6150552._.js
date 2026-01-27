@@ -284,7 +284,8 @@ __turbopack_context__.s([
     ()=>publicEnv
 ]);
 const publicEnv = {
-    NEXT_PUBLIC_API_GATEWAY_URL: process.env.NEXT_PUBLIC_API_GATEWAY_URL
+    // Default for local dev/build. In production, set NEXT_PUBLIC_API_GATEWAY_URL explicitly.
+    NEXT_PUBLIC_API_GATEWAY_URL: process.env.NEXT_PUBLIC_API_GATEWAY_URL ?? "http://localhost:4000"
 };
 }),
 "[project]/apps/web/src/lib/gateway-client.ts [app-ssr] (ecmascript)", ((__turbopack_context__) => {
@@ -321,7 +322,9 @@ async function gatewayFetch(path, options = {}) {
     if (!finalHeaders.has("Content-Type") && rest.body) {
         finalHeaders.set("Content-Type", "application/json");
     }
-    if (attachAccessToken) {
+    // Default to attaching access token unless explicitly disabled.
+    const shouldAttach = attachAccessToken !== false;
+    if (shouldAttach) {
         const token = getAccessTokenFromCookie();
         if (token && !finalHeaders.has("Authorization")) {
             finalHeaders.set("Authorization", `Bearer ${token}`);
@@ -392,8 +395,8 @@ function LoginPage() {
                 });
                 return;
             }
-            // Expected payload: { accessToken, user }
-            const token = data?.accessToken;
+            // Support both shapes: { token } (contracts) or legacy { accessToken }
+            const token = data?.token || data?.accessToken;
             if (token) {
                 document.cookie = `access_token=${encodeURIComponent(token)}; Path=/; SameSite=Lax`;
             }
@@ -415,9 +418,10 @@ function LoginPage() {
         }
     };
     const handleGoogleSignIn = async ()=>{
-        __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$sonner$2f$dist$2f$index$2e$mjs__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["toast"].error("Chức năng chưa sẵn sàng", {
-            description: "OAuth chưa được hỗ trợ vì đã loại bỏ NextAuth. Hãy dùng đăng nhập bằng email/mật khẩu."
-        });
+        const params = new URLSearchParams();
+        const urlRedirect = new URLSearchParams(window.location.search).get("redirect");
+        if (urlRedirect) params.set("redirect", urlRedirect);
+        window.location.href = `/api/auth/oauth/google${params.toString() ? `?${params.toString()}` : ""}`;
     };
     return /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
         className: "min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-blue-100 p-4",

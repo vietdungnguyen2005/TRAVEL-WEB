@@ -55,6 +55,12 @@ export default function RegisterPage() {
         throw new Error(error.message || "Đăng ký thất bại");
       }
 
+      const payload = await response.json().catch(() => ({} as any));
+      const token = (payload?.token || payload?.accessToken) as string | undefined;
+      if (token) {
+        document.cookie = `access_token=${encodeURIComponent(token)}; Path=/; SameSite=Lax`;
+      }
+
       toast.success("Đăng ký thành công!", {
         description: "Bạn có thể đăng nhập ngay bây giờ"
       });
@@ -64,6 +70,7 @@ export default function RegisterPage() {
       }, 1000);
     } catch (error) {
       const message = error instanceof Error ? error.message : "Đã có lỗi xảy ra. Vui lòng thử lại.";
+
       toast.error("Đăng ký thất bại", {
         description: message
       });

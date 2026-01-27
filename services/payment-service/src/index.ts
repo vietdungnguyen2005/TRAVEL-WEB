@@ -2,9 +2,12 @@ import express from 'express';
 import Stripe from 'stripe';
 import prisma from './lib/prisma';
 import { consulRegisterService, rabbitPublish } from '@travel-web/shared';
+import { config as dotenvConfig } from 'dotenv';
 
 const app = express();
 const PORT = process.env.PORT || 3004;
+
+dotenvConfig({ path: '../../.env' });
 
 const STRIPE_SECRET_KEY = process.env.STRIPE_SECRET_KEY;
 const STRIPE_WEBHOOK_SECRET = process.env.STRIPE_WEBHOOK_SECRET;

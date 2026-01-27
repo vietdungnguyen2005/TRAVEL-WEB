@@ -1,4 +1,5 @@
 import express from 'express';
+import { config as dotenvConfig } from 'dotenv';
 import { consulRegisterService, Logger } from '@travel-web/shared';
 import { bookingRouter } from './http/routes';
 import { errorHandler } from './http/middlewares/error-handler';
@@ -9,6 +10,8 @@ import { healthHandler, readyHandler } from './lib/health';
 const logger = new Logger('BookingService');
 const app = express();
 const PORT = process.env.PORT || 3002;
+// Load env for local dev runs (turbo dev). In docker-compose, env is injected by the container.
+dotenvConfig({ path: '../../.env' });
 app.use(express.json());
 app.use('/api/bookings', bookingRouter);
 app.get('/healthz', healthHandler);
