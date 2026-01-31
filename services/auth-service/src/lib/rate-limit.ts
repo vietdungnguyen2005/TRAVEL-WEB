@@ -1,7 +1,7 @@
 import { Ratelimit } from "@upstash/ratelimit";
 import { Redis } from "@upstash/redis";
 
-let ratelimit: any | null = null;
+let ratelimit: unknown | null = null;
 
 class SimpleMemoryLimiter {
     private store: Map<string, { count: number; reset: number }>;
@@ -82,13 +82,18 @@ export async function checkRateLimit(
     maxRequests: number = 60
 ): Promise<RateLimitResult> {
     try {
-        const limiter = getRateLimiter();
-        const { success, limit, reset, remaining } = await limiter.limit(identifier);
+        const limiter = getRateLimiter() as { limit: (id: string) => Promise<unknown> };
+        const result = (await limiter.limit(identifier)) as {
+            success: boolean;
+            remaining: number;
+            reset: number;
+            limit?: number;
+        };
 
         return {
-            success,
-            remaining,
-            resetTime: reset,
+            success: result.success,
+            remaining: result.remaining,
+            resetTime: result.reset,
         };
     } catch (error) {
         console.error("Rate limit error:", error);

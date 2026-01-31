@@ -165,7 +165,7 @@ export function ImageUpload({
           <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
             <ImageIcon className="h-12 w-12 mb-4" />
             <p className="text-sm">Chưa có ảnh nào</p>
-            <p className="text-xs">Click "Upload ảnh" để thêm</p>
+            <p className="text-xs">Click &quot;Upload ảnh&quot; để thêm</p>
           </div>
         </Card>
       )}

@@ -28,7 +28,41 @@ type PaymentRefundedEvent = {
     at?: string;
 };
 
-type PaymentEvent = PaymentCompletedEvent | PaymentConfirmedEvent | PaymentRefundedEvent;
+type RefundRequestedEvent = {
+    type: 'RefundRequested';
+    bookingId: string;
+    userId: string;
+    reason?: string;
+    at?: string;
+};
+
+type RefundRejectedEvent = {
+    type: 'RefundRejected';
+    bookingId: string;
+    userId: string;
+    at?: string;
+};
+
+type PaymentEvent =
+    | PaymentCompletedEvent
+    | PaymentConfirmedEvent
+    | PaymentRefundedEvent
+    | RefundRequestedEvent
+    | RefundRejectedEvent;
+
+function isPaymentEvent(payload: unknown): payload is PaymentEvent {
+    if (!payload || typeof payload !== 'object') return false;
+    const p = payload as { type?: unknown; bookingId?: unknown };
+    if (typeof p.type !== 'string') return false;
+    if (typeof p.bookingId !== 'string') return false;
+    return (
+        p.type === 'PaymentCompleted' ||
+        p.type === 'PaymentConfirmed' ||
+        p.type === 'PaymentRefunded' ||
+        p.type === 'RefundRequested' ||
+        p.type === 'RefundRejected'
+    );
+}
 
 export async function startPaymentEventsConsumer() {
     if (process.env.DISABLE_RABBITMQ === 'true') {
@@ -47,8 +81,9 @@ export async function startPaymentEventsConsumer() {
             prefetch: 10,
             consumerTag: 'booking-service/payment-events',
         },
-        async (evt: PaymentEvent) => {
-            if (!evt?.bookingId) return;
+        async (payload) => {
+            if (!isPaymentEvent(payload)) return;
+            const evt = payload;
 
             if (evt.type === 'PaymentCompleted' || evt.type === 'PaymentConfirmed') {
                 const updated = await prisma.booking.update({
@@ -121,6 +156,22 @@ export async function startPaymentEventsConsumer() {
                 });
 
                 logger.info('Booking cancelled from refund event', { bookingId: updated.id });
+            }
+
+            if (evt.type === 'RefundRequested') {
+                await prisma.booking.update({
+                    where: { id: evt.bookingId },
+                    data: { paymentStatus: 'REFUND_REQUESTED' },
+                });
+                logger.info('Booking marked refund requested', { bookingId: evt.bookingId });
+            }
+
+            if (evt.type === 'RefundRejected') {
+                await prisma.booking.update({
+                    where: { id: evt.bookingId },
+                    data: { paymentStatus: 'REFUND_REJECTED' },
+                });
+                logger.info('Booking marked refund rejected', { bookingId: evt.bookingId });
             }
         },
     );

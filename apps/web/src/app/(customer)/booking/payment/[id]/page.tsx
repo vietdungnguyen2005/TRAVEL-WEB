@@ -20,7 +20,7 @@ import {
 import { format } from "date-fns";
 import Image from "next/image";
 import { ClientLayout } from "@/components/layout/client-layout";
-import { gatewayFetch, gatewayUrl } from "@/lib/gateway-client";
+import { gatewayFetch } from "@/lib/gateway-client";
 
 interface BookingData {
   id: string;
@@ -31,17 +31,6 @@ interface BookingData {
   totalPrice: number;
   status: string;
   holdExpiresAt: string;
-  room: {
-    id: string;
-    roomNumber: string;
-    roomType: {
-      id: string;
-      name: string;
-      description: string;
-      images: string[];
-      pricePerNight: number;
-    };
-  };
   guestName?: string;
   guestEmail?: string;
   guestPhone?: string;
@@ -84,11 +73,26 @@ export default function PaymentPage({ params }: { params: Promise<{ id: string }
 
   const fetchBooking = async () => {
     try {
-      const response = await fetch(gatewayUrl(`/api/booking/${encodeURIComponent(id)}`));
+      const response = await gatewayFetch("/api/bookings/my-bookings", {
+        method: "GET",
+        attachAccessToken: true,
+        cache: "no-store",
+      });
+
       if (!response.ok) {
+        if (response.status === 401) {
+          router.push(`/auth/login?redirect=${encodeURIComponent(`/booking/payment/${id}`)}`);
+          return;
+        }
         throw new Error("Failed to fetch booking");
       }
-      const data = await response.json();
+
+      const list = await response.json();
+      const data = Array.isArray(list) ? list.find((b: any) => b?.id === id) : null;
+
+      if (!data) {
+        throw new Error("Booking not found");
+      }
 
       if (data.status !== "ON_HOLD") {
         setError("This booking is no longer available for payment");
@@ -110,7 +114,7 @@ export default function PaymentPage({ params }: { params: Promise<{ id: string }
     setError(null);
 
     try {
-      const response = await gatewayFetch("/api/payment/create-checkout", {
+      const response = await gatewayFetch("/api/payments/create-checkout", {
         method: "POST",
         body: JSON.stringify({
           bookingId: booking.id,
@@ -137,7 +141,7 @@ export default function PaymentPage({ params }: { params: Promise<{ id: string }
     setError(null);
 
     try {
-      const response = await gatewayFetch("/api/payment/confirm", {
+      const response = await gatewayFetch("/api/payments/confirm", {
         method: "POST",
         body: JSON.stringify({
           bookingId: booking.id,
@@ -208,8 +212,7 @@ export default function PaymentPage({ params }: { params: Promise<{ id: string }
   if (!booking) return null;
 
   const nights = calculateNights();
-  const pricePerNight = Number(booking.room.roomType.pricePerNight);
-
+  const pricePerNight = nights > 0 ? Number(booking.totalPrice) / nights : Number(booking.totalPrice);
   return (
     <ClientLayout>
       <div className="container mx-auto px-4 py-8">
@@ -305,20 +308,9 @@ export default function PaymentPage({ params }: { params: Promise<{ id: string }
                 <CardTitle>Booking Summary</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                {booking.room.roomType.images[0] && (
-                  <div className="relative h-48 rounded-lg overflow-hidden">
-                    <Image
-                      src={booking.room.roomType.images[0]}
-                      alt={booking.room.roomType.name}
-                      fill
-                      className="object-cover"
-                    />
-                  </div>
-                )}
-
                 <div>
-                  <h3 className="font-semibold text-lg">{booking.room.roomType.name}</h3>
-                  <p className="text-sm text-muted-foreground">Room {booking.room.roomNumber}</p>
+                  <h3 className="font-semibold text-lg">Booking</h3>
+                  <p className="text-sm text-muted-foreground">Room ID: {booking.roomId}</p>
                 </div>
 
                 <Separator />

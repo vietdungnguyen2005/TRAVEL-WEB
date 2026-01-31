@@ -7,6 +7,20 @@ exports.startPaymentEventsConsumer = startPaymentEventsConsumer;
 const prisma_1 = __importDefault(require("./prisma"));
 const shared_1 = require("@travel-web/shared");
 const logger = new shared_1.Logger('PaymentEventsConsumer');
+function isPaymentEvent(payload) {
+    if (!payload || typeof payload !== 'object')
+        return false;
+    const p = payload;
+    if (typeof p.type !== 'string')
+        return false;
+    if (typeof p.bookingId !== 'string')
+        return false;
+    return (p.type === 'PaymentCompleted' ||
+        p.type === 'PaymentConfirmed' ||
+        p.type === 'PaymentRefunded' ||
+        p.type === 'RefundRequested' ||
+        p.type === 'RefundRejected');
+}
 async function startPaymentEventsConsumer() {
     if (process.env.DISABLE_RABBITMQ === 'true') {
         logger.warn('DISABLE_RABBITMQ=true; skipping payment events consumer');
@@ -21,9 +35,10 @@ async function startPaymentEventsConsumer() {
         bindingKeys: ['payment.*'],
         prefetch: 10,
         consumerTag: 'booking-service/payment-events',
-    }, async (evt) => {
-        if (!evt?.bookingId)
+    }, async (payload) => {
+        if (!isPaymentEvent(payload))
             return;
+        const evt = payload;
         if (evt.type === 'PaymentCompleted' || evt.type === 'PaymentConfirmed') {
             const updated = await prisma_1.default.booking.update({
                 where: { id: evt.bookingId },
@@ -88,6 +103,20 @@ async function startPaymentEventsConsumer() {
                 },
             });
             logger.info('Booking cancelled from refund event', { bookingId: updated.id });
+        }
+        if (evt.type === 'RefundRequested') {
+            await prisma_1.default.booking.update({
+                where: { id: evt.bookingId },
+                data: { paymentStatus: 'REFUND_REQUESTED' },
+            });
+            logger.info('Booking marked refund requested', { bookingId: evt.bookingId });
+        }
+        if (evt.type === 'RefundRejected') {
+            await prisma_1.default.booking.update({
+                where: { id: evt.bookingId },
+                data: { paymentStatus: 'REFUND_REJECTED' },
+            });
+            logger.info('Booking marked refund rejected', { bookingId: evt.bookingId });
         }
     });
 }

@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth-session";
 import Link from "next/link";
-import { Home, Calendar, Bed, Users, BarChart3, Settings, Image } from "lucide-react";
+import { Home, Calendar, Bed, Users, BarChart3, Settings, Image, FileText } from "lucide-react";
 
 export default async function AdminLayout({
     children,
@@ -9,7 +9,6 @@ export default async function AdminLayout({
     children: React.ReactNode;
 }) {
     const session = await auth();
-
     if (!session || session.user.role !== "ADMIN") {
         redirect("/");
     }
@@ -39,6 +38,11 @@ export default async function AdminLayout({
             href: "/admin/hero-images",
             label: "Ảnh trang chủ",
             icon: Image,
+        },
+        {
+            href: "/admin/blog",
+            label: "Quản lý blog",
+            icon: FileText,
         },
         {
             href: "/admin/users",

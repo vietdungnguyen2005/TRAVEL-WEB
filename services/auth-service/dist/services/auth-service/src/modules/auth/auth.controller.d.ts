@@ -1,4 +1,5 @@
-export declare function register(req: any, res: any): Promise<any>;
-export declare function login(req: any, res: any): Promise<any>;
-export declare function verifyToken(req: any, res: any): Promise<any>;
+import type { Request, Response } from 'express';
+export declare function register(req: Request, res: Response): Promise<Response<any, Record<string, any>>>;
+export declare function login(req: Request, res: Response): Promise<Response<any, Record<string, any>>>;
+export declare function verifyToken(req: Request, res: Response): Promise<Response<any, Record<string, any>>>;
 //# sourceMappingURL=auth.controller.d.ts.map

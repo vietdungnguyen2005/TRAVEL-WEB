@@ -4,5 +4,7 @@ export declare const proxyMiddleware: {
     rooms: import("http-proxy-middleware").RequestHandler;
     payments: import("http-proxy-middleware").RequestHandler;
     reviews: import("http-proxy-middleware").RequestHandler;
+    content: import("http-proxy-middleware").RequestHandler;
+    blog: import("http-proxy-middleware").RequestHandler;
 };
 //# sourceMappingURL=proxy.middleware.d.ts.map

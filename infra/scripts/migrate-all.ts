@@ -18,7 +18,7 @@ async function migrateAll() {
   for (const service of services) {
     const servicePath = path.join(__dirname, '../../services', service);
     console.log(`Migrating ${service}...`);
-    
+
     try {
       await execAsync('npx prisma migrate dev', {
         cwd: servicePath,

@@ -8,7 +8,9 @@ function proxyTo(serviceKey, pathPrefix) {
         // Used by http-proxy-middleware for initial setup/logging; real routing happens via router().
         target: (0, service_resolver_1.getServicePlaceholderTarget)(serviceKey),
         changeOrigin: true,
-        pathRewrite: { [`^${pathPrefix}`]: '' },
+        // Keep the prefix because upstream services mount their routers under the same prefix
+        // e.g. auth-service mounts under `/api/auth`.
+        pathRewrite: undefined,
         router: async () => {
             return await (0, service_resolver_1.getServiceTarget)(serviceKey);
         },
@@ -22,5 +24,7 @@ exports.proxyMiddleware = {
     rooms: proxyTo('roomService', '/api/rooms'),
     payments: proxyTo('paymentService', '/api/payments'),
     reviews: proxyTo('reviewService', '/api/reviews'),
+    content: proxyTo('contentService', '/api/hero-images'),
+    blog: proxyTo('blogService', '/api/blog'),
 };
 //# sourceMappingURL=proxy.middleware.js.map

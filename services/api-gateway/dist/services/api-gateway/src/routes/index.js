@@ -11,6 +11,20 @@ router.use('/api/bookings', proxy_middleware_1.proxyMiddleware.bookings);
 router.use('/api/rooms', proxy_middleware_1.proxyMiddleware.rooms);
 router.use('/api/payments', proxy_middleware_1.proxyMiddleware.payments);
 router.use('/api/reviews', proxy_middleware_1.proxyMiddleware.reviews);
+router.use('/api/hero-images', proxy_middleware_1.proxyMiddleware.content);
+router.use('/api/blog', proxy_middleware_1.proxyMiddleware.blog);
+// Admin (gateway-first): keep admin endpoints under /api/admin/* and forward to the owning service.
+// - users, analytics -> auth service
+// - rooms, room-types, hero-images -> room/content services
+// - bookings -> booking service
+router.use('/api/admin/users', proxy_middleware_1.proxyMiddleware.auth);
+router.use('/api/admin/stats', proxy_middleware_1.proxyMiddleware.auth);
+router.use('/api/admin/analytics', proxy_middleware_1.proxyMiddleware.auth);
+router.use('/api/admin/bookings', proxy_middleware_1.proxyMiddleware.bookings);
+router.use('/api/admin/rooms', proxy_middleware_1.proxyMiddleware.rooms);
+router.use('/api/admin/room-types', proxy_middleware_1.proxyMiddleware.rooms);
+router.use('/api/admin/hero-images', proxy_middleware_1.proxyMiddleware.content);
+router.use('/api/admin/blog', proxy_middleware_1.proxyMiddleware.blog);
 // Health check endpoint
 router.get('/health', (req, res) => {
     res.status(200).json({ success: true, data: 'API Gateway is healthy' });

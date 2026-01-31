@@ -22,7 +22,7 @@ app.use(logging_middleware_1.loggingMiddleware);
 // Routes
 app.use(routes_1.default);
 // Global error handler
-app.use((err, req, res, next) => {
+app.use((err, _req, res, _next) => {
     console.error(err);
     res.status(500).json({ success: false, error: 'Internal Server Error' });
 });

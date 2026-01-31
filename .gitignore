@@ -34,6 +34,12 @@ yarn-error.log*
 .env
 .env*.local
 !.env.example
+.env.docker
+.env.supabase
+
+# Supabase->Docker sync config
+.replicate/
+infra/replication/supabase.env
 
 # vercel
 .vercel

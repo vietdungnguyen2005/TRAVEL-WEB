@@ -27,7 +27,7 @@ export default function BookingSuccessPage() {
 
   const verifyPayment = async (id?: string | null) => {
     try {
-      const response = await gatewayFetch("/api/payment/verify", {
+      const response = await gatewayFetch("/api/payments/verify", {
         method: "POST",
         body: JSON.stringify({ sessionId: id ?? sessionId }),
         attachAccessToken: true,

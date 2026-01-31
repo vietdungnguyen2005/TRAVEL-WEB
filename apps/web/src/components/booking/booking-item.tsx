@@ -54,7 +54,7 @@ export function BookingItem({ booking }: BookingItemProps) {
   const handlePayment = async () => {
     setPaying(true);
     try {
-      const response = await gatewayFetch("/api/payment/create-checkout", {
+      const response = await gatewayFetch("/api/payments/create-checkout", {
         method: "POST",
         body: JSON.stringify({ bookingId: booking.id }),
         attachAccessToken: true,

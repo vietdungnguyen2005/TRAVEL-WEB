@@ -24,6 +24,28 @@ services:
     networks:
       - backend-network
 
+  # Simple shared DB viewer for the team (connect to auth-db/booking-db/...)
+  pgadmin:
+    image: dpage/pgadmin4:8
+    container_name: pgadmin
+    ports:
+      - "5050:80"
+    volumes:
+      - pgadmin-data:/var/lib/pgadmin
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@local.dev
+      PGADMIN_DEFAULT_PASSWORD: admin
+      PGADMIN_CONFIG_SERVER_MODE: "False"
+    depends_on:
+      - auth-db
+      - booking-db
+      - room-db
+      - payment-db
+      - review-db
+      - notification-db
+    networks:
+      - backend-network
+
   consul:
     image: hashicorp/consul:1.16.0
     container_name: consul
@@ -164,6 +186,25 @@ services:
       timeout: 5s
       retries: 5
 
+  blog-db:
+    image: postgres:15
+    container_name: blog-db
+    ports:
+      - "5438:5432"
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: blog_db
+    volumes:
+      - blog-db-data:/var/lib/postgresql/data
+    networks:
+      - backend-network
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   redis:
     image: redis:7-alpine
     container_name: redis
@@ -262,6 +303,21 @@ services:
     networks:
       - backend-network
 
+  blog-service:
+    build:
+      context: .
+      dockerfile: services/blog-service/Dockerfile
+    container_name: blog-service
+    ports:
+      - "3008:3008"
+    depends_on:
+      - blog-db
+    environment:
+      - PORT=3008
+      - BLOG_DATABASE_URL=postgresql://postgres:postgres@blog-db:5432/blog_db
+    networks:
+      - backend-network
+
   api-gateway:
     build: ./services/api-gateway
     container_name: api-gateway
@@ -274,6 +330,7 @@ services:
       - payment-service
       - review-service
       - notification-service
+      - blog-service
       - consul
     environment:
       PORT: 4000
@@ -282,9 +339,44 @@ services:
       ROOM_SERVICE_URL: http://room-service:3003
       PAYMENT_SERVICE_URL: http://payment-service:3004
       REVIEW_SERVICE_URL: http://review-service:3005
+      BLOG_SERVICE_URL: http://blog-service:3008
       SERVICE_DISCOVERY_MODE: ${SERVICE_DISCOVERY_MODE:-static}
       CONSUL_URL: http://consul:8500
       DISCOVERY_REFRESH_MS: 10000
+    networks:
+      - backend-network
+
+  # Scheduled mirror: pull Supabase schemas into local docker Postgres for easy team viewing.
+  # This is best-effort and intended for dev/debug, not production-grade replication.
+  supabase-docker-sync:
+    image: postgres:15
+    container_name: supabase-docker-sync
+    depends_on:
+      - auth-db
+      - booking-db
+      - room-db
+      - payment-db
+      - review-db
+      - notification-db
+      - blog-db
+    volumes:
+      - ./infra/replication:/replication:ro
+    environment:
+      # Optional: sync subset, e.g. "auth,booking"
+      SYNC_SERVICES: ${SYNC_SERVICES:-}
+      # Interval seconds (default 300 = 5 minutes)
+      SYNC_INTERVAL_SECONDS: ${SYNC_INTERVAL_SECONDS:-300}
+    entrypoint: ["/bin/bash", "-lc"]
+    command: |
+      chmod +x /replication/supabase-to-docker.sh && \
+      echo "[supabase-docker-sync] interval=${SYNC_INTERVAL_SECONDS}s" && \
+      while true; do \
+        set -a && \
+        if [ -f /replication/supabase.env ]; then . /replication/supabase.env; fi && \
+        set +a && \
+        /replication/supabase-to-docker.sh || echo "[supabase-docker-sync] sync failed"; \
+        sleep "${SYNC_INTERVAL_SECONDS}"; \
+      done
     networks:
       - backend-network
 
@@ -295,6 +387,8 @@ volumes:
   payment-db-data:
   review-db-data:
   notification-db-data:
+  blog-db-data:
+  pgadmin-data:
 
 networks:
   backend-network:

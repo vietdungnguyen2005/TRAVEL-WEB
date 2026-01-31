@@ -26,21 +26,28 @@ async function startConsumers() {
         bindingKeys: ['booking.*', 'payment.*'],
         prefetch: 20,
         consumerTag: 'notification-service/events',
-    }, async (evt) => {
+    }, async (payload) => {
+        const evt = (payload && typeof payload === 'object'
+            ? payload
+            : undefined);
         // TODO: integrate real email/SMS sending and templates.
-        logger.info('Received event', { type: evt?.type, bookingId: evt?.bookingId, userId: evt?.userId });
+        logger.info('Received event', {
+            type: typeof evt?.type === 'string' ? evt.type : undefined,
+            bookingId: typeof evt?.bookingId === 'string' ? evt.bookingId : undefined,
+            userId: typeof evt?.userId === 'string' ? evt.userId : undefined,
+        });
         // Persist as PENDING notification for retryable processing.
         // For now, we store minimal metadata; actual "to" can be resolved via user profile service later.
         try {
             await prisma_1.default.notification.create({
                 data: {
-                    userId: evt?.userId || null,
-                    bookingId: evt?.bookingId || null,
-                    type: String(evt?.type || 'UnknownEvent'),
+                    userId: typeof evt?.userId === 'string' ? evt.userId : null,
+                    bookingId: typeof evt?.bookingId === 'string' ? evt.bookingId : null,
+                    type: typeof evt?.type === 'string' ? evt.type : 'UnknownEvent',
                     channel: 'EMAIL',
                     to: String(process.env.NOTIFICATION_FALLBACK_EMAIL || 'unknown@example.com'),
-                    subject: `Event: ${String(evt?.type || 'Unknown')}`,
-                    payload: evt || null,
+                    subject: `Event: ${typeof evt?.type === 'string' ? evt.type : 'Unknown'}`,
+                    payload: (payload ?? {}),
                     status: 'PENDING',
                 },
             });

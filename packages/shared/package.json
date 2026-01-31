@@ -3,7 +3,8 @@
     "version": "1.0.0",
     "main": "dist/index.js",
     "scripts": {
-        "build": "tsc"
+        "build": "tsc",
+        "lint": "eslint ."
     },
     "dependencies": {
         "axios": "^0.26.1"

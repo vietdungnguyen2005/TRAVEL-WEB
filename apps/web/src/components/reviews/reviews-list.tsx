@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { gatewayFetch } from "@/lib/gateway-client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Star } from "lucide-react";
@@ -45,10 +46,11 @@ export function ReviewsList({ roomTypeId }: ReviewsListProps) {
   async function fetchReviews() {
     try {
       setLoading(true);
-      const response = await fetch(
-        `/api/reviews/room-type/${roomTypeId}?page=${page}&limit=10`
+      const response = await gatewayFetch(
+        `/api/reviews/room-type/${roomTypeId}?page=${page}&limit=10`,
+        { method: "GET" }
       );
-      
+
       if (response.ok) {
         const data = await response.json();
         setReviews(data.reviews);
@@ -68,11 +70,10 @@ export function ReviewsList({ roomTypeId }: ReviewsListProps) {
         {[1, 2, 3, 4, 5].map((star) => (
           <Star
             key={star}
-            className={`w-4 h-4 ${
-              star <= rating
+            className={`w-4 h-4 ${star <= rating
                 ? "fill-yellow-400 text-yellow-400"
                 : "text-gray-300"
-            }`}
+              }`}
           />
         ))}
       </div>

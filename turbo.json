@@ -8,6 +8,11 @@
             "cache": false,
             "persistent": true
         },
+        "lint": {
+            "dependsOn": [
+                "^lint"
+            ]
+        },
         "build": {
             "dependsOn": [
                 "^build"

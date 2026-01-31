@@ -25,6 +25,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { ClientLayout } from "@/components/layout/client-layout";
 import { gatewayFetch } from "@/lib/gateway-client";
+import { RefundRequestButton } from "@/components/customer/refund-request-button";
 
 interface Booking {
   id: string;
@@ -62,6 +63,7 @@ export default function DashboardPage() {
       const response = await gatewayFetch("/api/bookings/my-bookings", {
         method: "GET",
         attachAccessToken: true,
+        cache: "no-store",
       });
       if (!response.ok) {
         if (response.status === 401) {
@@ -255,6 +257,11 @@ export default function DashboardPage() {
                     View Details
                   </Button>
                 </Link>
+
+                <RefundRequestButton
+                  bookingId={booking.id}
+                  paymentStatus={booking.paymentStatus}
+                />
                 {canCancel && (
                   <Button
                     variant="destructive"

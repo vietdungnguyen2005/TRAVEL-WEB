@@ -1,23 +1,56 @@
-# 🏨 Travel Booking System
+# 🏨 Travel Booking System (Monorepo)
 
-> Monorepo hệ thống đặt phòng theo hướng **microservice** (Express services + API Gateway) và một **web app** (Next.js) cho UI.
+> Hệ thống đặt phòng theo hướng **microservice** (Node.js/Express services + **API Gateway**) và một **web app** (Next.js) cho UI.
 
-**Status:** ✅ Production Ready | **Security Score:** A+ (100/100) | **Version:** 1.0.0
+**Status:** ✅ Production Ready | **Version:** 1.0.0
 
 ---
 
-## 📚 MỤC LỤC
+## ✅ Quick Start (khuyên dùng)
+
+### 1) Chạy full hệ thống bằng Docker (DB + services + observability)
+
+```bash
+# 1) Cài dependencies để build workspace (khuyến nghị)
+npm install
+
+# 2) Start full stack
+docker compose up -d --build
+
+# 3) Xem trạng thái
+docker compose ps
+```
+
+Sau khi chạy:
+- Gateway (public backend entrypoint): **http://localhost:4000**
+- Web UI: tuỳ cách chạy (xem mục “Chạy Web UI” bên dưới)
+
+### 2) Chạy Web UI (Next.js)
+
+Web nằm ở `apps/web`.
+
+```bash
+npm run dev
+```
+
+Mặc định web chạy ở: **http://localhost:3000**
+
+> Ghi chú: repo có 2 gateway nhưng chỉ **`services/api-gateway`** là canonical. `apps/gateway` là legacy/experimental.
+
+---
+
+## 📚 Mục lục
 
 1. [Tech Stack](#-tech-stack)
-2. [Tính năng](#-tính-năng-chính)
-3. [Cài đặt](#️-cài-đặt-development)
-4. [Cấu hình](#-cấu-hình-môi-trường)
-5. [Database](#-database-setup)
-6. [Chạy ứng dụng](#-chạy-ứng-dụng)
-7. [Testing](#-testing)
-8. [Deployment](#-deployment-production)
-9. [Security](#-security-features)
-10. [API Documentation](#-api-endpoints)
+2. [Kiến trúc](#-architecture-high-level)
+3. [Tính năng chính](#-tính-năng-chính)
+4. [Cài đặt](#️-cài-đặt-development)
+5. [Cấu hình môi trường](#-cấu-hình-môi-trường)
+6. [Chạy dự án](#-chạy-dự-án)
+7. [Database & Prisma](#-database--prisma)
+8. [Testing](#-testing)
+9. [Deployment](#-deployment-production)
+10. [API Endpoints](#-api-endpoints)
 11. [Troubleshooting](#-troubleshooting)
 
 ---
@@ -37,7 +70,7 @@
 - **ORM:** Prisma (schema per service ở `services/*/prisma/schema.prisma`)
 - **Message broker:** RabbitMQ (event-driven)
 
-### Architecture (High-level)
+## 🧭 Architecture (High-level)
 
 ```mermaid
 flowchart TB
@@ -235,6 +268,19 @@ Khuyến nghị: giữ 1 gateway canonical để tránh architecture drift.
 
 ## 🔧 CẤU HÌNH MÔI TRƯỜNG
 
+### Checklist biến môi trường tối thiểu để chạy local
+
+Tuỳ theo bạn chạy theo hướng nào:
+
+1) **Chạy Web (Next.js) + API routes trong web** (theo README cũ có `src/app/api/*`): cần `.env` cho NextAuth/Prisma/Stripe/Cloudinary/Resend.
+
+2) **Chạy đúng kiến trúc microservices** (khuyến nghị):
+- Backend entrypoint là `services/api-gateway` (port 4000)
+- Mỗi service có database riêng trong `docker-compose.yml`
+- Web gọi API qua gateway
+
+> Repo đang ở giai đoạn chuyển tiếp: README mô tả cả “web có API routes” và “microservices + gateway”. Khi bàn giao, team nên thống nhất 1 hướng để tránh drift.
+
 ### � Service Discovery (Consul) — API Gateway
 
 Gateway hỗ trợ 2 chế độ resolve upstream services:
@@ -331,56 +377,97 @@ NEXT_PUBLIC_APP_NAME="Travel Booking System"
 
 ## 💾 DATABASE SETUP
 
-### Bước 1: Generate Prisma Client
+> ⚠️ Quan trọng: Repo có **2 kiểu Prisma**
+>
+>- **Prisma per-service (khuyến nghị cho microservices):** schema nằm trong `services/*/prisma/schema.prisma`
+>- **Prisma global (ở thư mục `prisma/`):** tồn tại cho seed/migration chia sẻ hoặc giai đoạn đầu.
+>
+> Khi chạy bằng `docker compose` (root), databases được tạo **theo từng service** (auth-db, booking-db, room-db, ...).
+
+### A) Prisma per-service (khuyên dùng khi chạy microservices)
+
+Ví dụ Auth service:
 ```bash
-npx prisma generate
+cd services/auth-service
+npm install
+npm run prisma:generate
+npm run prisma:migrate
 ```
 
-### Bước 2: Chạy migrations
+Ví dụ Booking service:
 ```bash
+cd services/booking-service
+npm install
+npm run prisma:generate
+npm run prisma:migrate
+```
+
+### B) Prisma global (nếu bạn đang chạy theo hướng web + DB Supabase/local 1 DB)
+
+```bash
+npx prisma generate
 npx prisma migrate dev --name init
 ```
 
-### Bước 3: Seed database (optional)
+Seed (optional):
 ```bash
-npm run seed
-# Hoặc
-npx tsx prisma/seed.ts
+npm run db:seed
 ```
 
-Seed script tạo:
-- 18 room types (Deluxe, Suite, Standard, etc.)
+Seed script tạo (theo tài liệu dự án):
+- 18 room types
 - 5 seasonal pricing rules
 - Admin user: `admin@example.com` / `admin123`
 - Test customer: `customer@example.com` / `customer123`
 
-### Prisma Studio (Database GUI)
+### Prisma Studio
+
 ```bash
 npx prisma studio
-# Mở browser tại http://localhost:5555
 ```
 
 ---
 
-## 🚀 CHẠY ỨNG DỤNG
+## 🚀 Chạy dự án
 
-### Development Mode
+### 1) Chạy full backend stack (Docker)
+
+Chạy ở root (nơi có `docker-compose.yml`):
+
 ```bash
-npm run dev
-# hoặc
-yarn dev
-# hoặc
-pnpm dev
+docker compose up -d --build
 ```
 
-Ứng dụng chạy tại: **http://localhost:3000**
+#### Port map quan trọng (root docker-compose)
 
-### Production Build
+| Thành phần | URL | Ghi chú |
+|---|---|---|
+| API Gateway | http://localhost:4000 | Public backend entrypoint |
+| Auth service | http://localhost:3001 | Internal service (có thể được gateway route) |
+| Booking service | http://localhost:3002 | Internal |
+| Room service | http://localhost:3003 | Internal |
+| RabbitMQ UI | http://localhost:15672 | guest/guest |
+| Consul | http://localhost:8500 | service discovery |
+| Prometheus | http://localhost:9090 | metrics |
+| Grafana | http://localhost:3007 | admin/admin |
+| pgAdmin | http://localhost:5050 | admin@local.dev / admin |
+
+> Một số service/port khác có trong compose (payment/review/notification/blog/redis…). Xem `docker-compose.yml` để biết chi tiết.
+
+### 2) Chạy Web UI (Next.js)
+
+Chạy tại root (Turbo):
+
 ```bash
-# Build
-npm run build
+npm run dev
+```
 
-# Start production server
+Web sẽ chạy tại: **http://localhost:3000**
+
+### 3) Production build (web)
+
+```bash
+npm run build
 npm start
 ```
 
@@ -792,6 +879,8 @@ Customer:
 - **Admin Panel:** http://localhost:3000/admin
 - **Customer Dashboard:** http://localhost:3000/dashboard
 - **API Health:** http://localhost:3000/api/health
+
+> Nếu team chạy đúng kiến trúc microservices, health check sẽ chuyển về gateway (ví dụ: `http://localhost:4000/...`).
 
 ### Recommended Tools
 - **Database:** [Prisma Studio](https://www.prisma.io/studio)

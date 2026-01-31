@@ -3,6 +3,10 @@ import { consulRegisterService, Logger } from '@travel-web/shared';
 import { authRouter } from './http/routes';
 import { errorHandler } from './http/middlewares/error-handler';
 import cookieParser from 'cookie-parser';
+import { config as dotenvConfig } from 'dotenv';
+
+// Keep consistent with other services: load root env file in dev
+dotenvConfig({ path: '../../.env' });
 
 const logger = new Logger('AuthService');
 const app = express();

@@ -4,5 +4,7 @@ export declare const services: {
     roomService: string;
     paymentService: string;
     reviewService: string;
+    contentService: string;
+    blogService: string;
 };
 //# sourceMappingURL=services.config.d.ts.map

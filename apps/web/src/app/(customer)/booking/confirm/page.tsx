@@ -44,13 +44,16 @@ export default function BookingConfirmPage() {
       setLoading(true);
       setError(null);
 
-      const response = await gatewayFetch("/api/booking/check-availability", {
+      const response = await gatewayFetch("/api/bookings/check-availability", {
         method: "POST",
         body: JSON.stringify({
-          roomTypeId: bookingData.roomTypeId,
+          // booking-service expects physical roomId, not roomTypeId.
+          // At this stage we use the pre-selected roomId from the availability step.
+          roomId: bookingData.roomId,
           checkIn: bookingData.checkIn,
           checkOut: bookingData.checkOut,
-          guests: bookingData.guests,
+          // booking-service uses numberOfGuests
+          numberOfGuests: bookingData.guests,
         }),
       });
 
@@ -63,10 +66,12 @@ export default function BookingConfirmPage() {
       setAvailabilityChecked(true);
       setRoomAvailable(data.available);
 
+      // booking-service check-availability responds with { available: boolean }
+      setAssignedRoomId(bookingData.roomId);
+      setAssignedRoomNumber(null);
+
       if (data.available) {
-        setAssignedRoomId(data.roomId);
-        setAssignedRoomNumber(data.roomNumber);
-        await createHoldBooking(data.roomId);
+        await createHoldBooking(bookingData.roomId);
       }
     } catch (err: any) {
       setError(err.message);
@@ -79,16 +84,14 @@ export default function BookingConfirmPage() {
     if (!bookingData) return;
 
     try {
-      const response = await gatewayFetch("/api/booking/hold", {
+      const response = await gatewayFetch("/api/bookings/hold", {
         method: "POST",
         body: JSON.stringify({
+          // userId will be derived server-side from JWT via Authorization/cookie.
           roomId,
           checkIn: bookingData.checkIn,
           checkOut: bookingData.checkOut,
-          guests: bookingData.guests,
-          guestName: bookingData.guestName,
-          guestEmail: bookingData.guestEmail,
-          guestPhone: bookingData.guestPhone,
+          numberOfGuests: bookingData.guests,
           totalPrice: bookingData.totalPrice,
         }),
         attachAccessToken: true,
@@ -100,8 +103,9 @@ export default function BookingConfirmPage() {
         throw new Error(data.error || "Failed to create hold booking");
       }
 
-      setHoldBookingId(data.booking.id);
-      setExpiresAt(new Date(data.booking.expiresAt));
+      // booking-service returns booking directly
+      setHoldBookingId(data.id);
+      setExpiresAt(new Date(data.holdExpiresAt));
     } catch (err: any) {
       setError(err.message);
     }

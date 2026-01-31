@@ -11,6 +11,7 @@ import { Separator } from "@/components/ui/separator";
 import { Hotel, Mail, Lock, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { gatewayFetch } from "@/lib/gateway-client";
+import { gatewayUrl } from "@/lib/gateway-client";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -67,7 +68,10 @@ export default function LoginPage() {
     const params = new URLSearchParams();
     const urlRedirect = new URLSearchParams(window.location.search).get("redirect");
     if (urlRedirect) params.set("redirect", urlRedirect);
-    window.location.href = `/api/auth/oauth/google${params.toString() ? `?${params.toString()}` : ""}`;
+    // Must navigate to the API Gateway (not Next.js origin), otherwise you'll get 404 in dev.
+    window.location.href = gatewayUrl(
+      `/api/auth/oauth/google${params.toString() ? `?${params.toString()}` : ""}`
+    );
   };
 
   return (

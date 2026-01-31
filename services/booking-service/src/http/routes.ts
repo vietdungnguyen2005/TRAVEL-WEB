@@ -1,8 +1,63 @@
 import express from 'express';
 import prisma from '../lib/prisma';
 import { bookingCreateCounter } from '../lib/metrics';
+import jwt from 'jsonwebtoken';
 
 export const bookingRouter = express.Router();
+
+function getJwtSecret() {
+    const secret = process.env.JWT_SECRET;
+    if (!secret) throw new Error('JWT_SECRET is not set');
+    return secret;
+}
+
+function getUserIdFromRequest(req: express.Request): string | undefined {
+    // Support both Authorization: Bearer <token> and cookie access_token.
+    const auth = req.headers.authorization;
+    const bearer = auth?.startsWith('Bearer ') ? auth.slice('Bearer '.length) : undefined;
+
+    const cookieHeader = req.headers.cookie;
+    const cookieToken = cookieHeader
+        ?.split(';')
+        .map((s) => s.trim())
+        .find((c) => c.startsWith('access_token='))
+        ?.split('=')
+        .slice(1)
+        .join('=');
+
+    const token = bearer || cookieToken;
+    if (!token) return undefined;
+
+    try {
+        const decoded = jwt.verify(token, getJwtSecret()) as jwt.JwtPayload | string;
+        if (typeof decoded === 'string') return undefined;
+        return typeof decoded.sub === 'string' ? decoded.sub : undefined;
+    } catch {
+        return undefined;
+    }
+}
+
+// My bookings (used by web dashboard)
+bookingRouter.get('/my-bookings', async (req, res, next) => {
+    try {
+        const tokenUserId = getUserIdFromRequest(req);
+        const queryUserId = typeof req.query.userId === 'string' ? req.query.userId : undefined;
+        const userId = tokenUserId || queryUserId;
+
+        if (!userId) {
+            return res.status(401).json({ message: 'Unauthorized' });
+        }
+
+        const bookings = await prisma.booking.findMany({
+            where: { userId },
+            orderBy: { createdAt: 'desc' },
+        });
+
+        res.json(bookings);
+    } catch (err) {
+        next(err);
+    }
+});
 
 // List bookings (simple; optionally filter by userId)
 bookingRouter.get('/', async (req, res, next) => {
@@ -22,8 +77,9 @@ bookingRouter.get('/', async (req, res, next) => {
 bookingRouter.post('/', async (req, res, next) => {
     const { userId, roomId, checkIn, checkOut, totalPrice, numberOfGuests } = req.body;
     try {
-        const result = await prisma.$transaction(async (tx: any) => {
-            const booking = await tx.booking.create({
+        const result = await prisma.$transaction(async (tx: unknown) => {
+            const typedTx = tx as typeof prisma;
+            const booking = await typedTx.booking.create({
                 data: {
                     userId,
                     roomId,
@@ -35,7 +91,7 @@ bookingRouter.post('/', async (req, res, next) => {
                 }
             });
 
-            await tx.outbox.create({
+            await typedTx.outbox.create({
                 data: {
                     aggregateType: 'Booking',
                     aggregateId: booking.id,
@@ -68,13 +124,20 @@ bookingRouter.post('/', async (req, res, next) => {
 
 // Hold booking (creates ON_HOLD for 15 mins)
 bookingRouter.post('/hold', async (req, res, next) => {
-    const { userId, roomId, checkIn, checkOut, totalPrice, numberOfGuests } = req.body;
+    const tokenUserId = getUserIdFromRequest(req);
+    const { userId: bodyUserId, roomId, checkIn, checkOut, totalPrice, numberOfGuests } = req.body;
+    const userId = bodyUserId || tokenUserId;
     try {
+        if (!userId) {
+            return res.status(401).json({ error: 'Unauthorized' });
+        }
+
         const holdExpiresAt = new Date();
         holdExpiresAt.setMinutes(holdExpiresAt.getMinutes() + 15);
 
-        const result = await prisma.$transaction(async (tx: any) => {
-            const booking = await tx.booking.create({
+        const result = await prisma.$transaction(async (tx: unknown) => {
+            const typedTx = tx as typeof prisma;
+            const booking = await typedTx.booking.create({
                 data: {
                     userId,
                     roomId,
@@ -87,7 +150,7 @@ bookingRouter.post('/hold', async (req, res, next) => {
                 }
             });
 
-            await tx.outbox.create({
+            await typedTx.outbox.create({
                 data: {
                     aggregateType: 'Booking',
                     aggregateId: booking.id,

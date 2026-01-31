@@ -1,7 +1,7 @@
 // Use the payment-service specific generated Prisma client.
-// eslint-disable-next-line @typescript-eslint/no-var-requires
-const { PrismaClient } = require('../../node_modules/.prisma/payment-client');
+// The custom Prisma generator outputs a client under node_modules/.prisma/payment-client.
+import { PrismaClient } from "../../node_modules/.prisma/payment-client";
 
-const prisma = new PrismaClient();
+const prisma: PrismaClient = new PrismaClient();
 
 export default prisma;

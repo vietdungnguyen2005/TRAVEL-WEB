@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
+import { gatewayFetch } from "@/lib/gateway-client";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -27,10 +28,11 @@ export function CancelBookingButton({ bookingId, roomName }: CancelBookingButton
 
   const handleCancel = async () => {
     setLoading(true);
-    
+
     try {
-      const response = await fetch(`/api/bookings/${bookingId}/cancel`, {
+      const response = await gatewayFetch(`/api/bookings/${bookingId}/cancel`, {
         method: "POST",
+        attachAccessToken: true,
       });
 
       if (!response.ok) {

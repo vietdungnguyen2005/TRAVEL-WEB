@@ -62,11 +62,11 @@ function getRateLimiter() {
 async function checkRateLimit(identifier, maxRequests = 60) {
     try {
         const limiter = getRateLimiter();
-        const { success, limit, reset, remaining } = await limiter.limit(identifier);
+        const result = (await limiter.limit(identifier));
         return {
-            success,
-            remaining,
-            resetTime: reset,
+            success: result.success,
+            remaining: result.remaining,
+            resetTime: result.reset,
         };
     }
     catch (error) {

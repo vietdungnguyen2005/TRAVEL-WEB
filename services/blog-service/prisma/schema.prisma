@@ -1,0 +1,29 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../node_modules/.prisma/blog-client"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("BLOG_DATABASE_URL")
+}
+
+enum PostStatus {
+  DRAFT
+  PUBLISHED
+}
+
+model Post {
+  id        String     @id @default(uuid())
+  slug      String     @unique
+  title     String
+  excerpt   String?
+  content   String
+  coverImageUrl String?
+  status    PostStatus @default(DRAFT)
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+
+  @@index([status])
+  @@index([createdAt])
+}

@@ -1,12 +1,10 @@
-import { Logger } from '@travel-web/shared';
+import type { Request, Response } from 'express';
 
-const logger = new Logger('Health');
-
-export function healthHandler(req: any, res: any) {
+export function healthHandler(_req: Request, res: Response) {
     res.status(200).json({ status: 'ok' });
 }
 
-export function readyHandler(req: any, res: any) {
+export function readyHandler(_req: Request, res: Response) {
     // TODO: add readiness checks (DB, RabbitMQ) if needed
     res.status(200).json({ status: 'ready' });
 }

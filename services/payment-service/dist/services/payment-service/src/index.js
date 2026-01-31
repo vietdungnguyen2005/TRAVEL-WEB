@@ -14,7 +14,10 @@ const PORT = process.env.PORT || 3004;
 const STRIPE_SECRET_KEY = process.env.STRIPE_SECRET_KEY;
 const STRIPE_WEBHOOK_SECRET = process.env.STRIPE_WEBHOOK_SECRET;
 const stripe = STRIPE_SECRET_KEY
-    ? new stripe_1.default(STRIPE_SECRET_KEY, { apiVersion: '2025-12-15.clover' })
+    ? new stripe_1.default(STRIPE_SECRET_KEY, {
+        // Keep this pinned to the API version configured in Stripe.
+        apiVersion: '2025-12-15.clover',
+    })
     : null;
 // JSON routes
 app.use(express_1.default.json());
@@ -26,8 +29,8 @@ app.post('/api/payments/create-checkout', async (req, res) => {
     if (!stripe)
         return res.status(500).json({ error: 'Stripe is not configured' });
     const { bookingId, userId, email, amount, currency = 'vnd' } = req.body || {};
-    if (!bookingId || !userId || !email || !amount) {
-        return res.status(400).json({ error: 'bookingId, userId, email, amount are required' });
+    if (!bookingId || !email || !amount) {
+        return res.status(400).json({ error: 'bookingId, email, amount are required' });
     }
     const checkoutSession = await stripe.checkout.sessions.create({
         payment_method_types: ['card'],
@@ -55,7 +58,7 @@ app.post('/api/payments/create-checkout', async (req, res) => {
         where: { bookingId },
         create: {
             bookingId,
-            userId,
+            userId: String(userId || 'unknown'),
             amount: Number(amount),
             currency,
             status: 'PENDING',
@@ -63,6 +66,7 @@ app.post('/api/payments/create-checkout', async (req, res) => {
             metadata: { bookingId, userId },
         },
         update: {
+            userId: String(userId || 'unknown'),
             amount: Number(amount),
             currency,
             status: 'PENDING',
@@ -109,14 +113,17 @@ app.post('/api/payments/verify', async (req, res) => {
 // Confirm payment (non-stripe/cash flow) - records payment success
 app.post('/api/payments/confirm', async (req, res) => {
     const { bookingId, userId, paymentMethod = 'CASH' } = req.body || {};
-    if (!bookingId || !userId)
-        return res.status(400).json({ error: 'bookingId and userId are required' });
+    if (!bookingId)
+        return res.status(400).json({ error: 'bookingId is required' });
+    // In gateway-first mode, the gateway can inject userId from JWT.
+    // Allow the client to omit it.
+    const resolvedUserId = userId ? String(userId) : 'unknown';
     const status = paymentMethod === 'CASH' ? 'PENDING' : 'COMPLETED';
     const payment = await prisma_1.default.payment.upsert({
         where: { bookingId },
         create: {
             bookingId,
-            userId,
+            userId: resolvedUserId,
             amount: 0,
             currency: 'vnd',
             status,
@@ -133,7 +140,7 @@ app.post('/api/payments/confirm', async (req, res) => {
             message: {
                 type: 'PaymentConfirmed',
                 bookingId,
-                userId,
+                userId: resolvedUserId,
                 paymentMethod,
                 status: payment.status,
                 at: new Date().toISOString(),
@@ -141,6 +148,129 @@ app.post('/api/payments/confirm', async (req, res) => {
         });
     }
     return res.json({ success: true, payment });
+});
+// User requests a refund (requires admin approval)
+app.post('/api/payments/refund-request', async (req, res) => {
+    const { bookingId, reason } = req.body || {};
+    if (!bookingId)
+        return res.status(400).json({ error: 'bookingId is required' });
+    const payment = await prisma_1.default.payment.findUnique({ where: { bookingId } });
+    if (!payment)
+        return res.status(404).json({ error: 'Payment not found' });
+    if (payment.status === 'REFUND_REQUESTED') {
+        return res.json({ success: true, bookingId, status: payment.status });
+    }
+    if (payment.status === 'REFUNDED') {
+        return res.status(400).json({ error: 'Payment already refunded' });
+    }
+    const updated = await prisma_1.default.payment.update({
+        where: { bookingId },
+        data: {
+            status: 'REFUND_REQUESTED',
+            metadata: {
+                ...(typeof payment.metadata === 'object' && payment.metadata
+                    ? payment.metadata
+                    : {}),
+                refundRequestReason: reason || 'requested',
+                refundRequestedAt: new Date().toISOString(),
+            },
+        },
+    });
+    await (0, shared_1.rabbitPublish)({
+        routingKey: 'payment.refundrequested',
+        message: {
+            type: 'RefundRequested',
+            bookingId,
+            userId: updated.userId,
+            reason: reason || 'requested',
+            at: new Date().toISOString(),
+        },
+    });
+    return res.json({ success: true, bookingId, status: updated.status });
+});
+// Admin approves refund, then we execute refund and emit PaymentRefunded
+app.post('/api/payments/refund-approve', async (req, res) => {
+    const { bookingId, adminNote } = req.body || {};
+    if (!bookingId)
+        return res.status(400).json({ error: 'bookingId is required' });
+    const payment = await prisma_1.default.payment.findUnique({ where: { bookingId } });
+    if (!payment)
+        return res.status(404).json({ error: 'Payment not found' });
+    if (payment.status !== 'REFUND_REQUESTED') {
+        return res.status(400).json({ error: `Refund is not in requested state (current=${payment.status})` });
+    }
+    await prisma_1.default.payment.update({
+        where: { bookingId },
+        data: {
+            status: 'REFUND_APPROVED',
+            metadata: {
+                ...(typeof payment.metadata === 'object' && payment.metadata
+                    ? payment.metadata
+                    : {}),
+                refundApprovedAt: new Date().toISOString(),
+                refundAdminNote: adminNote || null,
+            },
+        },
+    });
+    // Execute the refund (simplified: just mark as REFUNDED)
+    await prisma_1.default.payment.update({
+        where: { bookingId },
+        data: {
+            status: 'REFUNDED',
+            metadata: {
+                ...(typeof payment.metadata === 'object' && payment.metadata
+                    ? payment.metadata
+                    : {}),
+                refundExecutedAt: new Date().toISOString(),
+            },
+        },
+    });
+    await (0, shared_1.rabbitPublish)({
+        routingKey: 'payment.paymentrefunded',
+        message: {
+            type: 'PaymentRefunded',
+            bookingId,
+            userId: payment.userId,
+            reason: 'approved',
+            at: new Date().toISOString(),
+        },
+    });
+    return res.json({ success: true, bookingId });
+});
+// Admin rejects refund request
+app.post('/api/payments/refund-reject', async (req, res) => {
+    const { bookingId, adminNote } = req.body || {};
+    if (!bookingId)
+        return res.status(400).json({ error: 'bookingId is required' });
+    const payment = await prisma_1.default.payment.findUnique({ where: { bookingId } });
+    if (!payment)
+        return res.status(404).json({ error: 'Payment not found' });
+    if (payment.status !== 'REFUND_REQUESTED') {
+        return res.status(400).json({ error: `Refund is not in requested state (current=${payment.status})` });
+    }
+    const updated = await prisma_1.default.payment.update({
+        where: { bookingId },
+        data: {
+            status: 'REFUND_REJECTED',
+            metadata: {
+                ...(typeof payment.metadata === 'object' && payment.metadata
+                    ? payment.metadata
+                    : {}),
+                refundRejectedAt: new Date().toISOString(),
+                refundAdminNote: adminNote || null,
+            },
+        },
+    });
+    await (0, shared_1.rabbitPublish)({
+        routingKey: 'payment.refundrejected',
+        message: {
+            type: 'RefundRejected',
+            bookingId,
+            userId: updated.userId,
+            at: new Date().toISOString(),
+        },
+    });
+    return res.json({ success: true, bookingId, status: updated.status });
 });
 // Refund payment by bookingId (Stripe refund is simplified here)
 app.post('/api/payments/refund', async (req, res) => {
@@ -152,7 +282,15 @@ app.post('/api/payments/refund', async (req, res) => {
         return res.status(404).json({ error: 'Payment not found' });
     await prisma_1.default.payment.update({
         where: { bookingId },
-        data: { status: 'REFUNDED', metadata: { ...payment.metadata, refundReason: reason || 'requested' } },
+        data: {
+            status: 'REFUNDED',
+            metadata: {
+                ...(typeof payment.metadata === 'object' && payment.metadata
+                    ? payment.metadata
+                    : {}),
+                refundReason: reason || 'requested',
+            },
+        },
     });
     await (0, shared_1.rabbitPublish)({
         routingKey: 'payment.paymentrefunded',
@@ -178,7 +316,8 @@ app.post('/api/payments/webhook', express_1.default.raw({ type: 'application/jso
         event = stripe.webhooks.constructEvent(req.body, signature, STRIPE_WEBHOOK_SECRET);
     }
     catch (err) {
-        return res.status(400).send(`Webhook Error: ${err.message}`);
+        const message = err instanceof Error ? err.message : 'Unknown error';
+        return res.status(400).send(`Webhook Error: ${message}`);
     }
     if (event.type === 'checkout.session.completed') {
         const session = event.data.object;
@@ -206,7 +345,6 @@ app.post('/api/payments/webhook', express_1.default.raw({ type: 'application/jso
     res.json({ received: true });
 });
 app.listen(PORT, () => {
-    // eslint-disable-next-line no-console
     console.log(`Payment Service running on port ${PORT}`);
     if (process.env.SERVICE_DISCOVERY_MODE === 'consul') {
         (0, shared_1.consulRegisterService)({

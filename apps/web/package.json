@@ -5,7 +5,8 @@
     "scripts": {
         "dev": "next dev",
         "build": "next build",
-        "start": "next start"
+        "start": "next start",
+        "lint": "eslint . --ignore-pattern .next --ignore-pattern out"
     },
     "dependencies": {
         "next": "16.1.1",

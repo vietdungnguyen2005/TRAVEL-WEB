@@ -14,6 +14,7 @@ import {
 import { Calendar, User, Bed, Phone, Mail, DollarSign } from "lucide-react";
 import { format } from "date-fns";
 import { vi } from "date-fns/locale";
+import { gatewayFetch } from "@/lib/gateway-client";
 
 interface Booking {
   id: string;
@@ -84,6 +85,10 @@ function getPaymentStatusText(status: string) {
       return "Đã thanh toán";
     case "FAILED":
       return "Thất bại";
+    case "REFUND_REQUESTED":
+      return "Yêu cầu hoàn tiền";
+    case "REFUND_REJECTED":
+      return "Từ chối hoàn tiền";
     case "REFUNDED":
       return "Đã hoàn tiền";
     default:
@@ -108,8 +113,8 @@ export default function BookingsManagement() {
       if (filter !== "ALL") {
         params.append("status", filter);
       }
-      
-      const response = await fetch(`/api/admin/bookings?${params.toString()}`);
+
+      const response = await gatewayFetch(`/api/bookings/admin/bookings?${params.toString()}`);
       if (response.ok) {
         const data = await response.json();
         setBookings(data);
@@ -124,12 +129,10 @@ export default function BookingsManagement() {
   async function updateBookingStatus(bookingId: string, newStatus: string) {
     try {
       setUpdating(bookingId);
-      const response = await fetch(`/api/admin/bookings/${bookingId}/status`, {
+      const response = await gatewayFetch(`/api/bookings/admin/bookings/${bookingId}/status`, {
         method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-        },
         body: JSON.stringify({ status: newStatus }),
+        attachAccessToken: true,
       });
 
       if (response.ok) {
@@ -139,6 +142,52 @@ export default function BookingsManagement() {
       }
     } catch (error) {
       console.error("Error updating status:", error);
+      alert("Đã xảy ra lỗi");
+    } finally {
+      setUpdating(null);
+    }
+  }
+
+  async function approveRefund(bookingId: string) {
+    try {
+      setUpdating(bookingId);
+      const response = await gatewayFetch("/api/payments/refund-approve", {
+        method: "POST",
+        body: JSON.stringify({ bookingId }),
+        attachAccessToken: true,
+      });
+
+      if (!response.ok) {
+        alert("Không thể duyệt yêu cầu hoàn tiền");
+        return;
+      }
+
+      await fetchBookings();
+    } catch (error) {
+      console.error("Error approving refund:", error);
+      alert("Đã xảy ra lỗi");
+    } finally {
+      setUpdating(null);
+    }
+  }
+
+  async function rejectRefund(bookingId: string) {
+    try {
+      setUpdating(bookingId);
+      const response = await gatewayFetch("/api/payments/refund-reject", {
+        method: "POST",
+        body: JSON.stringify({ bookingId }),
+        attachAccessToken: true,
+      });
+
+      if (!response.ok) {
+        alert("Không thể từ chối yêu cầu hoàn tiền");
+        return;
+      }
+
+      await fetchBookings();
+    } catch (error) {
+      console.error("Error rejecting refund:", error);
       alert("Đã xảy ra lỗi");
     } finally {
       setUpdating(null);
@@ -299,6 +348,25 @@ export default function BookingsManagement() {
                       disabled={updating === booking.id}
                     >
                       {updating === booking.id ? "Đang xử lý..." : "Đánh dấu hoàn thành"}
+                    </Button>
+                  </div>
+                )}
+
+                {booking.paymentStatus === "REFUND_REQUESTED" && (
+                  <div className="flex gap-3 mt-6 pt-6 border-t">
+                    <Button
+                      onClick={() => approveRefund(booking.id)}
+                      disabled={updating === booking.id}
+                      className="bg-green-600 hover:bg-green-700"
+                    >
+                      {updating === booking.id ? "Đang xử lý..." : "Duyệt hoàn tiền"}
+                    </Button>
+                    <Button
+                      variant="destructive"
+                      onClick={() => rejectRefund(booking.id)}
+                      disabled={updating === booking.id}
+                    >
+                      Từ chối
                     </Button>
                   </div>
                 )}

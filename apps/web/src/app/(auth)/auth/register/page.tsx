@@ -50,24 +50,31 @@ export default function RegisterPage() {
         body: JSON.stringify(data),
       });
 
+      const payload = await response.json().catch(() => ({} as any));
       if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || "Đăng ký thất bại");
+        // auth-service returns: { message, errors?: { field: string[] } }
+        const fieldErrors = payload?.errors as Record<string, string[]> | undefined;
+        const firstFieldError = fieldErrors
+          ? Object.values(fieldErrors).flat()[0]
+          : undefined;
+        throw new Error(
+          firstFieldError || payload?.message || "Đăng ký thất bại"
+        );
       }
 
-      const payload = await response.json().catch(() => ({} as any));
       const token = (payload?.token || payload?.accessToken) as string | undefined;
       if (token) {
         document.cookie = `access_token=${encodeURIComponent(token)}; Path=/; SameSite=Lax`;
       }
 
       toast.success("Đăng ký thành công!", {
-        description: "Bạn có thể đăng nhập ngay bây giờ"
+        description: "Đang chuyển vào trang phòng...",
       });
 
+      // Auto-login: register returns JWT; go to home/rooms.
       setTimeout(() => {
-        router.push("/auth/login");
-      }, 1000);
+        router.push("/rooms");
+      }, 600);
     } catch (error) {
       const message = error instanceof Error ? error.message : "Đã có lỗi xảy ra. Vui lòng thử lại.";
 

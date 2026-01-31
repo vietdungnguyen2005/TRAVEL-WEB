@@ -1498,9 +1498,7 @@ async function gatewayFetch(path, options = {}) {
     if (!finalHeaders.has("Content-Type") && rest.body) {
         finalHeaders.set("Content-Type", "application/json");
     }
-    // Default to attaching access token unless explicitly disabled.
-    const shouldAttach = attachAccessToken !== false;
-    if (shouldAttach) {
+    if (attachAccessToken) {
         const token = getAccessTokenFromCookie();
         if (token && !finalHeaders.has("Authorization")) {
             finalHeaders.set("Authorization", `Bearer ${token}`);
@@ -1508,7 +1506,10 @@ async function gatewayFetch(path, options = {}) {
     }
     return fetch(gatewayUrl(path), {
         ...rest,
-        headers: finalHeaders
+        headers: finalHeaders,
+        // Required so the browser will accept Set-Cookie from the gateway
+        // and send cookies on subsequent requests (cookie-based auth).
+        credentials: 'include'
     });
 }
 if (typeof globalThis.$RefreshHelpers$ === 'object' && globalThis.$RefreshHelpers !== null) {

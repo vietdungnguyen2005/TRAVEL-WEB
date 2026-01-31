@@ -18,7 +18,7 @@ function base64Url(input) {
 }
 function sha256Base64Url(verifier) {
     // Node supports 'base64url' since v14+, but keep manual for portability.
-    const hash = require('crypto').createHash('sha256').update(verifier).digest();
+    const hash = (0, crypto_1.createHash)('sha256').update(verifier).digest();
     return base64Url(hash);
 }
 function getJwtSecret() {
@@ -41,17 +41,8 @@ function cookieOptions() {
         secure: isProd,
         sameSite: 'lax',
         path: '/',
-        maxAge: 60 * 60 * 24 * 7, // 7d
-    };
-}
-function accessTokenCookieOptions() {
-    const isProd = process.env.NODE_ENV === 'production';
-    return {
-        httpOnly: false,
-        secure: isProd,
-        sameSite: 'lax',
-        path: '/',
-        maxAge: 60 * 60 * 24 * 7, // 7d
+        // Express expects milliseconds for maxAge.
+        maxAge: 7 * 24 * 60 * 60 * 1000, // 7d
     };
 }
 function getRedirectAfterLogin(req) {
@@ -61,6 +52,42 @@ function getRedirectAfterLogin(req) {
         return '/dashboard';
     return redirect;
 }
+function getWebAppUrl() {
+    // This should point to the Next.js app origin (NOT the API gateway).
+    // Example: http://localhost:3000 or http://192.168.1.43:3000
+    const raw = process.env.WEB_APP_URL;
+    if (!raw)
+        return undefined;
+    return raw.endsWith('/') ? raw.slice(0, -1) : raw;
+}
+function toAbsoluteWebRedirect(pathOrUrl) {
+    // If the cookie somehow contains an absolute URL, only allow it if it matches WEB_APP_URL.
+    const web = getWebAppUrl();
+    if (!web)
+        return pathOrUrl.startsWith('/') ? pathOrUrl : '/dashboard';
+    if (pathOrUrl.startsWith('/'))
+        return `${web}${pathOrUrl}`;
+    try {
+        const u = new URL(pathOrUrl);
+        const w = new URL(web);
+        if (u.origin !== w.origin)
+            return `${web}/dashboard`;
+        return u.toString();
+    }
+    catch {
+        return `${web}/dashboard`;
+    }
+}
+function toWebOauthLandingUrl(args) {
+    const web = getWebAppUrl();
+    if (!web)
+        return '/dashboard';
+    const redirectPath = args.redirect.startsWith('/') ? args.redirect : '/dashboard';
+    const url = new URL(`${web}/auth/oauth/callback`);
+    url.searchParams.set('token', args.token);
+    url.searchParams.set('redirect', redirectPath);
+    return url.toString();
+}
 async function googleStart(req, res) {
     const { clientId, redirectUri } = (0, google_config_1.getGoogleOauthConfig)();
     const state = base64Url((0, crypto_1.randomBytes)(32));
@@ -68,14 +95,15 @@ async function googleStart(req, res) {
     const codeChallenge = sha256Base64Url(codeVerifier);
     // Store transient values in httpOnly cookies (stateless; works behind gateway)
     // Keep them short-lived.
-    res.cookie('oauth_state', state, { ...cookieOptions(), maxAge: 60 * 10 }); // 10 min
-    res.cookie('oauth_code_verifier', codeVerifier, { ...cookieOptions(), maxAge: 60 * 10 });
+    // NOTE: Express expects milliseconds for maxAge.
+    res.cookie('oauth_state', state, { ...cookieOptions(), maxAge: 10 * 60 * 1000 }); // 10 min
+    res.cookie('oauth_code_verifier', codeVerifier, { ...cookieOptions(), maxAge: 10 * 60 * 1000 });
     res.cookie('oauth_redirect', getRedirectAfterLogin(req), {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
         sameSite: 'lax',
         path: '/',
-        maxAge: 60 * 10,
+        maxAge: 10 * 60 * 1000,
     });
     const params = new URLSearchParams({
         client_id: clientId,
@@ -106,12 +134,14 @@ async function exchangeCodeForTokens(args) {
     });
     const json = (await r.json().catch(() => ({})));
     if (!r.ok) {
-        const msg = json?.error_description || json?.error || 'token_exchange_failed';
+        const msg = json['error_description'] ||
+            json['error'] ||
+            'token_exchange_failed';
         throw new Error(msg);
     }
     return {
-        access_token: json.access_token,
-        id_token: json.id_token,
+        access_token: json['access_token'],
+        id_token: json['id_token'],
     };
 }
 async function fetchGoogleProfile(accessToken) {
@@ -122,11 +152,11 @@ async function fetchGoogleProfile(accessToken) {
     if (!r.ok)
         throw new Error('google_userinfo_failed');
     return {
-        sub: json.sub,
-        email: json.email.toLowerCase(),
-        name: json.name,
-        picture: json.picture,
-        email_verified: json.email_verified,
+        sub: json['sub'],
+        email: String(json['email']).toLowerCase(),
+        name: json['name'] ?? undefined,
+        picture: json['picture'] ?? undefined,
+        email_verified: json['email_verified'] ?? undefined,
     };
 }
 async function googleCallback(req, res) {
@@ -170,15 +200,18 @@ async function googleCallback(req, res) {
         res.clearCookie('oauth_state', { path: '/' });
         res.clearCookie('oauth_code_verifier', { path: '/' });
         res.clearCookie('oauth_redirect', { path: '/' });
-        // Web currently reads `access_token` client-side, so keep it readable (non-httpOnly)
-        // but still use secure defaults for production.
-        res.cookie('access_token', token, accessTokenCookieOptions());
-        return res.redirect(redirect.startsWith('/') ? redirect : '/dashboard');
+        // In local dev, the OAuth callback executes on the gateway origin (localhost:4000).
+        // Browsers won't let that response set cookies for the web origin (192.168.x.x:3000).
+        // So we bounce through a tiny web page that stores the token on the web origin.
+        return res.redirect(toWebOauthLandingUrl({
+            token,
+            redirect: redirect.startsWith('/') ? redirect : '/dashboard',
+        }));
     }
     catch (err) {
-        // eslint-disable-next-line no-console
         console.error('Google OAuth callback failed:', err);
-        return res.status(500).json({ message: 'Google OAuth failed', error: err?.message });
+        const message = err instanceof Error ? err.message : 'unknown_error';
+        return res.status(500).json({ message: 'Google OAuth failed', error: message });
     }
 }
 //# sourceMappingURL=google.controller.js.map

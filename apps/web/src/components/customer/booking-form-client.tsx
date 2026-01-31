@@ -7,6 +7,14 @@ import { useBookingStore } from "@/store/booking-store";
 import { toast } from "sonner";
 import { gatewayFetch } from "@/lib/gateway-client";
 
+function hasAccessTokenCookie(): boolean {
+  if (typeof document === "undefined") return false;
+  return document.cookie
+    .split(";")
+    .map((c) => c.trim())
+    .some((c) => c.startsWith("access_token="));
+}
+
 interface BookingFormClientProps {
   roomTypeId: string;
   basePrice: number;
@@ -22,6 +30,15 @@ export function BookingFormClient({ roomTypeId, basePrice, capacity }: BookingFo
     setIsChecking(true);
 
     try {
+      // Guests must log in before booking.
+      if (!hasAccessTokenCookie()) {
+        toast.error("Vui lòng đăng nhập để đặt phòng");
+        const params = new URLSearchParams();
+        params.set("redirect", `/booking/confirm`);
+        router.push(`/auth/login?${params.toString()}`);
+        return;
+      }
+
       // Check availability via API
       const response = await gatewayFetch("/api/rooms/availability", {
         method: "POST",

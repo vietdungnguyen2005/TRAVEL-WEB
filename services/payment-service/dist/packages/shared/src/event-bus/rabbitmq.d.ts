@@ -14,7 +14,7 @@ export type ConsumeOptions = {
     prefetch?: number;
     consumerTag?: string;
 };
-export type ConsumeHandler = (payload: any, raw: ConsumeMessage) => Promise<void> | void;
+export type ConsumeHandler = (payload: unknown, raw: ConsumeMessage) => Promise<void> | void;
 export declare function rabbitConnect(config?: Partial<RabbitMqConfig>): Promise<{
     connection: amqp.ChannelModel;
     channel: amqp.Channel;

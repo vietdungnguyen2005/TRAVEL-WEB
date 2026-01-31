@@ -10,7 +10,7 @@ import routes from './routes';
 config();
 
 const app = express();
-const PORT = process.env.PORT || 4000;
+const PORT = process.env.PORT || process.env.API_GATEWAY_PORT || 4000;
 
 // Middlewares
 app.use(helmet());
@@ -22,7 +22,7 @@ app.use(loggingMiddleware);
 app.use(routes);
 
 // Global error handler
-app.use((err: any, req: import('express').Request, res: import('express').Response, next: import('express').NextFunction) => {
+app.use((err: unknown, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
     console.error(err);
     res.status(500).json({ success: false, error: 'Internal Server Error' });
 });

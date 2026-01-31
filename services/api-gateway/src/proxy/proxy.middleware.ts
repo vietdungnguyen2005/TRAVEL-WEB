@@ -1,7 +1,8 @@
 import { createProxyMiddleware } from 'http-proxy-middleware';
 import { getServicePlaceholderTarget, getServiceTarget } from '../discovery/service-resolver';
+import { services as staticServices } from '../config/services.config';
 
-type ServiceKey = 'authService' | 'bookingService' | 'roomService' | 'paymentService' | 'reviewService';
+type ServiceKey = keyof typeof staticServices;
 
 function proxyTo(serviceKey: ServiceKey, pathPrefix: string) {
     return createProxyMiddleware({
@@ -25,4 +26,6 @@ export const proxyMiddleware = {
     rooms: proxyTo('roomService', '/api/rooms'),
     payments: proxyTo('paymentService', '/api/payments'),
     reviews: proxyTo('reviewService', '/api/reviews'),
+    content: proxyTo('contentService', '/api/hero-images'),
+    blog: proxyTo('blogService', '/api/blog'),
 };

@@ -21,7 +21,7 @@ export type ConsumeOptions = {
     consumerTag?: string;
 };
 
-export type ConsumeHandler = (payload: any, raw: ConsumeMessage) => Promise<void> | void;
+export type ConsumeHandler = (payload: unknown, raw: ConsumeMessage) => Promise<void> | void;
 
 let connection: ChannelModel | null = null;
 let channel: Channel | null = null;

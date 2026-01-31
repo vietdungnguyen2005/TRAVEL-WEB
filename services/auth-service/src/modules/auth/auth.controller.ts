@@ -2,6 +2,7 @@ import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import type { SignOptions } from 'jsonwebtoken';
 import { z } from 'zod';
+import type { Request, Response } from 'express';
 import { prisma } from '../../lib/prisma';
 
 const registerSchema = z.object({
@@ -30,7 +31,7 @@ function signAccessToken(payload: { sub: string; email: string; role: string }) 
     return jwt.sign(payload, secret, opts);
 }
 
-export async function register(req: any, res: any) {
+export async function register(req: Request, res: Response) {
     const parsed = registerSchema.safeParse(req.body);
     if (!parsed.success) {
         return res.status(400).json({
@@ -70,7 +71,7 @@ export async function register(req: any, res: any) {
     });
 }
 
-export async function login(req: any, res: any) {
+export async function login(req: Request, res: Response) {
     const parsed = loginSchema.safeParse(req.body);
     if (!parsed.success) {
         return res.status(400).json({
@@ -109,7 +110,7 @@ export async function login(req: any, res: any) {
     });
 }
 
-export async function verifyToken(req: any, res: any) {
+export async function verifyToken(req: Request, res: Response) {
     const schema = z.object({ token: z.string().min(1) });
     const parsed = schema.safeParse(req.body);
     if (!parsed.success) {
@@ -117,7 +118,7 @@ export async function verifyToken(req: any, res: any) {
     }
 
     try {
-        const payload = jwt.verify(parsed.data.token, getJwtSecret()) as any;
+        const payload = jwt.verify(parsed.data.token, getJwtSecret()) as unknown;
         return res.status(200).json({ verified: true, payload });
     } catch {
         return res.status(401).json({ verified: false });

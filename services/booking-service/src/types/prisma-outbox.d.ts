@@ -3,8 +3,8 @@
 
 declare module '@prisma/client' {
     interface PrismaClient {
-        booking: any;
-        outbox: any;
-        $transaction: any;
+        booking: unknown;
+        outbox: unknown;
+        $transaction: unknown;
     }
 }

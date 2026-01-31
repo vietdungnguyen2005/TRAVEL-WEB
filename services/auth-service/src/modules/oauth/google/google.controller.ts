@@ -1,8 +1,9 @@
-import { randomBytes, timingSafeEqual } from 'crypto';
+import { createHash, randomBytes, timingSafeEqual } from 'crypto';
 import { prisma } from '../../../lib/prisma';
 import { getGoogleOauthConfig } from './google.config';
 import jwt from 'jsonwebtoken';
 import type { SignOptions } from 'jsonwebtoken';
+import type { Request, Response } from 'express';
 
 function base64Url(input: Buffer) {
     return input
@@ -14,7 +15,7 @@ function base64Url(input: Buffer) {
 
 function sha256Base64Url(verifier: string) {
     // Node supports 'base64url' since v14+, but keep manual for portability.
-    const hash = require('crypto').createHash('sha256').update(verifier).digest();
+    const hash = createHash('sha256').update(verifier).digest();
     return base64Url(hash);
 }
 
@@ -39,29 +40,55 @@ function cookieOptions() {
         secure: isProd,
         sameSite: 'lax' as const,
         path: '/',
-        maxAge: 60 * 60 * 24 * 7, // 7d
+        // Express expects milliseconds for maxAge.
+        maxAge: 7 * 24 * 60 * 60 * 1000, // 7d
     };
 }
 
-function accessTokenCookieOptions() {
-    const isProd = process.env.NODE_ENV === 'production';
-    return {
-        httpOnly: false,
-        secure: isProd,
-        sameSite: 'lax' as const,
-        path: '/',
-        maxAge: 60 * 60 * 24 * 7, // 7d
-    };
-}
-
-function getRedirectAfterLogin(req: any) {
+function getRedirectAfterLogin(req: Request) {
     const redirect = (req.query?.redirect as string | undefined) || '/dashboard';
     // only allow relative redirects
     if (!redirect.startsWith('/')) return '/dashboard';
     return redirect;
 }
 
-export async function googleStart(req: any, res: any) {
+function getWebAppUrl() {
+    // This should point to the Next.js app origin (NOT the API gateway).
+    // Example: http://localhost:3000 or http://192.168.1.43:3000
+    const raw = process.env.WEB_APP_URL;
+    if (!raw) return undefined;
+    return raw.endsWith('/') ? raw.slice(0, -1) : raw;
+}
+
+function toAbsoluteWebRedirect(pathOrUrl: string) {
+    // If the cookie somehow contains an absolute URL, only allow it if it matches WEB_APP_URL.
+    const web = getWebAppUrl();
+    if (!web) return pathOrUrl.startsWith('/') ? pathOrUrl : '/dashboard';
+
+    if (pathOrUrl.startsWith('/')) return `${web}${pathOrUrl}`;
+
+    try {
+        const u = new URL(pathOrUrl);
+        const w = new URL(web);
+        if (u.origin !== w.origin) return `${web}/dashboard`;
+        return u.toString();
+    } catch {
+        return `${web}/dashboard`;
+    }
+}
+
+function toWebOauthLandingUrl(args: { token: string; redirect: string }) {
+    const web = getWebAppUrl();
+    if (!web) return '/dashboard';
+
+    const redirectPath = args.redirect.startsWith('/') ? args.redirect : '/dashboard';
+    const url = new URL(`${web}/auth/oauth/callback`);
+    url.searchParams.set('token', args.token);
+    url.searchParams.set('redirect', redirectPath);
+    return url.toString();
+}
+
+export async function googleStart(req: Request, res: Response) {
     const { clientId, redirectUri } = getGoogleOauthConfig();
 
     const state = base64Url(randomBytes(32));
@@ -70,14 +97,15 @@ export async function googleStart(req: any, res: any) {
 
     // Store transient values in httpOnly cookies (stateless; works behind gateway)
     // Keep them short-lived.
-    res.cookie('oauth_state', state, { ...cookieOptions(), maxAge: 60 * 10 }); // 10 min
-    res.cookie('oauth_code_verifier', codeVerifier, { ...cookieOptions(), maxAge: 60 * 10 });
+    // NOTE: Express expects milliseconds for maxAge.
+    res.cookie('oauth_state', state, { ...cookieOptions(), maxAge: 10 * 60 * 1000 }); // 10 min
+    res.cookie('oauth_code_verifier', codeVerifier, { ...cookieOptions(), maxAge: 10 * 60 * 1000 });
     res.cookie('oauth_redirect', getRedirectAfterLogin(req), {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
         sameSite: 'lax',
         path: '/',
-        maxAge: 60 * 10,
+        maxAge: 10 * 60 * 1000,
     });
 
     const params = new URLSearchParams({
@@ -115,15 +143,18 @@ async function exchangeCodeForTokens(args: {
         body,
     });
 
-    const json = (await r.json().catch(() => ({}))) as any;
+    const json = (await r.json().catch(() => ({}))) as Record<string, unknown>;
     if (!r.ok) {
-        const msg = json?.error_description || json?.error || 'token_exchange_failed';
+        const msg =
+            (json['error_description'] as string | undefined) ||
+            (json['error'] as string | undefined) ||
+            'token_exchange_failed';
         throw new Error(msg);
     }
 
     return {
-        access_token: json.access_token as string,
-        id_token: json.id_token as string | undefined,
+        access_token: json['access_token'] as string,
+        id_token: json['id_token'] as string | undefined,
     };
 }
 
@@ -131,18 +162,18 @@ async function fetchGoogleProfile(accessToken: string) {
     const r = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
         headers: { Authorization: `Bearer ${accessToken}` },
     });
-    const json = (await r.json().catch(() => ({}))) as any;
+    const json = (await r.json().catch(() => ({}))) as Record<string, unknown>;
     if (!r.ok) throw new Error('google_userinfo_failed');
     return {
-        sub: json.sub as string,
-        email: (json.email as string).toLowerCase(),
-        name: json.name as string | undefined,
-        picture: json.picture as string | undefined,
-        email_verified: json.email_verified as boolean | undefined,
+        sub: json['sub'] as string,
+        email: String(json['email']).toLowerCase(),
+        name: (json['name'] as string | undefined) ?? undefined,
+        picture: (json['picture'] as string | undefined) ?? undefined,
+        email_verified: (json['email_verified'] as boolean | undefined) ?? undefined,
     };
 }
 
-export async function googleCallback(req: any, res: any) {
+export async function googleCallback(req: Request, res: Response) {
     try {
         const code = req.query?.code as string | undefined;
         const state = req.query?.state as string | undefined;
@@ -191,14 +222,18 @@ export async function googleCallback(req: any, res: any) {
         res.clearCookie('oauth_code_verifier', { path: '/' });
         res.clearCookie('oauth_redirect', { path: '/' });
 
-        // Web currently reads `access_token` client-side, so keep it readable (non-httpOnly)
-        // but still use secure defaults for production.
-        res.cookie('access_token', token, accessTokenCookieOptions());
-
-        return res.redirect(redirect.startsWith('/') ? redirect : '/dashboard');
-    } catch (err: any) {
-        // eslint-disable-next-line no-console
+        // In local dev, the OAuth callback executes on the gateway origin (localhost:4000).
+        // Browsers won't let that response set cookies for the web origin (192.168.x.x:3000).
+        // So we bounce through a tiny web page that stores the token on the web origin.
+        return res.redirect(
+            toWebOauthLandingUrl({
+                token,
+                redirect: redirect.startsWith('/') ? redirect : '/dashboard',
+            })
+        );
+    } catch (err) {
         console.error('Google OAuth callback failed:', err);
-        return res.status(500).json({ message: 'Google OAuth failed', error: err?.message });
+        const message = err instanceof Error ? err.message : 'unknown_error';
+        return res.status(500).json({ message: 'Google OAuth failed', error: message });
     }
 }

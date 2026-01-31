@@ -7,7 +7,58 @@ exports.bookingRouter = void 0;
 const express_1 = __importDefault(require("express"));
 const prisma_1 = __importDefault(require("../lib/prisma"));
 const metrics_1 = require("../lib/metrics");
+const jsonwebtoken_1 = __importDefault(require("jsonwebtoken"));
 exports.bookingRouter = express_1.default.Router();
+function getJwtSecret() {
+    const secret = process.env.JWT_SECRET;
+    if (!secret)
+        throw new Error('JWT_SECRET is not set');
+    return secret;
+}
+function getUserIdFromRequest(req) {
+    // Support both Authorization: Bearer <token> and cookie access_token.
+    const auth = req.headers.authorization;
+    const bearer = auth?.startsWith('Bearer ') ? auth.slice('Bearer '.length) : undefined;
+    const cookieHeader = req.headers.cookie;
+    const cookieToken = cookieHeader
+        ?.split(';')
+        .map((s) => s.trim())
+        .find((c) => c.startsWith('access_token='))
+        ?.split('=')
+        .slice(1)
+        .join('=');
+    const token = bearer || cookieToken;
+    if (!token)
+        return undefined;
+    try {
+        const decoded = jsonwebtoken_1.default.verify(token, getJwtSecret());
+        if (typeof decoded === 'string')
+            return undefined;
+        return typeof decoded.sub === 'string' ? decoded.sub : undefined;
+    }
+    catch {
+        return undefined;
+    }
+}
+// My bookings (used by web dashboard)
+exports.bookingRouter.get('/my-bookings', async (req, res, next) => {
+    try {
+        const tokenUserId = getUserIdFromRequest(req);
+        const queryUserId = typeof req.query.userId === 'string' ? req.query.userId : undefined;
+        const userId = tokenUserId || queryUserId;
+        if (!userId) {
+            return res.status(401).json({ message: 'Unauthorized' });
+        }
+        const bookings = await prisma_1.default.booking.findMany({
+            where: { userId },
+            orderBy: { createdAt: 'desc' },
+        });
+        res.json(bookings);
+    }
+    catch (err) {
+        next(err);
+    }
+});
 // List bookings (simple; optionally filter by userId)
 exports.bookingRouter.get('/', async (req, res, next) => {
     try {
@@ -27,7 +78,8 @@ exports.bookingRouter.post('/', async (req, res, next) => {
     const { userId, roomId, checkIn, checkOut, totalPrice, numberOfGuests } = req.body;
     try {
         const result = await prisma_1.default.$transaction(async (tx) => {
-            const booking = await tx.booking.create({
+            const typedTx = tx;
+            const booking = await typedTx.booking.create({
                 data: {
                     userId,
                     roomId,
@@ -38,7 +90,7 @@ exports.bookingRouter.post('/', async (req, res, next) => {
                     status: 'PENDING'
                 }
             });
-            await tx.outbox.create({
+            await typedTx.outbox.create({
                 data: {
                     aggregateType: 'Booking',
                     aggregateId: booking.id,
@@ -70,12 +122,18 @@ exports.bookingRouter.post('/', async (req, res, next) => {
 });
 // Hold booking (creates ON_HOLD for 15 mins)
 exports.bookingRouter.post('/hold', async (req, res, next) => {
-    const { userId, roomId, checkIn, checkOut, totalPrice, numberOfGuests } = req.body;
+    const tokenUserId = getUserIdFromRequest(req);
+    const { userId: bodyUserId, roomId, checkIn, checkOut, totalPrice, numberOfGuests } = req.body;
+    const userId = bodyUserId || tokenUserId;
     try {
+        if (!userId) {
+            return res.status(401).json({ error: 'Unauthorized' });
+        }
         const holdExpiresAt = new Date();
         holdExpiresAt.setMinutes(holdExpiresAt.getMinutes() + 15);
         const result = await prisma_1.default.$transaction(async (tx) => {
-            const booking = await tx.booking.create({
+            const typedTx = tx;
+            const booking = await typedTx.booking.create({
                 data: {
                     userId,
                     roomId,
@@ -87,7 +145,7 @@ exports.bookingRouter.post('/hold', async (req, res, next) => {
                     holdExpiresAt,
                 }
             });
-            await tx.outbox.create({
+            await typedTx.outbox.create({
                 data: {
                     aggregateType: 'Booking',
                     aggregateId: booking.id,
