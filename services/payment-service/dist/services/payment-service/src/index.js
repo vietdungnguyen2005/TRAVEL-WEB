@@ -7,10 +7,12 @@ const express_1 = __importDefault(require("express"));
 const stripe_1 = __importDefault(require("stripe"));
 const prisma_1 = __importDefault(require("./lib/prisma"));
 const shared_1 = require("@travel-web/shared");
-const dotenv_1 = require("dotenv");
+const load_env_profile_1 = require("../../../infra/scripts/load-env-profile");
 const app = (0, express_1.default)();
 const PORT = process.env.PORT || 3004;
-(0, dotenv_1.config)({ path: '../../.env' });
+// Load root env + selected profile env (.env.docker/.env.supabase)
+// In docker-compose, env can also be injected by the container; this won't override existing vars.
+(0, load_env_profile_1.loadEnvProfile)({ cwd: process.cwd().split('/services/')[0] });
 const STRIPE_SECRET_KEY = process.env.STRIPE_SECRET_KEY;
 const STRIPE_WEBHOOK_SECRET = process.env.STRIPE_WEBHOOK_SECRET;
 const stripe = STRIPE_SECRET_KEY

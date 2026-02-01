@@ -10,7 +10,8 @@
         "skipLibCheck": true
     },
     "include": [
-        "src/**/*"
+        "src/**/*",
+        "../../infra/scripts/load-env-profile.ts"
     ],
     "exclude": [
         "node_modules",

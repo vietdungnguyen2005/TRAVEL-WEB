@@ -4,13 +4,15 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = __importDefault(require("express"));
-const dotenv_1 = require("dotenv");
 const shared_1 = require("@travel-web/shared");
 const prisma_1 = __importDefault(require("./lib/prisma"));
+const load_env_profile_1 = require("../../../infra/scripts/load-env-profile");
 const app = (0, express_1.default)();
 const PORT = process.env.PORT || 3006;
 const logger = new shared_1.Logger('NotificationService');
-(0, dotenv_1.config)({ path: '../../.env' });
+// Load root env + selected profile env (.env.docker/.env.supabase)
+// In docker-compose, env can also be injected by the container; this won't override existing vars.
+(0, load_env_profile_1.loadEnvProfile)({ cwd: process.cwd().split('/services/')[0] });
 app.get('/health', (_req, res) => res.status(200).json({ ok: true, service: 'notification-service' }));
 async function startConsumers() {
     if (process.env.DISABLE_RABBITMQ === 'true') {

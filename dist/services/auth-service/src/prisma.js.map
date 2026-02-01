@@ -1,1 +1,0 @@
-{"version":3,"file":"prisma.js","sourceRoot":"","sources":["../../../../services/auth-service/src/prisma.ts"],"names":[],"mappings":"AAAA,yDAAyD;AACzD,MAAM,CAAC,MAAM,MAAM,GAAQ;IACvB,IAAI,EAAE;QACF,UAAU,EAAE,KAAK,IAAI,EAAE,CAAC,IAAI;QAC5B,MAAM,EAAE,KAAK,IAAI,EAAE,CAAC,CAAC,EAAE,CAAC;KAC3B;CACJ,CAAC"}

@@ -3,10 +3,11 @@ import { consulRegisterService, Logger } from '@travel-web/shared';
 import { authRouter } from './http/routes';
 import { errorHandler } from './http/middlewares/error-handler';
 import cookieParser from 'cookie-parser';
-import { config as dotenvConfig } from 'dotenv';
+import { loadEnvProfile } from '../../../infra/scripts/load-env-profile';
 
-// Keep consistent with other services: load root env file in dev
-dotenvConfig({ path: '../../.env' });
+// Load root env + selected profile env (.env.docker/.env.supabase)
+// In docker-compose, env can also be injected by the container; this won't override existing vars.
+loadEnvProfile({ cwd: process.cwd().split('/services/')[0] });
 
 const logger = new Logger('AuthService');
 const app = express();

@@ -1,1 +1,0 @@
-{"version":3,"file":"discovery.config.js","sourceRoot":"","sources":["../../../../../services/api-gateway/src/config/discovery.config.ts"],"names":[],"mappings":"AAEA,MAAM,CAAC,MAAM,eAAe,GAAG;IAC3B,IAAI,EAAG,OAAO,CAAC,GAAG,CAAC,sBAAwC,IAAI,QAAQ;IACvE,SAAS,EAAE,OAAO,CAAC,GAAG,CAAC,UAAU,IAAI,oBAAoB;IACzD,SAAS,EAAE,MAAM,CAAC,OAAO,CAAC,GAAG,CAAC,oBAAoB,IAAI,MAAM,CAAC;CAChE,CAAC"}

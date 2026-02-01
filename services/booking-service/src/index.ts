@@ -1,5 +1,4 @@
 import express from 'express';
-import { config as dotenvConfig } from 'dotenv';
 import { consulRegisterService, Logger } from '@travel-web/shared';
 import { bookingRouter } from './http/routes';
 import { errorHandler } from './http/middlewares/error-handler';
@@ -7,13 +6,15 @@ import publishOutbox from './lib/outbox-publisher';
 import { startPaymentEventsConsumer } from './lib/payment-events-consumer';
 import metricsRegister, { bookingCreateCounter } from './lib/metrics';
 import { healthHandler, readyHandler } from './lib/health';
+import { loadEnvProfile } from '../../../infra/scripts/load-env-profile';
 
 const logger = new Logger('BookingService');
 const app = express();
 const PORT = process.env.PORT || 3002;
 
-// Load env for local dev runs (turbo dev). In docker-compose, env is injected by the container.
-dotenvConfig({ path: '../../.env' });
+// Load root env + selected profile env (.env.docker/.env.supabase)
+// In docker-compose, env can also be injected by the container; this won't override existing vars.
+loadEnvProfile({ cwd: process.cwd().split('/services/')[0] });
 
 app.use(express.json());
 app.use('/api/bookings', bookingRouter);

@@ -1,13 +1,15 @@
 import express from 'express';
-import { config as dotenvConfig } from 'dotenv';
 import { consulRegisterService, Logger, rabbitConsume } from '@travel-web/shared';
 import prisma from './lib/prisma';
+import { loadEnvProfile } from '../../../infra/scripts/load-env-profile';
 
 const app = express();
 const PORT = process.env.PORT || 3006;
 const logger = new Logger('NotificationService');
 
-dotenvConfig({ path: '../../.env' });
+// Load root env + selected profile env (.env.docker/.env.supabase)
+// In docker-compose, env can also be injected by the container; this won't override existing vars.
+loadEnvProfile({ cwd: process.cwd().split('/services/')[0] });
 
 app.get('/health', (_req, res) => res.status(200).json({ ok: true, service: 'notification-service' }));
 

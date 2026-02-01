@@ -2,7 +2,6 @@
 // This file validates that all required environment variables are present
 
 const requiredEnvVars = [
-  "DATABASE_URL",
   "NEXT_PUBLIC_API_GATEWAY_URL",
 ] as const;
 

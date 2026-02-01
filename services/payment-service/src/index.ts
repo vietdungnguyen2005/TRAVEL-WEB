@@ -2,7 +2,7 @@ import express from 'express';
 import Stripe from 'stripe';
 import prisma from './lib/prisma';
 import { consulRegisterService, rabbitPublish } from '@travel-web/shared';
-import { config as dotenvConfig } from 'dotenv';
+import { loadEnvProfile } from '../../../infra/scripts/load-env-profile';
 // NOTE: Prisma client enum types won't include new enum variants until after `prisma generate`.
 // We keep runtime values as strings here; CI/build should run after regeneration/migrate.
 type PaymentStatusString =
@@ -17,7 +17,9 @@ type PaymentStatusString =
 const app = express();
 const PORT = process.env.PORT || 3004;
 
-dotenvConfig({ path: '../../.env' });
+// Load root env + selected profile env (.env.docker/.env.supabase)
+// In docker-compose, env can also be injected by the container; this won't override existing vars.
+loadEnvProfile({ cwd: process.cwd().split('/services/')[0] });
 
 const STRIPE_SECRET_KEY = process.env.STRIPE_SECRET_KEY;
 const STRIPE_WEBHOOK_SECRET = process.env.STRIPE_WEBHOOK_SECRET;

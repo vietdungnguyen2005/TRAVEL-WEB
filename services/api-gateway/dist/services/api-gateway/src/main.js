@@ -13,7 +13,7 @@ const routes_1 = __importDefault(require("./routes"));
 // Load environment variables
 (0, dotenv_1.config)();
 const app = (0, express_1.default)();
-const PORT = process.env.PORT || 4000;
+const PORT = process.env.PORT || process.env.API_GATEWAY_PORT || 4000;
 // Middlewares
 app.use((0, helmet_1.default)());
 app.use(cors_middleware_1.corsMiddleware);

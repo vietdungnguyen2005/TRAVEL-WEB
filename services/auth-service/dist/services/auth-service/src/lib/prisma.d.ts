@@ -1,3 +1,4 @@
-import { PrismaClient } from '@prisma/client';
-export declare const prisma: PrismaClient<import(".prisma/client").Prisma.PrismaClientOptions, never, import("@prisma/client/runtime/library").DefaultArgs>;
+import { PrismaClient } from '../../node_modules/.prisma/auth-client';
+export declare const prisma: PrismaClient;
+export type AuthPrismaClient = PrismaClient;
 //# sourceMappingURL=prisma.d.ts.map

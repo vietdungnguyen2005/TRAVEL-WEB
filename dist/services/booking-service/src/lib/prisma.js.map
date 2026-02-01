@@ -1,1 +1,0 @@
-{"version":3,"file":"prisma.js","sourceRoot":"","sources":["../../../../../services/booking-service/src/lib/prisma.ts"],"names":[],"mappings":"AAAA,4DAA4D;AAC5D,8DAA8D;AAC9D,8DAA8D;AAC9D,MAAM,EAAE,YAAY,EAAE,GAAG,OAAO,CAAC,2CAA2C,CAAC,CAAC;AAE9E,MAAM,MAAM,GAAG,IAAI,YAAY,EAAE,CAAC;AAElC,eAAe,MAAM,CAAC"}

@@ -29,7 +29,7 @@ function parseJwtPayload(token: string): any {
 }
 
 /**
- * Minimal replacement for NextAuth `auth()`.
+ * Server-side auth helper.
  *
  * Contract:
  * - Looks for JWT in Authorization header (Bearer) or cookie `access_token`.
