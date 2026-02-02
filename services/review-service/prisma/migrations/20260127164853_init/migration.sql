@@ -1,5 +1,8 @@
+-- Ensure schema exists
+CREATE SCHEMA IF NOT EXISTS "review";
+
 -- CreateTable
-CREATE TABLE "Review" (
+CREATE TABLE "review"."Review" (
     "id" TEXT NOT NULL,
     "userId" TEXT NOT NULL,
     "bookingId" TEXT NOT NULL,
@@ -15,4 +18,4 @@ CREATE TABLE "Review" (
 );
 
 -- CreateIndex
-CREATE UNIQUE INDEX "Review_userId_bookingId_key" ON "Review"("userId", "bookingId");
+CREATE UNIQUE INDEX "Review_userId_bookingId_key" ON "review"."Review"("userId", "bookingId");

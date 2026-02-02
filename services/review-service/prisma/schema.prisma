@@ -4,12 +4,14 @@
 generator client {
   provider = "prisma-client-js"
   output   = "../node_modules/.prisma/review-client"
+  previewFeatures = ["multiSchema"]
 }
 
 // Datasource configuration
 datasource db {
   provider = "postgresql"
   url      = env("REVIEW_DATABASE_URL")
+  schemas  = ["review"]
 }
 
 // Review model
@@ -26,4 +28,5 @@ model Review {
   updatedAt   DateTime @updatedAt
 
   @@unique([userId, bookingId])
+  @@schema("review")
 }

@@ -22,6 +22,11 @@ function isPaymentEvent(payload) {
         p.type === 'RefundRejected');
 }
 async function startPaymentEventsConsumer() {
+    // New simplified flow: payment is not required to confirm.
+    // Admin approval is the source of truth (PENDING -> CONFIRMED).
+    // Keep this file for compatibility, but don't process payment.* events.
+    logger.warn('Payment events consumer disabled: using admin approval flow for booking confirmation');
+    return;
     if (process.env.DISABLE_RABBITMQ === 'true') {
         logger.warn('DISABLE_RABBITMQ=true; skipping payment events consumer');
         return;

@@ -1,13 +1,16 @@
+-- Ensure schema exists
+CREATE SCHEMA IF NOT EXISTS "app_auth";
+
 -- CreateEnum
-CREATE TYPE "Role" AS ENUM ('ADMIN', 'CUSTOMER');
+CREATE TYPE "app_auth"."Role" AS ENUM ('ADMIN', 'CUSTOMER');
 
 -- CreateTable
-CREATE TABLE "User" (
+CREATE TABLE "app_auth"."User" (
     "id" TEXT NOT NULL,
     "email" TEXT NOT NULL,
     "password" TEXT NOT NULL,
     "name" TEXT,
-    "role" "Role" NOT NULL DEFAULT 'CUSTOMER',
+    "role" "app_auth"."Role" NOT NULL DEFAULT 'CUSTOMER',
     "isVerified" BOOLEAN NOT NULL DEFAULT false,
     "verificationToken" TEXT,
     "resetPasswordToken" TEXT,
@@ -19,7 +22,7 @@ CREATE TABLE "User" (
 );
 
 -- CreateIndex
-CREATE UNIQUE INDEX "User_email_key" ON "User"("email");
+CREATE UNIQUE INDEX "User_email_key" ON "app_auth"."User"("email");
 
 -- CreateIndex
-CREATE INDEX "User_email_idx" ON "User"("email");
+CREATE INDEX "User_email_idx" ON "app_auth"."User"("email");

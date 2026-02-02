@@ -6,11 +6,136 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = __importDefault(require("express"));
 const shared_1 = require("@travel-web/shared");
 const room_client_1 = require("../node_modules/.prisma/room-client");
+const jsonwebtoken_1 = __importDefault(require("jsonwebtoken"));
 const app = (0, express_1.default)();
 const PORT = process.env.PORT || 3003;
 const prisma = new room_client_1.PrismaClient();
 app.use(express_1.default.json());
 app.get('/health', (req, res) => res.send('Room service healthy'));
+function getJwtSecret() {
+    const secret = process.env.JWT_SECRET;
+    if (!secret)
+        throw new Error('JWT_SECRET is not set');
+    return secret;
+}
+function requireAdmin(req, res, next) {
+    try {
+        const auth = req.headers.authorization;
+        if (!auth?.toLowerCase().startsWith('bearer '))
+            return res.status(401).json({ error: 'Unauthorized' });
+        const token = auth.slice('bearer '.length).trim();
+        const payload = jsonwebtoken_1.default.verify(token, getJwtSecret());
+        if (payload?.role !== 'ADMIN')
+            return res.status(403).json({ error: 'Forbidden' });
+        req.user = payload;
+        return next();
+    }
+    catch {
+        return res.status(401).json({ error: 'Unauthorized' });
+    }
+}
+// Admin endpoints (mounted under /api/admin/* by API Gateway)
+const admin = express_1.default.Router();
+admin.use(requireAdmin);
+// Room Types
+admin.get('/room-types', async (_req, res) => {
+    const types = await prisma.roomType.findMany({ orderBy: { createdAt: 'desc' } });
+    res.json(types.map((t) => ({
+        id: t.id,
+        name: t.name,
+        description: t.description,
+        pricePerNight: t.basePrice,
+        maxGuests: t.maxGuests,
+        amenities: t.amenities,
+        images: t.images,
+        isActive: t.isActive,
+        createdAt: t.createdAt,
+        updatedAt: t.updatedAt,
+    })));
+});
+// Rooms
+admin.get('/rooms', async (_req, res) => {
+    const rooms = await prisma.room.findMany({
+        orderBy: [{ floor: 'asc' }, { roomNumber: 'asc' }],
+        include: { roomType: true },
+    });
+    res.json(rooms.map((r) => ({
+        id: r.id,
+        roomNumber: r.roomNumber,
+        floor: r.floor ?? 1,
+        status: r.status,
+        roomTypeId: r.roomTypeId,
+        roomType: {
+            name: r.roomType.name,
+            pricePerNight: r.roomType.basePrice,
+        },
+    })));
+});
+admin.post('/rooms', async (req, res) => {
+    const { roomNumber, floor, status, roomTypeId } = req.body ?? {};
+    if (!roomNumber || !roomTypeId)
+        return res.status(400).json({ error: 'roomNumber and roomTypeId are required' });
+    try {
+        const created = await prisma.room.create({
+            data: {
+                roomNumber: String(roomNumber),
+                floor: typeof floor === 'number' ? floor : Number(floor ?? 1),
+                status: (status ?? 'AVAILABLE'),
+                roomTypeId: String(roomTypeId),
+            },
+            include: { roomType: true },
+        });
+        return res.status(201).json({
+            id: created.id,
+            roomNumber: created.roomNumber,
+            floor: created.floor ?? 1,
+            status: created.status,
+            roomTypeId: created.roomTypeId,
+            roomType: { name: created.roomType.name, pricePerNight: created.roomType.basePrice },
+        });
+    }
+    catch (e) {
+        return res.status(400).json({ error: e?.message ?? 'Cannot create room' });
+    }
+});
+admin.patch('/rooms/:id', async (req, res) => {
+    const { id } = req.params;
+    const { roomNumber, floor, status, roomTypeId } = req.body ?? {};
+    try {
+        const updated = await prisma.room.update({
+            where: { id },
+            data: {
+                roomNumber: typeof roomNumber === 'string' ? roomNumber : undefined,
+                floor: typeof floor === 'number' ? floor : floor != null ? Number(floor) : undefined,
+                status: typeof status === 'string' ? status : undefined,
+                roomTypeId: typeof roomTypeId === 'string' ? roomTypeId : undefined,
+            },
+            include: { roomType: true },
+        });
+        return res.json({
+            id: updated.id,
+            roomNumber: updated.roomNumber,
+            floor: updated.floor ?? 1,
+            status: updated.status,
+            roomTypeId: updated.roomTypeId,
+            roomType: { name: updated.roomType.name, pricePerNight: updated.roomType.basePrice },
+        });
+    }
+    catch (e) {
+        return res.status(400).json({ error: e?.message ?? 'Cannot update room' });
+    }
+});
+admin.delete('/rooms/:id', async (req, res) => {
+    const { id } = req.params;
+    try {
+        await prisma.room.delete({ where: { id } });
+        return res.status(204).send();
+    }
+    catch (e) {
+        return res.status(400).json({ error: e?.message ?? 'Cannot delete room' });
+    }
+});
+app.use('/api/admin', admin);
 // Customer-facing: list room types (what the web calls "rooms")
 // Query params supported by the web UI:
 // - minPrice, maxPrice, capacity, roomTypes (comma-separated by name), sortBy

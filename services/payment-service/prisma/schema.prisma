@@ -4,12 +4,14 @@
 generator client {
   provider = "prisma-client-js"
   output   = "../node_modules/.prisma/payment-client"
+  previewFeatures = ["multiSchema"]
 }
 
 // Datasource configuration
 datasource db {
   provider = "postgresql"
   url      = env("PAYMENT_DATABASE_URL")
+  schemas  = ["payment"]
 }
 
 // Enum for payment status
@@ -21,6 +23,8 @@ enum PaymentStatus {
   REFUND_APPROVED
   REFUND_REJECTED
   REFUNDED
+
+  @@schema("payment")
 }
 
 // Payment model
@@ -38,4 +42,5 @@ model Payment {
   updatedAt                 DateTime @updatedAt
 
   @@index([userId])
+  @@schema("payment")
 }

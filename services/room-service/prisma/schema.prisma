@@ -4,12 +4,14 @@
 generator client {
   provider = "prisma-client-js"
   output   = "../node_modules/.prisma/room-client"
+  previewFeatures = ["multiSchema"]
 }
 
 // Datasource configuration
 datasource db {
   provider = "postgresql"
   url      = env("ROOM_DATABASE_URL")
+  schemas  = ["room"]
 }
 
 // Enum for room status
@@ -17,6 +19,8 @@ enum RoomStatus {
   AVAILABLE
   OCCUPIED
   MAINTENANCE
+
+  @@schema("room")
 }
 
 // RoomType model
@@ -33,6 +37,8 @@ model RoomType {
   updatedAt   DateTime @updatedAt
 
   rooms       Room[]
+
+  @@schema("room")
 }
 
 // Room model
@@ -46,4 +52,6 @@ model Room {
   updatedAt   DateTime @updatedAt
 
   roomType    RoomType @relation(fields: [roomTypeId], references: [id], onDelete: Cascade)
+
+  @@schema("room")
 }

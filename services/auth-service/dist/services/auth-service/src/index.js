@@ -10,8 +10,10 @@ const error_handler_1 = require("./http/middlewares/error-handler");
 const cookie_parser_1 = __importDefault(require("cookie-parser"));
 const load_env_profile_1 = require("../../../infra/scripts/load-env-profile");
 // Load root env + selected profile env (.env.docker/.env.supabase)
-// In docker-compose, env can also be injected by the container; this won't override existing vars.
-(0, load_env_profile_1.loadEnvProfile)({ cwd: process.cwd().split('/services/')[0] });
+// Only do this when explicitly requested; in docker-compose we rely on container-provided env.
+if (process.env.LOAD_ENV_PROFILE === 'true') {
+    (0, load_env_profile_1.loadEnvProfile)({ cwd: process.cwd().split('/services/')[0] });
+}
 const logger = new shared_1.Logger('AuthService');
 const app = (0, express_1.default)();
 const PORT = process.env.PORT || 3001;

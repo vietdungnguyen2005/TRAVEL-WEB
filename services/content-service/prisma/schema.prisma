@@ -1,0 +1,31 @@
+// Prisma schema for content-service
+
+generator client {
+  provider        = "prisma-client-js"
+  output          = "../node_modules/.prisma/content-client"
+  previewFeatures = ["multiSchema"]
+}
+
+datasource db {
+  provider = "postgresql"
+  // Uses services/content-service/.env
+  url      = env("DATABASE_URL")
+  schemas  = ["content"]
+}
+
+model HeroImage {
+  id         String   @id @default(uuid())
+  title      String
+  subtitle   String?
+  imageUrl   String
+  buttonText String?
+  buttonLink String?
+  order      Int      @default(0)
+  active     Boolean  @default(true)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([active, order])
+  @@map("hero_images")
+  @@schema("content")
+}

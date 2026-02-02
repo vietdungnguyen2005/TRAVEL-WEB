@@ -1,8 +1,11 @@
+-- Ensure schema exists
+CREATE SCHEMA IF NOT EXISTS "booking";
+
 -- CreateEnum
-CREATE TYPE "BookingStatus" AS ENUM ('PENDING', 'CONFIRMED', 'CANCELLED', 'COMPLETED', 'ON_HOLD');
+CREATE TYPE "booking"."BookingStatus" AS ENUM ('PENDING', 'CONFIRMED', 'CANCELLED', 'COMPLETED', 'ON_HOLD');
 
 -- CreateTable
-CREATE TABLE "bookings" (
+CREATE TABLE "booking"."bookings" (
     "id" TEXT NOT NULL,
     "roomId" TEXT NOT NULL,
     "userId" TEXT NOT NULL,
@@ -10,7 +13,7 @@ CREATE TABLE "bookings" (
     "checkOut" TIMESTAMP(3) NOT NULL,
     "numberOfGuests" INTEGER NOT NULL,
     "totalPrice" DECIMAL(10,2) NOT NULL,
-    "status" "BookingStatus" NOT NULL DEFAULT 'PENDING',
+    "status" "booking"."BookingStatus" NOT NULL DEFAULT 'PENDING',
     "holdExpiresAt" TIMESTAMP(3),
     "paymentStatus" TEXT,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -20,7 +23,7 @@ CREATE TABLE "bookings" (
 );
 
 -- CreateTable
-CREATE TABLE "outbox" (
+CREATE TABLE "booking"."outbox" (
     "id" TEXT NOT NULL,
     "aggregateType" TEXT NOT NULL,
     "aggregateId" TEXT NOT NULL,
@@ -34,4 +37,4 @@ CREATE TABLE "outbox" (
 );
 
 -- CreateIndex
-CREATE INDEX "outbox_published_createdAt_idx" ON "outbox"("published", "createdAt");
+CREATE INDEX "outbox_published_createdAt_idx" ON "booking"."outbox"("published", "createdAt");

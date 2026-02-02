@@ -1,6 +1,6 @@
 "use client";
 
-import { use, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -36,8 +36,8 @@ interface BookingData {
   guestPhone?: string;
 }
 
-export default function PaymentPage({ params }: { params: Promise<{ id: string }> }) {
-  const { id } = use(params);
+export default function PaymentPage({ params }: { params: { id: string } }) {
+  const { id } = params;
   const router = useRouter();
   const [booking, setBooking] = useState<BookingData | null>(null);
   const [loading, setLoading] = useState(true);

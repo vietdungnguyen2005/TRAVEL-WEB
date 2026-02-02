@@ -114,7 +114,7 @@ export default function BookingsManagement() {
         params.append("status", filter);
       }
 
-      const response = await gatewayFetch(`/api/bookings/admin/bookings?${params.toString()}`);
+      const response = await gatewayFetch(`/api/admin/bookings?${params.toString()}`);
       if (response.ok) {
         const data = await response.json();
         setBookings(data);
@@ -129,7 +129,7 @@ export default function BookingsManagement() {
   async function updateBookingStatus(bookingId: string, newStatus: string) {
     try {
       setUpdating(bookingId);
-      const response = await gatewayFetch(`/api/bookings/admin/bookings/${bookingId}/status`, {
+      const response = await gatewayFetch(`/api/admin/bookings/${bookingId}/status`, {
         method: "PATCH",
         body: JSON.stringify({ status: newStatus }),
         attachAccessToken: true,

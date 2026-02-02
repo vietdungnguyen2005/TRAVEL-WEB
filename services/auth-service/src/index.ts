@@ -6,8 +6,10 @@ import cookieParser from 'cookie-parser';
 import { loadEnvProfile } from '../../../infra/scripts/load-env-profile';
 
 // Load root env + selected profile env (.env.docker/.env.supabase)
-// In docker-compose, env can also be injected by the container; this won't override existing vars.
-loadEnvProfile({ cwd: process.cwd().split('/services/')[0] });
+// Only do this when explicitly requested; in docker-compose we rely on container-provided env.
+if (process.env.LOAD_ENV_PROFILE === 'true') {
+    loadEnvProfile({ cwd: process.cwd().split('/services/')[0] });
+}
 
 const logger = new Logger('AuthService');
 const app = express();

@@ -1,14 +1,17 @@
+-- Ensure schema exists
+CREATE SCHEMA IF NOT EXISTS "payment";
+
 -- CreateEnum
-CREATE TYPE "PaymentStatus" AS ENUM ('PENDING', 'COMPLETED', 'FAILED', 'REFUNDED');
+CREATE TYPE "payment"."PaymentStatus" AS ENUM ('PENDING', 'COMPLETED', 'FAILED', 'REFUNDED');
 
 -- CreateTable
-CREATE TABLE "Payment" (
+CREATE TABLE "payment"."Payment" (
     "id" TEXT NOT NULL,
     "bookingId" TEXT NOT NULL,
     "userId" TEXT NOT NULL,
     "amount" DOUBLE PRECISION NOT NULL,
     "currency" TEXT NOT NULL DEFAULT 'usd',
-    "status" "PaymentStatus" NOT NULL DEFAULT 'PENDING',
+    "status" "payment"."PaymentStatus" NOT NULL DEFAULT 'PENDING',
     "stripePaymentIntentId" TEXT,
     "stripeCheckoutSessionId" TEXT,
     "metadata" JSONB,
@@ -19,7 +22,7 @@ CREATE TABLE "Payment" (
 );
 
 -- CreateIndex
-CREATE UNIQUE INDEX "Payment_bookingId_key" ON "Payment"("bookingId");
+CREATE UNIQUE INDEX "Payment_bookingId_key" ON "payment"."Payment"("bookingId");
 
 -- CreateIndex
-CREATE INDEX "Payment_userId_idx" ON "Payment"("userId");
+CREATE INDEX "Payment_userId_idx" ON "payment"."Payment"("userId");

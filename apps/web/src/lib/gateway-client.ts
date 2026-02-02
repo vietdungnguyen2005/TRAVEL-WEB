@@ -27,7 +27,24 @@ function getAccessTokenFromCookie(): string | undefined {
 }
 
 export function gatewayUrl(path: string) {
-    const base = publicEnv.NEXT_PUBLIC_API_GATEWAY_URL.replace(/\/$/, "");
+    let base = publicEnv.NEXT_PUBLIC_API_GATEWAY_URL;
+    // If the app is opened via LAN IP (e.g. http://192.168.x.x:3000) but the
+    // gateway base is localhost, browser requests will go cross-origin and can
+    // cause cookie/credentials surprises. In dev, rewrite localhost -> current host.
+    if (typeof window !== "undefined") {
+        try {
+            const currentHost = window.location.hostname;
+            if (currentHost && /^(localhost|127\.0\.0\.1)$/i.test(new URL(base).hostname)) {
+                const u = new URL(base);
+                u.hostname = currentHost;
+                base = u.toString();
+            }
+        } catch {
+            // ignore invalid base; fetch will fail and surface error to caller
+        }
+    }
+
+    base = base.replace(/\/$/, "");
     const p = path.startsWith("/") ? path : `/${path}`;
     return `${base}${p}`;
 }

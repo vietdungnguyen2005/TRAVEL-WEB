@@ -5,6 +5,34 @@ import jwt from 'jsonwebtoken';
 
 export const bookingRouter = express.Router();
 
+function requireAdmin(req: express.Request, res: express.Response, next: express.NextFunction) {
+    const auth = req.headers.authorization;
+    const bearer = auth?.startsWith('Bearer ') ? auth.slice('Bearer '.length) : undefined;
+
+    const cookieHeader = req.headers.cookie;
+    const cookieToken = cookieHeader
+        ?.split(';')
+        .map((s) => s.trim())
+        .find((c) => c.startsWith('access_token='))
+        ?.split('=')
+        .slice(1)
+        .join('=');
+
+    const token = bearer || cookieToken;
+    if (!token) return res.status(401).json({ message: 'Unauthorized' });
+
+    try {
+        const decoded = jwt.verify(token, getJwtSecret()) as jwt.JwtPayload | string;
+        if (typeof decoded === 'string') return res.status(401).json({ message: 'Unauthorized' });
+        const role = (decoded as any).role as string | undefined;
+        if (role !== 'ADMIN') return res.status(403).json({ message: 'Forbidden' });
+        (req as any).user = { id: decoded.sub, role };
+        return next();
+    } catch {
+        return res.status(401).json({ message: 'Unauthorized' });
+    }
+}
+
 function getJwtSecret() {
     const secret = process.env.JWT_SECRET;
     if (!secret) throw new Error('JWT_SECRET is not set');
@@ -68,6 +96,82 @@ bookingRouter.get('/', async (req, res, next) => {
             orderBy: { createdAt: 'desc' },
         });
         res.json(bookings);
+    } catch (err) {
+        next(err);
+    }
+});
+
+// =============================
+// Admin booking approval flow
+// =============================
+// Admin list bookings (supports ?status=PENDING)
+bookingRouter.get('/admin/bookings', requireAdmin, async (req, res, next) => {
+    try {
+        const status = typeof req.query.status === 'string' ? req.query.status : undefined;
+        const bookings = await prisma.booking.findMany({
+            where: status ? { status: status as any } : undefined,
+            orderBy: { createdAt: 'desc' },
+        });
+        res.json(bookings);
+    } catch (err) {
+        next(err);
+    }
+});
+
+// Admin update status (used by admin UI)
+bookingRouter.patch('/admin/bookings/:id/status', requireAdmin, async (req, res, next) => {
+    const { id } = req.params;
+    const status = (req.body?.status as string | undefined)?.toUpperCase();
+    try {
+        if (!status) return res.status(400).json({ message: 'status is required' });
+
+        const allowed = new Set(['PENDING', 'CONFIRMED', 'CANCELLED', 'COMPLETED']);
+        if (!allowed.has(status)) {
+            return res.status(400).json({ message: 'invalid status' });
+        }
+
+        const updated = await prisma.booking.update({
+            where: { id },
+            data: {
+                status: status as any,
+                ...(status === 'CONFIRMED' ? { paymentStatus: 'PENDING' } : null),
+            },
+        });
+
+        await prisma.outbox.create({
+            data: {
+                aggregateType: 'Booking',
+                aggregateId: updated.id,
+                eventType: 'BookingStatusUpdated',
+                payload: {
+                    id: updated.id,
+                    userId: updated.userId,
+                    roomId: updated.roomId,
+                    status: updated.status,
+                    paymentStatus: updated.paymentStatus,
+                },
+            },
+        });
+
+        // If admin approved, emit the same event name other services might already listen for.
+        if (status === 'CONFIRMED') {
+            await prisma.outbox.create({
+                data: {
+                    aggregateType: 'Booking',
+                    aggregateId: updated.id,
+                    eventType: 'BookingConfirmed',
+                    payload: {
+                        id: updated.id,
+                        userId: updated.userId,
+                        roomId: updated.roomId,
+                        status: updated.status,
+                        paymentStatus: updated.paymentStatus,
+                    },
+                },
+            });
+        }
+
+        res.json({ success: true, booking: updated });
     } catch (err) {
         next(err);
     }

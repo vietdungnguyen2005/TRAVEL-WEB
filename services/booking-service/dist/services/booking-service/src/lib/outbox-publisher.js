@@ -9,6 +9,14 @@ const shared_1 = require("@travel-web/shared");
 const logger = new shared_1.Logger('OutboxPublisher');
 const EXCHANGE = process.env.RABBITMQ_EXCHANGE || 'events';
 async function publishOutbox() {
+    // Note: current product requirement is "payment request pending; admin approves".
+    // Outbox -> RabbitMQ publishing isn't necessary for local/dev and has been a
+    // frequent source of crashes when the outbox table isn't provisioned.
+    // Enable explicitly with ENABLE_OUTBOX_PUBLISHER=true.
+    if (process.env.ENABLE_OUTBOX_PUBLISHER !== 'true') {
+        logger.warn('ENABLE_OUTBOX_PUBLISHER is not true; skipping outbox publisher');
+        return;
+    }
     if (process.env.DISABLE_RABBITMQ === 'true') {
         logger.warn('DISABLE_RABBITMQ=true; skipping outbox publisher');
         return;

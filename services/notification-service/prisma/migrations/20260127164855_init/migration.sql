@@ -1,20 +1,23 @@
--- CreateEnum
-CREATE TYPE "NotificationChannel" AS ENUM ('EMAIL', 'SMS');
+-- Ensure schema exists
+CREATE SCHEMA IF NOT EXISTS "notify";
 
 -- CreateEnum
-CREATE TYPE "NotificationStatus" AS ENUM ('PENDING', 'SENT', 'FAILED');
+CREATE TYPE "notify"."NotificationChannel" AS ENUM ('EMAIL', 'SMS');
+
+-- CreateEnum
+CREATE TYPE "notify"."NotificationStatus" AS ENUM ('PENDING', 'SENT', 'FAILED');
 
 -- CreateTable
-CREATE TABLE "notifications" (
+CREATE TABLE "notify"."notifications" (
     "id" TEXT NOT NULL,
     "userId" TEXT,
     "bookingId" TEXT,
     "type" TEXT NOT NULL,
-    "channel" "NotificationChannel" NOT NULL DEFAULT 'EMAIL',
+    "channel" "notify"."NotificationChannel" NOT NULL DEFAULT 'EMAIL',
     "to" TEXT NOT NULL,
     "subject" TEXT,
     "payload" JSONB,
-    "status" "NotificationStatus" NOT NULL DEFAULT 'PENDING',
+    "status" "notify"."NotificationStatus" NOT NULL DEFAULT 'PENDING',
     "error" TEXT,
     "attempts" INTEGER NOT NULL DEFAULT 0,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -24,10 +27,10 @@ CREATE TABLE "notifications" (
 );
 
 -- CreateIndex
-CREATE INDEX "notifications_status_createdAt_idx" ON "notifications"("status", "createdAt");
+CREATE INDEX "notifications_status_createdAt_idx" ON "notify"."notifications"("status", "createdAt");
 
 -- CreateIndex
-CREATE INDEX "notifications_userId_idx" ON "notifications"("userId");
+CREATE INDEX "notifications_userId_idx" ON "notify"."notifications"("userId");
 
 -- CreateIndex
-CREATE INDEX "notifications_bookingId_idx" ON "notifications"("bookingId");
+CREATE INDEX "notifications_bookingId_idx" ON "notify"."notifications"("bookingId");

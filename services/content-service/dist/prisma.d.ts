@@ -1,3 +1,3 @@
-import { PrismaClient } from '../../../node_modules/.prisma/client';
+import { PrismaClient } from '../node_modules/.prisma/content-client';
 export declare const prisma: PrismaClient;
 //# sourceMappingURL=prisma.d.ts.map

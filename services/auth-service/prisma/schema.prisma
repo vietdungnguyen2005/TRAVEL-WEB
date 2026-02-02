@@ -1,17 +1,20 @@
 generator client {
   provider = "prisma-client-js"
   output   = "../node_modules/.prisma/auth-client"
+  previewFeatures = ["multiSchema"]
 }
 
 datasource db {
   provider = "postgresql"
   url       = env("AUTH_DATABASE_URL")
-  directUrl = env("AUTH_DIRECT_URL")
+  schemas  = ["app_auth"]
 }
 
 enum Role {
   ADMIN
   CUSTOMER
+
+  @@schema("app_auth")
 }
 
 model User {
@@ -26,6 +29,7 @@ model User {
   resetPasswordExpires DateTime?
   createdAt            DateTime @default(now())
   updatedAt            DateTime @updatedAt
-
+  
   @@index([email])
+  @@schema("app_auth")
 }

@@ -20,11 +20,16 @@ interface RoomCardProps {
 }
 
 export function RoomCard({ room }: RoomCardProps) {
+  const images = Array.isArray(room.images) ? room.images : [];
+  const sizeText = typeof room.size === "number" ? `${room.size}m²` : "-";
+  const capacityText = typeof room.capacity === "number" ? `${room.capacity} guests` : "-";
+  const bedCountText = typeof room.bedCount === "number" ? `${room.bedCount} beds` : "-";
+
   return (
     <Card className="overflow-hidden hover:shadow-lg transition-shadow">
       <div className="relative h-64 w-full">
         <Image
-          src={room.images[0] || "/placeholder-room.jpg"}
+          src={images[0] || "/placeholder-room.jpg"}
           alt={room.name}
           fill
           className="object-cover"
@@ -51,15 +56,15 @@ export function RoomCard({ room }: RoomCardProps) {
         <div className="flex items-center gap-4 text-sm text-gray-600 mb-4">
           <div className="flex items-center gap-1">
             <Users className="h-4 w-4" />
-            <span>{room.capacity} guests</span>
+            <span>{capacityText}</span>
           </div>
           <div className="flex items-center gap-1">
             <Bed className="h-4 w-4" />
-            <span>{room.bedCount} beds</span>
+            <span>{bedCountText}</span>
           </div>
           <div className="flex items-center gap-1">
             <Maximize className="h-4 w-4" />
-            <span>{room.size}m²</span>
+            <span>{sizeText}</span>
           </div>
         </div>
 

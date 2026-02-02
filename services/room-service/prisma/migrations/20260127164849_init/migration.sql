@@ -1,8 +1,11 @@
+-- Ensure schema exists
+CREATE SCHEMA IF NOT EXISTS "room";
+
 -- CreateEnum
-CREATE TYPE "RoomStatus" AS ENUM ('AVAILABLE', 'OCCUPIED', 'MAINTENANCE');
+CREATE TYPE "room"."RoomStatus" AS ENUM ('AVAILABLE', 'OCCUPIED', 'MAINTENANCE');
 
 -- CreateTable
-CREATE TABLE "RoomType" (
+CREATE TABLE "room"."RoomType" (
     "id" TEXT NOT NULL,
     "name" TEXT NOT NULL,
     "description" TEXT NOT NULL,
@@ -18,11 +21,11 @@ CREATE TABLE "RoomType" (
 );
 
 -- CreateTable
-CREATE TABLE "Room" (
+CREATE TABLE "room"."Room" (
     "id" TEXT NOT NULL,
     "roomNumber" TEXT NOT NULL,
     "roomTypeId" TEXT NOT NULL,
-    "status" "RoomStatus" NOT NULL DEFAULT 'AVAILABLE',
+    "status" "room"."RoomStatus" NOT NULL DEFAULT 'AVAILABLE',
     "floor" INTEGER,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
@@ -31,7 +34,7 @@ CREATE TABLE "Room" (
 );
 
 -- CreateIndex
-CREATE UNIQUE INDEX "Room_roomNumber_key" ON "Room"("roomNumber");
+CREATE UNIQUE INDEX "Room_roomNumber_key" ON "room"."Room"("roomNumber");
 
 -- AddForeignKey
-ALTER TABLE "Room" ADD CONSTRAINT "Room_roomTypeId_fkey" FOREIGN KEY ("roomTypeId") REFERENCES "RoomType"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "room"."Room" ADD CONSTRAINT "Room_roomTypeId_fkey" FOREIGN KEY ("roomTypeId") REFERENCES "room"."RoomType"("id") ON DELETE CASCADE ON UPDATE CASCADE;

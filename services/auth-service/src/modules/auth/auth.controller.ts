@@ -1,6 +1,7 @@
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import type { SignOptions } from 'jsonwebtoken';
+import { randomBytes } from 'crypto';
 import { z } from 'zod';
 import type { Request, Response } from 'express';
 import { prisma } from '../../lib/prisma';
@@ -31,6 +32,23 @@ function signAccessToken(payload: { sub: string; email: string; role: string }) 
     return jwt.sign(payload, secret, opts);
 }
 
+function authCookieOptions() {
+    const isProd = process.env.NODE_ENV === 'production';
+    return {
+        httpOnly: true,
+        secure: isProd,
+        sameSite: 'lax' as const,
+        path: '/',
+        // Express expects milliseconds
+        maxAge: 7 * 24 * 60 * 60 * 1000,
+    };
+}
+
+function setAuthCookie(res: Response, token: string) {
+    // Keep backwards compatibility: API returns `token`, but we also set it as httpOnly cookie.
+    res.cookie('access_token', token, authCookieOptions());
+}
+
 export async function register(req: Request, res: Response) {
     const parsed = registerSchema.safeParse(req.body);
     if (!parsed.success) {
@@ -48,12 +66,17 @@ export async function register(req: Request, res: Response) {
 
     const hashed = await bcrypt.hash(parsed.data.password, 10);
 
+    // Email verification token (for production you'd send it via email)
+    const verificationToken = randomBytes(24).toString('hex');
+
     const user = await prisma.user.create({
         data: {
             email,
             password: hashed,
             name: parsed.data.name,
             role: 'CUSTOMER',
+            isVerified: false,
+            verificationToken,
         },
         select: { id: true, email: true, name: true, role: true, isVerified: true },
     });
@@ -64,10 +87,15 @@ export async function register(req: Request, res: Response) {
         role: user.role,
     });
 
+    setAuthCookie(res, accessToken);
+
     return res.status(201).json({
         message: 'Đăng ký thành công',
         token: accessToken,
         user,
+        // For dev/testing we return token so UI can show/copy it.
+        // In production this should be emailed.
+        verificationToken,
     });
 }
 
@@ -90,6 +118,13 @@ export async function login(req: Request, res: Response) {
         return res.status(401).json({ message: 'Email hoặc mật khẩu không đúng' });
     }
 
+    if (!user.isVerified) {
+        return res.status(403).json({
+            message: 'Tài khoản chưa xác nhận email',
+            code: 'EMAIL_NOT_VERIFIED',
+        });
+    }
+
     const ok = await bcrypt.compare(parsed.data.password, user.password);
     if (!ok) {
         return res.status(401).json({ message: 'Email hoặc mật khẩu không đúng' });
@@ -100,6 +135,8 @@ export async function login(req: Request, res: Response) {
         email: user.email,
         role: user.role,
     });
+
+    setAuthCookie(res, accessToken);
 
     const { password: _pw, ...safeUser } = user;
 
