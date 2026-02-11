@@ -84,9 +84,11 @@ const Toaster = ({ ...props })=>{
             }, void 0)
         },
         style: {
-            "--normal-bg": "var(--popover)",
-            "--normal-text": "var(--popover-foreground)",
-            "--normal-border": "var(--border)",
+            // Dark translucent toast (matches the requested black/transparent look)
+            // Use design tokens (no hard-coded colors).
+            "--normal-bg": "hsl(var(--foreground) / 0.85)",
+            "--normal-text": "hsl(var(--background))",
+            "--normal-border": "hsl(var(--border) / 0.25)",
             "--border-radius": "var(--radius)"
         },
         ...props

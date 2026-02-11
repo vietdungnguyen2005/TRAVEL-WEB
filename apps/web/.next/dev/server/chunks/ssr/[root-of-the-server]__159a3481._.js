@@ -1354,7 +1354,7 @@ __turbopack_context__.s([
 ]);
 const publicEnv = {
     // Default for local dev/build. In production, set NEXT_PUBLIC_API_GATEWAY_URL explicitly.
-    NEXT_PUBLIC_API_GATEWAY_URL: ("TURBOPACK compile-time value", "http://localhost:4000") ?? "http://localhost:4000"
+    NEXT_PUBLIC_API_GATEWAY_URL: process.env.NEXT_PUBLIC_API_GATEWAY_URL ?? "http://localhost:4000"
 };
 }),
 "[project]/apps/web/src/lib/gateway-client.ts [app-ssr] (ecmascript)", ((__turbopack_context__) => {

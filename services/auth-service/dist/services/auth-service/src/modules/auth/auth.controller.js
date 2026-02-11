@@ -36,10 +36,13 @@ function signAccessToken(payload) {
 }
 function authCookieOptions() {
     const isProd = process.env.NODE_ENV === 'production';
+    const envSameSite = (process.env.AUTH_COOKIE_SAMESITE || 'lax').toLowerCase();
+    const sameSite = (envSameSite === 'strict' ? 'strict' : envSameSite === 'lax' ? 'lax' : 'lax');
     return {
         httpOnly: true,
-        secure: isProd,
-        sameSite: 'lax',
+        // Production cookies must be Secure (served only over HTTPS)
+        secure: isProd ? true : false,
+        sameSite,
         path: '/',
         // Express expects milliseconds
         maxAge: 7 * 24 * 60 * 60 * 1000,

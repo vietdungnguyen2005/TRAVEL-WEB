@@ -6,6 +6,7 @@ generator client {
 
 datasource db {
   provider = "postgresql"
+  binaryTargets = ["native", "windows"]
   url      = env("BOOKING_DATABASE_URL")
   schemas  = ["booking"]
 }

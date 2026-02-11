@@ -12,7 +12,10 @@ npm install
 # generate client
 npm run prisma:generate
 # run migrations (local dev)
-npm run prisma:migrate
+npm run prisma:migrate:dev
+
+# run migrations (production)
+npm run prisma:migrate:deploy
 ```
 
 - Environment variables
@@ -26,6 +29,11 @@ Each service has its own env var name in its `schema.prisma` datasource (example
 - `REVIEW_DATABASE_URL`
 
 Ensure you set them before running migrations.
+
+## Production note
+
+- Production should use `prisma migrate deploy` (never `migrate dev`).
+- If you run the repo helper: set `PRISMA_MIGRATE_MODE=deploy` (default) or `PRISMA_MIGRATE_MODE=dev` for local.
 
 ## Notes on non-Prisma services
 

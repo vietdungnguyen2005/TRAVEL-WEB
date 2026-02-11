@@ -1,6 +1,7 @@
 import { createProxyMiddleware } from 'http-proxy-middleware';
 import { getServicePlaceholderTarget, getServiceTarget } from '../discovery/service-resolver';
 import { services as staticServices } from '../config/services.config';
+import type { RequestWithId } from '../middlewares/requestId.middleware';
 
 type ServiceKey = keyof typeof staticServices;
 
@@ -17,6 +18,12 @@ function proxyTo(serviceKey: ServiceKey, pathPrefix: string) {
         },
         proxyTimeout: Number(process.env.UPSTREAM_TIMEOUT_MS || 15_000),
         timeout: Number(process.env.UPSTREAM_TIMEOUT_MS || 15_000),
+        onProxyReq: (proxyReq, req) => {
+            const requestId = (req as RequestWithId).requestId;
+            if (requestId) {
+                proxyReq.setHeader('x-request-id', requestId);
+            }
+        },
     });
 }
 

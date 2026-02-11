@@ -1,6 +1,6 @@
-import axios from 'axios';
 import os from 'os';
 import { Logger } from '../logger';
+import { httpClient } from '../http/axios-client';
 
 const logger = new Logger('ConsulRegister');
 
@@ -44,12 +44,12 @@ export async function consulRegisterService(opts: ConsulRegisterOptions) {
         },
     };
 
-    await axios.put(`${consulUrl}/v1/agent/service/register`, payload, { timeout: 4_000 });
+    await httpClient.put(`${consulUrl}/v1/agent/service/register`, payload);
     logger.info('Registered service in Consul', { serviceName: opts.serviceName, serviceId, address, port: opts.port, checkUrl });
 }
 
 export async function consulDeregisterService(serviceId: string, consulUrl?: string) {
     const base = (consulUrl || process.env.CONSUL_URL || 'http://consul:8500').replace(/\/$/, '');
-    await axios.put(`${base}/v1/agent/service/deregister/${encodeURIComponent(serviceId)}`, null, { timeout: 4_000 });
+    await httpClient.put(`${base}/v1/agent/service/deregister/${encodeURIComponent(serviceId)}`, null);
     logger.info('Deregistered service from Consul', { serviceId });
 }

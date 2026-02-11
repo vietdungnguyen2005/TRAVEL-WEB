@@ -6,37 +6,18 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = __importDefault(require("express"));
 const shared_1 = require("@travel-web/shared");
 const room_client_1 = require("../node_modules/.prisma/room-client");
-const jsonwebtoken_1 = __importDefault(require("jsonwebtoken"));
+const shared_2 = require("@travel-web/shared");
+const dotenv_1 = require("dotenv");
+// Load env vars from services/room-service/.env when running locally.
+(0, dotenv_1.config)();
 const app = (0, express_1.default)();
 const PORT = process.env.PORT || 3003;
 const prisma = new room_client_1.PrismaClient();
 app.use(express_1.default.json());
 app.get('/health', (req, res) => res.send('Room service healthy'));
-function getJwtSecret() {
-    const secret = process.env.JWT_SECRET;
-    if (!secret)
-        throw new Error('JWT_SECRET is not set');
-    return secret;
-}
-function requireAdmin(req, res, next) {
-    try {
-        const auth = req.headers.authorization;
-        if (!auth?.toLowerCase().startsWith('bearer '))
-            return res.status(401).json({ error: 'Unauthorized' });
-        const token = auth.slice('bearer '.length).trim();
-        const payload = jsonwebtoken_1.default.verify(token, getJwtSecret());
-        if (payload?.role !== 'ADMIN')
-            return res.status(403).json({ error: 'Forbidden' });
-        req.user = payload;
-        return next();
-    }
-    catch {
-        return res.status(401).json({ error: 'Unauthorized' });
-    }
-}
 // Admin endpoints (mounted under /api/admin/* by API Gateway)
 const admin = express_1.default.Router();
-admin.use(requireAdmin);
+admin.use(shared_2.verifyJWT, (0, shared_2.requireRole)('ADMIN'));
 // Room Types
 admin.get('/room-types', async (_req, res) => {
     const types = await prisma.roomType.findMany({ orderBy: { createdAt: 'desc' } });

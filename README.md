@@ -2,7 +2,7 @@
 
 > Hệ thống đặt phòng theo hướng **microservice** (Node.js/Express services + **API Gateway**) và một **web app** (Next.js) cho UI.
 
-**Status:** ✅ Production Ready | **Version:** 1.0.0
+**Version:** 1.0.0
 
 ---
 
@@ -10,20 +10,29 @@
 
 ### 1) Chạy full hệ thống bằng Docker (DB + services + observability)
 
+> Yêu cầu: có sẵn file `.env.production` tại root (file này đang **gitignored**). Nếu chưa có, copy từ `.env.example` và thêm các biến bắt buộc ở mục “Cấu hình môi trường (Docker)”.
+
 ```bash
 # 1) Cài dependencies để build workspace (khuyến nghị)
 npm install
 
 # 2) Start full stack
-docker compose up -d --build
+docker compose --env-file .env.production up -d --build
+
+# (Optional) Start with replicas (gateway/payment/booking >= 2 instances)
+docker compose --env-file .env.production up -d --build --scale api-gateway=2 --scale booking-service=2 --scale payment-service=2
 
 # 3) Xem trạng thái
 docker compose ps
 ```
 
 Sau khi chạy:
-- Gateway (public backend entrypoint): **http://localhost:4000**
+- Public backend entrypoint (Nginx TLS → API Gateway): **https://localhost**
 - Web UI: tuỳ cách chạy (xem mục “Chạy Web UI” bên dưới)
+
+Observability:
+- Prometheus: **http://localhost:9090**
+- Grafana: **http://localhost:3007** (user/pass lấy từ `.env.production`)
 
 ### 2) Chạy Web UI (Next.js)
 
@@ -36,6 +45,19 @@ npm run dev
 Mặc định web chạy ở: **http://localhost:3000**
 
 > Ghi chú: repo có 2 gateway nhưng chỉ **`services/api-gateway`** là canonical. `apps/gateway` là legacy/experimental.
+
+---
+
+## ✅ Production hardening đã implement
+
+- Nginx reverse proxy + TLS termination + HTTP→HTTPS redirect (public entrypoint là `https://localhost`).
+- Redis-backed rate limiting ở gateway (production không dùng in-memory store).
+- Health endpoints chuẩn hoá: `/healthz` (liveness) và `/ready` (readiness: DB/Rabbit/Redis tuỳ service).
+- Metrics: gateway expose `/metrics` (Prometheus scrape) + Grafana auto-provision datasource/dashboard.
+- Logging: JSON logs + `x-request-id` propagation tại gateway.
+- RabbitMQ DLQ: consumer default dead-lettering (nack `requeue=false` → DLQ).
+- Payment refund hardening: bắt buộc JWT + RBAC ADMIN + idempotency (`Idempotency-Key`).
+- Prisma production: chuẩn hoá scripts theo hướng `prisma migrate deploy` (không dùng `migrate dev` trong production).
 
 ---
 
@@ -77,8 +99,11 @@ flowchart TB
   %% User Layer
   U[User/Browser] --> WEB[Next.js Web App\napps/web\nUI Only]
 
-  %% Direct connection to API Gateway
-  U --> GW[API Gateway\nservices/api-gateway\n:4000\nAuth, Rate Limit, Routing]
+  %% Edge (public entrypoint)
+  U --> NGINX[Nginx Edge\nTLS termination\n:443]
+
+  %% API Gateway behind Nginx
+  NGINX --> GW[API Gateway\nservices/api-gateway\n:4000\nAuth, Rate Limit, Routing]
 
   %% Infrastructure Services
   GW --> CONSUL[Service Discovery\nConsul/Eureka\n:8500]
@@ -117,8 +142,7 @@ flowchart TB
 
   %% Monitoring & Logging
   AUTH & BOOK & ROOM & PAY & REV & NOTI --> PROM[Prometheus\n:9090]
-  PROM --> GRAFANA[Grafana\n:3000]
-  AUTH & BOOK & ROOM & PAY & REV & NOTI --> ELK[ELK\n:9200]
+  PROM --> GRAFANA[Grafana\n:3007]
 
   %% Cache Layer
   ROOM --> CACHE[(Redis Cache\nRoom availability)]
@@ -127,7 +151,7 @@ flowchart TB
 
 Notes:
 - `apps/web` is **UI only**. It must not act as a proxy for backend APIs.
-- The gateway is the only public backend endpoint (`:4000`).
+- The gateway is the only backend entrypoint và được public qua Nginx (`https://localhost`). (Internal port: `:4000`)
 - Service Discovery / Upload / Analytics / Observability blocks are **design targets**; the repo currently focuses on core services + RabbitMQ.
 
 > Ghi chú: kiến trúc mục tiêu là **UI-only web** + **API Gateway** làm entrypoint. Nếu còn Next.js API Routes trong `apps/web/src/app/api/*` thì đó là drift và nên migrate về services/gateway.
@@ -144,7 +168,7 @@ Notes:
 - **Payment:** Stripe API 2025-12-15.clover
 - **Image Storage:** Cloudinary v2
 - **Email:** Resend API + React Email
-- **Rate Limiting:** Upstash Redis (@upstash/ratelimit)
+- **Rate Limiting:** Redis (Docker `redis`) cho gateway rate limiting
 
 ### Security
 - **Password Hashing:** bcryptjs (10 rounds)
@@ -275,13 +299,13 @@ Tuỳ theo bạn chạy theo hướng nào:
 1) **Chạy Web (Next.js) + API routes trong web** (theo README cũ có `src/app/api/*`): cần `.env` cho NextAuth/Prisma/Stripe/Cloudinary/Resend.
 
 2) **Chạy đúng kiến trúc microservices** (khuyến nghị):
-- Backend entrypoint là `services/api-gateway` (port 4000)
-- Mỗi service có database riêng trong `docker-compose.yml`
-- Web gọi API qua gateway
+- Public entrypoint là **Nginx** (HTTPS) → route vào `services/api-gateway`.
+- Mỗi service có database riêng trong `docker-compose.yml`.
+- Web gọi API qua gateway (không dùng Next.js API routes làm proxy).
 
-> Repo đang ở giai đoạn chuyển tiếp: README mô tả cả “web có API routes” và “microservices + gateway”. Khi bàn giao, team nên thống nhất 1 hướng để tránh drift.
+> Repo đang ở giai đoạn chuyển tiếp: có thể còn Next.js API routes cũ trong web. Để đúng kiến trúc microservices, ưu tiên migrate toàn bộ backend APIs về gateway/services.
 
-### � Service Discovery (Consul) — API Gateway
+### Service Discovery (Consul) — API Gateway
 
 Gateway hỗ trợ 2 chế độ resolve upstream services:
 
@@ -298,7 +322,7 @@ CONSUL_URL=http://localhost:8500
 DISCOVERY_REFRESH_MS=10000
 ```
 
-### �🗄️ Database (Supabase)
+### 🗄️ Database (Supabase)
 ```bash
 # 1. Tạo tài khoản tại: https://supabase.com
 # 2. Tạo project mới
@@ -361,11 +385,45 @@ FROM_EMAIL="noreply@yourdomain.com"
 openssl rand -base64 32
 CRON_SECRET="your-random-secret"
 
-# Optional: Upstash Redis (production rate limiting)
-# Sign up: https://upstash.com
-UPSTASH_REDIS_REST_URL="https://your-redis.upstash.io"
-UPSTASH_REDIS_REST_TOKEN="your-token"
+# Redis (gateway rate limiting / readiness)
+# In Docker: redis://redis:6379
+# In local (no docker): redis://127.0.0.1:6379
+REDIS_URL="redis://redis:6379"
 ```
+
+### Cấu hình môi trường (Docker / root docker-compose)
+
+Root `docker-compose.yml` đang đọc các biến sau (tối thiểu) từ `.env.production`:
+
+```bash
+# Postgres (shared password used by per-service DBs)
+POSTGRES_PASSWORD=change-me
+
+# JWT
+JWT_SECRET=change-me
+
+# RabbitMQ
+RABBITMQ_USER=change-me
+RABBITMQ_PASSWORD=change-me
+
+# Grafana
+GRAFANA_ADMIN_USER=change-me
+GRAFANA_ADMIN_PASSWORD=change-me
+
+# pgAdmin
+PGADMIN_DEFAULT_EMAIL=admin@local.dev
+PGADMIN_DEFAULT_PASSWORD=change-me
+
+# Gateway redis (rate limit / readiness)
+REDIS_URL=redis://redis:6379
+
+# Optional
+SERVICE_DISCOVERY_MODE=static
+```
+
+Lưu ý:
+- Không commit `.env.production`.
+- Nginx cần có cert tại `infra/nginx/certs/fullchain.pem` và `infra/nginx/certs/privkey.pem`.
 
 ### 🔗 App Configuration
 ```bash
@@ -391,7 +449,7 @@ Ví dụ Auth service:
 cd services/auth-service
 npm install
 npm run prisma:generate
-npm run prisma:migrate
+npm run prisma:migrate:dev
 ```
 
 Ví dụ Booking service:
@@ -399,7 +457,7 @@ Ví dụ Booking service:
 cd services/booking-service
 npm install
 npm run prisma:generate
-npm run prisma:migrate
+npm run prisma:migrate:dev
 ```
 
 ### B) Prisma global (nếu bạn đang chạy theo hướng web + DB Supabase/local 1 DB)
@@ -409,16 +467,15 @@ npx prisma generate
 npx prisma migrate dev --name init
 ```
 
+Production note:
+- For production deployments, use `prisma migrate deploy` (never `migrate dev`).
+
 Seed (optional):
 ```bash
 npm run db:seed
 ```
 
-Seed script tạo (theo tài liệu dự án):
-- 18 room types
-- 5 seasonal pricing rules
-- Admin user: `admin@example.com` / `admin123`
-- Test customer: `customer@example.com` / `customer123`
+Seed (dev-only): tuỳ theo service/web seed scripts hiện có. Không nên publish/duy trì default credentials trong production.
 
 ### Prisma Studio
 
@@ -435,22 +492,23 @@ npx prisma studio
 Chạy ở root (nơi có `docker-compose.yml`):
 
 ```bash
-docker compose up -d --build
+docker compose --env-file .env.production up -d --build
 ```
 
 #### Port map quan trọng (root docker-compose)
 
 | Thành phần | URL | Ghi chú |
 |---|---|---|
-| API Gateway | http://localhost:4000 | Public backend entrypoint |
-| Auth service | http://localhost:3001 | Internal service (có thể được gateway route) |
-| Booking service | http://localhost:3002 | Internal |
-| Room service | http://localhost:3003 | Internal |
-| RabbitMQ UI | http://localhost:15672 | guest/guest |
+| Public API (Nginx TLS → Gateway) | https://localhost | **Public backend entrypoint** |
+| RabbitMQ UI | http://localhost:15672 | Credentials từ `.env.production` |
 | Consul | http://localhost:8500 | service discovery |
-| Prometheus | http://localhost:9090 | metrics |
-| Grafana | http://localhost:3007 | admin/admin |
-| pgAdmin | http://localhost:5050 | admin@local.dev / admin |
+| Prometheus | http://localhost:9090 | scrape gateway `/metrics` |
+| Grafana | http://localhost:3007 | Credentials từ `.env.production` |
+| pgAdmin | http://localhost:5050 | Credentials từ `.env.production` |
+
+Ghi chú về ports:
+- `api-gateway`, `booking-service`, `payment-service` dùng `expose` (không publish port ra host) để hỗ trợ scaling; truy cập từ host qua Nginx.
+- Một số service khác đang publish port ra host (ví dụ `auth-service:3001`, `room-service:3003`, ...), nhưng vẫn được coi là internal theo kiến trúc.
 
 > Một số service/port khác có trong compose (payment/review/notification/blog/redis…). Xem `docker-compose.yml` để biết chi tiết.
 
@@ -514,7 +572,9 @@ npm run lint:fix
 
 ## 📦 DEPLOYMENT (PRODUCTION)
 
-### Vercel (Khuyến nghị)
+### Vercel (Web UI only)
+
+Nếu deploy theo kiến trúc microservices, Vercel phù hợp cho **apps/web** (UI). Backend services/gateway nên deploy qua Docker/K8s (không phải Next.js API routes).
 
 #### 1. Install Vercel CLI
 ```bash
@@ -579,7 +639,7 @@ docker run -p 3000:3000 \
 - ✅ Test login/register flows
 - ✅ Test booking creation & payment
 - ✅ Test webhook endpoints (use Stripe CLI)
-- ✅ Check `/api/health` endpoint
+- ✅ Check `/healthz` and `/ready` endpoints
 - ✅ Monitor logs for errors
 - ✅ Setup monitoring (Sentry recommended)
 
@@ -596,7 +656,7 @@ docker run -p 3000:3000 \
 | Avatar Upload | 10 uploads | 1 minute / user |
 | Refund API | 3 requests | 1 minute / user |
 
-**Fallback:** In-memory rate limiting nếu không có Upstash Redis
+Gateway rate limiting dùng Redis (theo `REDIS_URL`). Production không khuyến nghị chạy in-memory.
 
 ### 🔐 Authentication
 - **Password:** bcrypt hashing (10 rounds)
@@ -630,6 +690,8 @@ docker run -p 3000:3000 \
 
 ## 📡 API ENDPOINTS
 
+> Public base URL (Docker): `https://localhost` (Nginx TLS).
+
 ### 🔓 Public Endpoints
 
 #### Rooms
@@ -646,7 +708,9 @@ GET  /api/reviews/room-type/[id]  # Get reviews (paginated)
 
 #### Health Check
 ```bash
-GET  /api/health                  # System health status
+GET  /healthz                     # Liveness
+GET  /ready                       # Readiness (DB/Rabbit/Redis tuỳ service)
+GET  /metrics                     # Prometheus metrics (gateway)
 ```
 
 ### 🔐 Authenticated Endpoints
@@ -670,7 +734,7 @@ POST /api/bookings/[id]/cancel    # Cancel booking
 ```bash
 POST /api/payment/create-checkout # Create Stripe checkout session
 POST /api/payment/confirm         # Confirm payment
-POST /api/payment/refund          # Request refund
+POST /api/payment/refund          # Refund (JWT + ADMIN + Idempotency-Key bắt buộc)
 POST /api/webhooks/stripe         # Stripe webhook handler
 ```
 
@@ -736,59 +800,26 @@ GET  /api/cron/cleanup-holds      # Cleanup expired holds (every 5 min)
 
 ```
 travel-web/
-├── prisma/
-│   ├── schema.prisma          # Database schema
-│   ├── seed.ts                # Seed script
-│   └── migrations/            # Database migrations
-├── public/                    # Static assets
-├── src/
-│   ├── app/
-│   │   ├── (admin)/          # Admin routes
-│   │   │   └── admin/        # /admin/*
-│   │   ├── (auth)/           # Auth routes
-│   │   │   └── auth/         # /auth/*
-│   │   ├── (customer)/       # Customer routes
-│   │   │   ├── rooms/        # /rooms/*
-│   │   │   ├── booking/      # /booking/*
-│   │   │   ├── dashboard/    # /dashboard/*
-│   │   │   └── ...
-│   │   ├── api/              # API routes
-│   │   │   ├── auth/         # Authentication
-│   │   │   ├── bookings/     # Booking management
-│   │   │   ├── payment/      # Payment & refunds
-│   │   │   ├── admin/        # Admin APIs
-│   │   │   └── ...
-│   │   ├── globals.css       # Global styles
-│   │   ├── layout.tsx        # Root layout
-│   │   └── page.tsx          # Home page
-│   ├── components/
-│   │   ├── ui/               # Shadcn/UI components
-│   │   ├── admin/            # Admin components
-│   │   ├── customer/         # Customer components
-│   │   ├── booking/          # Booking components
-│   │   ├── layout/           # Layout components
-│   │   └── reviews/          # Review components
-│   ├── lib/
-│   │   ├── prisma.ts         # Prisma client
-│   │   ├── auth.ts           # NextAuth config
-│   │   ├── stripe.ts         # Stripe client
-│   │   ├── email-service.ts  # Email functions
-│   │   ├── booking-utils.ts  # Booking utilities
-│   │   ├── rate-limit.ts     # Rate limiting
-│   │   ├── validations.ts    # Validation schemas
-│   │   └── utils.ts          # Utility functions
-│   ├── emails/               # Email templates
-│   ├── hooks/                # Custom React hooks
-│   ├── store/                # Zustand stores
-│   ├── types/                # TypeScript types
-│   └── middleware.ts         # Next.js middleware
-├── .env                      # Environment variables (gitignored)
-├── .env.example              # Environment template
-├── next.config.ts            # Next.js configuration
-├── tsconfig.json             # TypeScript configuration
-├── tailwind.config.ts        # Tailwind configuration
-├── package.json              # Dependencies
-└── vercel.json               # Vercel configuration
+├── apps/
+│   ├── web/                       # Next.js UI (App Router)
+│   └── gateway/                   # legacy/experimental (not canonical)
+├── services/                      # Node/Express microservices
+│   ├── api-gateway/               # canonical gateway
+│   ├── auth-service/
+│   ├── booking-service/
+│   ├── room-service/
+│   ├── payment-service/
+│   └── ...
+├── packages/
+│   ├── shared/                    # shared libs (auth/http/logger/event-bus)
+│   └── contracts/
+├── infra/
+│   ├── nginx/                     # TLS termination + reverse proxy
+│   └── observability/             # Prometheus + Grafana provisioning
+├── prisma/                        # legacy/global prisma (seed/migrations helpers)
+├── docker-compose.yml
+├── .env.example
+└── vercel.json
 ```
 
 ---
@@ -821,11 +852,12 @@ stripe listen --forward-to localhost:3000/api/webhooks/stripe
 
 ### Rate Limiting Not Working
 ```bash
-# Check Upstash Redis connection
-curl https://your-redis.upstash.io
+# Check Redis is reachable
+# (Docker)
+docker compose exec redis redis-cli ping
 
-# Fallback: Uses in-memory rate limiting if Upstash not configured
-# Check logs for: "Using in-memory rate limiting"
+# (Host)
+redis-cli -u redis://127.0.0.1:6379 ping
 ```
 
 ### TypeScript Errors
@@ -863,24 +895,22 @@ npm run type-check
 
 ## 📝 NOTES
 
-### Default Accounts (After Seeding)
-```
-Admin:
-  Email: admin@example.com
-  Password: admin123
-
-Customer:
-  Email: customer@example.com
-  Password: customer123
-```
+Không ship default credentials trong production. Nếu bạn có seed scripts cho môi trường dev, hãy đặt credentials qua env/secret manager và rotate trước khi deploy.
 
 ### Important URLs
-- **Local:** http://localhost:3000
+- **Public API (Docker):** https://localhost
+- **Health (Docker):** https://localhost/healthz , https://localhost/ready
+- **Metrics (Docker):** https://localhost/metrics
+- **Prometheus:** http://localhost:9090
+- **Grafana:** http://localhost:3007
+- **RabbitMQ UI:** http://localhost:15672
+- **Consul:** http://localhost:8500
+- **pgAdmin:** http://localhost:5050
+
+Web UI (dev):
+- **Local web:** http://localhost:3000
 - **Admin Panel:** http://localhost:3000/admin
 - **Customer Dashboard:** http://localhost:3000/dashboard
-- **API Health:** http://localhost:3000/api/health
-
-> Nếu team chạy đúng kiến trúc microservices, health check sẽ chuyển về gateway (ví dụ: `http://localhost:4000/...`).
 
 ### Recommended Tools
 - **Database:** [Prisma Studio](https://www.prisma.io/studio)
@@ -908,8 +938,14 @@ npm start               # Start production server
 
 # Database
 npx prisma studio       # Open Prisma Studio
-npx prisma migrate dev  # Run migrations (dev)
+npx prisma migrate dev  # Run migrations (dev only)
 npx prisma migrate deploy # Run migrations (prod)
+
+# Per-service Prisma (recommended for this repo)
+cd services/payment-service
+npm run prisma:generate
+npm run prisma:migrate:dev      # local
+npm run prisma:migrate:deploy   # production
 npm run seed            # Seed database
 
 # Testing
@@ -932,19 +968,14 @@ MIT License - Feel free to use this project for personal or commercial purposes.
 
 ## 🎯 DEPLOYMENT STATUS
 
-- ✅ **Code Quality:** TypeScript strict mode, no errors
-- ✅ **Security:** A+ score (100/100) - Production ready
-- ✅ **Database:** Migrations complete, seed script working
-- ✅ **Payment:** Stripe integration tested & verified
-- ✅ **Email:** Resend integration working
-- ✅ **Rate Limiting:** 5-layer protection implemented
-- ✅ **Testing:** Jest framework configured
-- ✅ **Documentation:** Complete & up-to-date
-
-**🚀 STATUS: PRODUCTION READY**
+Gợi ý kiểm tra nhanh sau khi `docker compose up`:
+- `https://localhost/healthz` trả `200`.
+- `https://localhost/ready` trả `200` (đợi DB/RabbitMQ healthy).
+- `http://localhost:9090/targets` thấy job `api-gateway` = UP.
+- Grafana `http://localhost:3007` có sẵn datasource Prometheus + dashboard demo.
 
 ---
 
 **Built with ❤️ using Next.js 15, TypeScript, Prisma & Stripe**
 
-**Version:** 1.0.0 | **Last Updated:** December 29, 2025
+**Version:** 1.0.0 | **Last Updated:** February 11, 2026

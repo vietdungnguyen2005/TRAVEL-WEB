@@ -10,6 +10,7 @@ generator client {
 // Datasource configuration
 datasource db {
   provider = "postgresql"
+  binaryTargets = ["native", "windows"]
   url      = env("PAYMENT_DATABASE_URL")
   schemas  = ["payment"]
 }
@@ -42,5 +43,18 @@ model Payment {
   updatedAt                 DateTime @updatedAt
 
   @@index([userId])
+  @@schema("payment")
+}
+
+model IdempotencyKey {
+  scope      String
+  key        String
+  bookingId  String?
+  statusCode Int?
+  response   Json?
+  createdAt  DateTime @default(now())
+
+  @@id([scope, key])
+  @@index([bookingId])
   @@schema("payment")
 }

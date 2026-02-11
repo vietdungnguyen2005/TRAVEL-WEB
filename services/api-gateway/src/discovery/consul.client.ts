@@ -1,4 +1,4 @@
-import axios from 'axios';
+import { httpClient } from '@travel-web/shared';
 
 export type ConsulServiceInstance = {
     Service: {
@@ -14,7 +14,7 @@ export type ConsulServiceInstance = {
 export async function consulGetHealthyInstances(consulUrl: string, serviceName: string) {
     // Uses: /v1/health/service/<service>?passing=1
     const url = `${consulUrl.replace(/\/$/, '')}/v1/health/service/${encodeURIComponent(serviceName)}?passing=1`;
-    const res = await axios.get<ConsulServiceInstance[]>(url, { timeout: 4_000 });
+    const res = await httpClient.get<ConsulServiceInstance[]>(url);
     return res.data
         .map((x) => ({
             id: x.Service.ID,

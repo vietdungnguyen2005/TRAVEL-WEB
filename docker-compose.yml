@@ -1,6 +1,20 @@
 version: "3.8"
 
 services:
+  nginx:
+    image: nginx:1.27-alpine
+    container_name: nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./infra/nginx/conf.d:/etc/nginx/conf.d:ro
+      - ./infra/nginx/certs:/etc/nginx/certs:ro
+    depends_on:
+      api-gateway:
+        condition: service_healthy
+    networks:
+      - backend-network
   prometheus:
     image: prom/prometheus:v2.48.1
     container_name: prometheus
@@ -16,9 +30,12 @@ services:
     container_name: grafana
     ports:
       - "3007:3000"
+    volumes:
+      - ./infra/observability/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./infra/observability/grafana/dashboards:/var/lib/grafana/dashboards:ro
     environment:
-      - GF_SECURITY_ADMIN_USER=admin
-      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_SECURITY_ADMIN_USER=${GRAFANA_ADMIN_USER}
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD}
     depends_on:
       - prometheus
     networks:
@@ -33,8 +50,8 @@ services:
     volumes:
       - pgadmin-data:/var/lib/pgadmin
     environment:
-      PGADMIN_DEFAULT_EMAIL: admin@local.dev
-      PGADMIN_DEFAULT_PASSWORD: admin
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_DEFAULT_EMAIL}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_DEFAULT_PASSWORD}
       PGADMIN_CONFIG_SERVER_MODE: "False"
     depends_on:
       - auth-db
@@ -62,8 +79,8 @@ services:
       - "5672:5672"
       - "15672:15672"
     environment:
-      RABBITMQ_DEFAULT_USER: guest
-      RABBITMQ_DEFAULT_PASS: guest
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD}
     networks:
       - backend-network
     healthcheck:
@@ -79,7 +96,7 @@ services:
       - "5432:5432"
     environment:
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: auth_db
     volumes:
       - auth-db-data:/var/lib/postgresql/data
@@ -98,7 +115,7 @@ services:
       - "5433:5432"
     environment:
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: booking_db
     volumes:
       - booking-db-data:/var/lib/postgresql/data
@@ -117,7 +134,7 @@ services:
       - "5434:5432"
     environment:
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: room_db
     volumes:
       - room-db-data:/var/lib/postgresql/data
@@ -136,7 +153,7 @@ services:
       - "5435:5432"
     environment:
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: payment_db
     volumes:
       - payment-db-data:/var/lib/postgresql/data
@@ -155,7 +172,7 @@ services:
       - "5436:5432"
     environment:
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: review_db
     volumes:
       - review-db-data:/var/lib/postgresql/data
@@ -174,7 +191,7 @@ services:
       - "5437:5432"
     environment:
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: notification_db
     volumes:
       - notification-db-data:/var/lib/postgresql/data
@@ -193,7 +210,7 @@ services:
       - "5438:5432"
     environment:
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: blog_db
     volumes:
       - blog-db-data:/var/lib/postgresql/data
@@ -222,24 +239,35 @@ services:
       - auth-db
     environment:
       - PORT=3001
-      - AUTH_DATABASE_URL=postgresql://postgres:postgres@auth-db:5432/auth_db
+      - JWT_SECRET=${JWT_SECRET}
+      - AUTH_DATABASE_URL=postgresql://postgres:${POSTGRES_PASSWORD}@auth-db:5432/auth_db
     networks:
       - backend-network
 
   booking-service:
     build: ./services/booking-service
-    container_name: booking-service
-    ports:
-      - "3002:3002"
+    expose:
+      - "3002"
     depends_on:
-      - booking-db
-      - rabbitmq
+      booking-db:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
     environment:
       - PORT=3002
-      - BOOKING_DATABASE_URL=postgresql://postgres:postgres@booking-db:5432/booking_db
-      - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672
+      - JWT_SECRET=${JWT_SECRET}
+      - BOOKING_DATABASE_URL=postgresql://postgres:${POSTGRES_PASSWORD}@booking-db:5432/booking_db
+      - RABBITMQ_URL=amqp://${RABBITMQ_USER}:${RABBITMQ_PASSWORD}@rabbitmq:5672
     networks:
       - backend-network
+    healthcheck:
+      test: ["CMD-SHELL", "node -e \"require('http').get('http://localhost:'+process.env.PORT+'/ready',r=>process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1));\""]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+    deploy:
+      replicas: 2
 
   room-service:
     build: ./services/room-service
@@ -251,25 +279,36 @@ services:
       - rabbitmq
     environment:
       - PORT=3003
-      - ROOM_DATABASE_URL=postgresql://postgres:postgres@room-db:5432/room_db
-      - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672
+      - JWT_SECRET=${JWT_SECRET}
+      - ROOM_DATABASE_URL=postgresql://postgres:${POSTGRES_PASSWORD}@room-db:5432/room_db
+      - RABBITMQ_URL=amqp://${RABBITMQ_USER}:${RABBITMQ_PASSWORD}@rabbitmq:5672
     networks:
       - backend-network
 
   payment-service:
     build: ./services/payment-service
-    container_name: payment-service
-    ports:
-      - "3004:3004"
+    expose:
+      - "3004"
     depends_on:
-      - payment-db
-      - rabbitmq
+      payment-db:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
     environment:
       - PORT=3004
-      - PAYMENT_DATABASE_URL=postgresql://postgres:postgres@payment-db:5432/payment_db
-      - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672
+      - JWT_SECRET=${JWT_SECRET}
+      - PAYMENT_DATABASE_URL=postgresql://postgres:${POSTGRES_PASSWORD}@payment-db:5432/payment_db
+      - RABBITMQ_URL=amqp://${RABBITMQ_USER}:${RABBITMQ_PASSWORD}@rabbitmq:5672
     networks:
       - backend-network
+    healthcheck:
+      test: ["CMD-SHELL", "node -e \"require('http').get('http://localhost:'+process.env.PORT+'/ready',r=>process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1));\""]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+    deploy:
+      replicas: 2
 
   review-service:
     build: ./services/review-service
@@ -280,7 +319,7 @@ services:
       - review-db
     environment:
       - PORT=3005
-      - REVIEW_DATABASE_URL=postgresql://postgres:postgres@review-db:5432/review_db
+      - REVIEW_DATABASE_URL=postgresql://postgres:${POSTGRES_PASSWORD}@review-db:5432/review_db
     networks:
       - backend-network
 
@@ -297,8 +336,8 @@ services:
       - PORT=3006
       - EMAIL_FROM=
       - SENDGRID_API_KEY=
-      - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672
-      - NOTIFICATION_DATABASE_URL=postgresql://postgres:postgres@notification-db:5432/notification_db
+      - RABBITMQ_URL=amqp://${RABBITMQ_USER}:${RABBITMQ_PASSWORD}@rabbitmq:5672
+      - NOTIFICATION_DATABASE_URL=postgresql://postgres:${POSTGRES_PASSWORD}@notification-db:5432/notification_db
       - REDIS_URL=redis://redis:6379
     networks:
       - backend-network
@@ -314,26 +353,38 @@ services:
       - blog-db
     environment:
       - PORT=3008
-      - BLOG_DATABASE_URL=postgresql://postgres:postgres@blog-db:5432/blog_db
+      - JWT_SECRET=${JWT_SECRET}
+      - BLOG_DATABASE_URL=postgresql://postgres:${POSTGRES_PASSWORD}@blog-db:5432/blog_db
     networks:
       - backend-network
 
   api-gateway:
     build: ./services/api-gateway
-    container_name: api-gateway
-    ports:
-      - "4000:4000"
+    expose:
+      - "4000"
     depends_on:
-      - auth-service
-      - booking-service
-      - room-service
-      - payment-service
-      - review-service
-      - notification-service
-      - blog-service
-      - consul
+      auth-service:
+        condition: service_started
+      booking-service:
+        condition: service_healthy
+      room-service:
+        condition: service_started
+      payment-service:
+        condition: service_healthy
+      review-service:
+        condition: service_started
+      notification-service:
+        condition: service_started
+      blog-service:
+        condition: service_started
+      consul:
+        condition: service_started
+      redis:
+        condition: service_started
     environment:
       PORT: 4000
+      TRUST_PROXY: "1"
+      REDIS_URL: ${REDIS_URL}
       AUTH_SERVICE_URL: http://auth-service:3001
       BOOKING_SERVICE_URL: http://booking-service:3002
       ROOM_SERVICE_URL: http://room-service:3003
@@ -345,6 +396,14 @@ services:
       DISCOVERY_REFRESH_MS: 10000
     networks:
       - backend-network
+    healthcheck:
+      test: ["CMD-SHELL", "node -e \"require('http').get('http://localhost:'+(process.env.PORT||4000)+'/ready',r=>process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1));\""]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+    deploy:
+      replicas: 2
 
   # Scheduled mirror: pull Supabase schemas into local docker Postgres for easy team viewing.
   # This is best-effort and intended for dev/debug, not production-grade replication.

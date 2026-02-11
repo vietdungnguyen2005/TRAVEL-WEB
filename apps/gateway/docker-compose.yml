@@ -17,8 +17,8 @@ services:
     ports:
       - "3007:3000"
     environment:
-      - GF_SECURITY_ADMIN_USER=admin
-      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_SECURITY_ADMIN_USER=${GRAFANA_ADMIN_USER}
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD}
     depends_on:
       - prometheus
     networks:
@@ -40,8 +40,8 @@ services:
       - "5672:5672"
       - "15672:15672"
     environment:
-      RABBITMQ_DEFAULT_USER: guest
-      RABBITMQ_DEFAULT_PASS: guest
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD}
     networks:
       - backend-network
     healthcheck:
@@ -57,7 +57,7 @@ services:
       - "5432:5432"
     environment:
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: auth_db
     volumes:
       - auth-db-data:/var/lib/postgresql/data
@@ -76,7 +76,7 @@ services:
       - "5433:5432"
     environment:
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: booking_db
     volumes:
       - booking-db-data:/var/lib/postgresql/data
@@ -95,7 +95,7 @@ services:
       - "5434:5432"
     environment:
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: room_db
     volumes:
       - room-db-data:/var/lib/postgresql/data
@@ -114,7 +114,7 @@ services:
       - "5435:5432"
     environment:
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: payment_db
     volumes:
       - payment-db-data:/var/lib/postgresql/data
@@ -133,7 +133,7 @@ services:
       - "5436:5432"
     environment:
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: review_db
     volumes:
       - review-db-data:/var/lib/postgresql/data
@@ -175,7 +175,7 @@ services:
       - "5437:5432"
     environment:
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: notification_db
     volumes:
       - notification-db-data:/var/lib/postgresql/data
@@ -204,7 +204,8 @@ services:
       - auth-db
     environment:
       - PORT=3001
-      - AUTH_DATABASE_URL=postgresql://postgres:postgres@auth-db:5432/auth_db
+      - JWT_SECRET=${JWT_SECRET}
+      - AUTH_DATABASE_URL=postgresql://postgres:${POSTGRES_PASSWORD}@auth-db:5432/auth_db
     networks:
       - backend-network
 
@@ -218,8 +219,9 @@ services:
       - rabbitmq
     environment:
       - PORT=3002
-      - BOOKING_DATABASE_URL=postgresql://postgres:postgres@booking-db:5432/booking_db
-      - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672
+      - JWT_SECRET=${JWT_SECRET}
+      - BOOKING_DATABASE_URL=postgresql://postgres:${POSTGRES_PASSWORD}@booking-db:5432/booking_db
+      - RABBITMQ_URL=amqp://${RABBITMQ_USER}:${RABBITMQ_PASSWORD}@rabbitmq:5672
     networks:
       - backend-network
 
@@ -233,8 +235,9 @@ services:
       - rabbitmq
     environment:
       - PORT=3003
-      - ROOM_DATABASE_URL=postgresql://postgres:postgres@room-db:5432/room_db
-      - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672
+      - JWT_SECRET=${JWT_SECRET}
+      - ROOM_DATABASE_URL=postgresql://postgres:${POSTGRES_PASSWORD}@room-db:5432/room_db
+      - RABBITMQ_URL=amqp://${RABBITMQ_USER}:${RABBITMQ_PASSWORD}@rabbitmq:5672
     networks:
       - backend-network
 
@@ -248,8 +251,9 @@ services:
       - rabbitmq
     environment:
       - PORT=3004
-      - PAYMENT_DATABASE_URL=postgresql://postgres:postgres@payment-db:5432/payment_db
-      - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672
+      - JWT_SECRET=${JWT_SECRET}
+      - PAYMENT_DATABASE_URL=postgresql://postgres:${POSTGRES_PASSWORD}@payment-db:5432/payment_db
+      - RABBITMQ_URL=amqp://${RABBITMQ_USER}:${RABBITMQ_PASSWORD}@rabbitmq:5672
     networks:
       - backend-network
 
@@ -262,7 +266,7 @@ services:
       - review-db
     environment:
       - PORT=3005
-      - REVIEW_DATABASE_URL=postgresql://postgres:postgres@review-db:5432/review_db
+      - REVIEW_DATABASE_URL=postgresql://postgres:${POSTGRES_PASSWORD}@review-db:5432/review_db
     networks:
       - backend-network
 
@@ -279,8 +283,8 @@ services:
       - PORT=3006
       - EMAIL_FROM=
       - SENDGRID_API_KEY=
-      - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672
-      - NOTIFICATION_DATABASE_URL=postgresql://postgres:postgres@notification-db:5432/notification_db
+      - RABBITMQ_URL=amqp://${RABBITMQ_USER}:${RABBITMQ_PASSWORD}@rabbitmq:5672
+      - NOTIFICATION_DATABASE_URL=postgresql://postgres:${POSTGRES_PASSWORD}@notification-db:5432/notification_db
       - REDIS_URL=redis://redis:6379
     networks:
       - backend-network

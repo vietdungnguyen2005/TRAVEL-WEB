@@ -1,7 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import prisma from './lib/prisma';
-import jwt from 'jsonwebtoken';
+import { requireRole, verifyJWT } from '@travel-web/shared';
 import { loadEnvProfile } from '../../../infra/scripts/load-env-profile';
 
 // Load root env + selected profile env (.env.docker/.env.supabase)
@@ -21,31 +21,7 @@ app.get('/health', (_req, res) => {
     res.status(200).json({ ok: true, service: 'blog-service' });
 });
 
-function getJwtSecret() {
-    const secret = process.env.JWT_SECRET;
-    if (!secret) throw new Error('JWT_SECRET is not set');
-    return secret;
-}
-
-function requireAdmin(req: express.Request, res: express.Response, next: express.NextFunction) {
-    const authHeader = req.headers.authorization;
-    const token = authHeader?.toLowerCase().startsWith('bearer ')
-        ? authHeader.slice('bearer '.length).trim()
-        : undefined;
-
-    if (!token) return res.status(401).json({ error: 'Unauthorized' });
-
-    try {
-        const payload = jwt.verify(token, getJwtSecret()) as any;
-        if (payload?.role !== 'ADMIN') {
-            return res.status(403).json({ error: 'Forbidden' });
-        }
-        (req as any).user = payload;
-        return next();
-    } catch {
-        return res.status(401).json({ error: 'Unauthorized' });
-    }
-}
+const requireAdmin = [verifyJWT, requireRole('ADMIN')];
 
 // Public: list published posts
 app.get('/api/blog/posts', async (_req, res) => {
@@ -92,7 +68,7 @@ app.get('/api/blog/posts/:slug', async (req, res) => {
 });
 
 // Admin: list all posts
-app.get('/api/admin/blog/posts', requireAdmin, async (_req, res) => {
+app.get('/api/admin/blog/posts', ...requireAdmin, async (_req, res) => {
     const posts = await prisma.post.findMany({
         orderBy: { createdAt: 'desc' },
     });
@@ -100,7 +76,7 @@ app.get('/api/admin/blog/posts', requireAdmin, async (_req, res) => {
 });
 
 // Admin: create
-app.post('/api/admin/blog/posts', requireAdmin, async (req, res) => {
+app.post('/api/admin/blog/posts', ...requireAdmin, async (req, res) => {
     const { slug, title, excerpt, content, coverImageUrl, status } = req.body || {};
     if (!slug || !title || !content) {
         return res.status(400).json({ error: 'slug, title, content are required' });
@@ -121,7 +97,7 @@ app.post('/api/admin/blog/posts', requireAdmin, async (req, res) => {
 });
 
 // Admin: update
-app.patch('/api/admin/blog/posts/:id', requireAdmin, async (req, res) => {
+app.patch('/api/admin/blog/posts/:id', ...requireAdmin, async (req, res) => {
     const id = String(req.params.id);
     const { slug, title, excerpt, content, coverImageUrl, status } = req.body || {};
 
@@ -141,7 +117,7 @@ app.patch('/api/admin/blog/posts/:id', requireAdmin, async (req, res) => {
 });
 
 // Admin: delete
-app.delete('/api/admin/blog/posts/:id', requireAdmin, async (req, res) => {
+app.delete('/api/admin/blog/posts/:id', ...requireAdmin, async (req, res) => {
     const id = String(req.params.id);
     await prisma.post.delete({ where: { id } });
     res.status(204).send();

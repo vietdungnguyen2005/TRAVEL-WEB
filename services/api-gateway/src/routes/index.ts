@@ -1,7 +1,9 @@
 import { Router } from 'express';
+import { createClient } from 'redis';
 import { proxyMiddleware } from '../proxy/proxy.middleware';
 import { discoveryConfig } from '../config/discovery.config';
 import { getServiceTarget } from '../discovery/service-resolver';
+import { register as metricsRegister } from '../lib/metrics';
 
 const router = Router();
 
@@ -30,6 +32,38 @@ router.use('/api/admin/blog', proxyMiddleware.blog);
 // Health check endpoint
 router.get('/health', (req, res) => {
     res.status(200).json({ success: true, data: 'API Gateway is healthy' });
+});
+
+router.get('/metrics', async (_req, res) => {
+    res.setHeader('Content-Type', metricsRegister.contentType);
+    res.end(await metricsRegister.metrics());
+});
+
+router.get('/healthz', (_req, res) => {
+    res.status(200).json({ ok: true, service: 'api-gateway' });
+});
+
+router.get('/ready', async (_req, res) => {
+    // Gateway depends on Redis for production rate limiting.
+    const redisUrl = process.env.REDIS_URL;
+    if (!redisUrl) {
+        return res.status(200).json({ status: 'ready' });
+    }
+
+    const client = createClient({ url: redisUrl });
+    try {
+        await client.connect();
+        const pong = await client.ping();
+        await client.quit();
+        return res.status(200).json({ status: 'ready', redis: pong });
+    } catch (err) {
+        try {
+            await client.quit();
+        } catch {
+            // ignore
+        }
+        return res.status(503).json({ status: 'not-ready', dependency: 'redis', error: (err as Error).message });
+    }
 });
 
 // Discovery debug endpoint

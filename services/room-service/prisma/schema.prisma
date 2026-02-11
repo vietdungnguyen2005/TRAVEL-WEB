@@ -10,6 +10,7 @@ generator client {
 // Datasource configuration
 datasource db {
   provider = "postgresql"
+  binaryTargets = ["native", "windows"]
   url      = env("ROOM_DATABASE_URL")
   schemas  = ["room"]
 }

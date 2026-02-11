@@ -1,68 +1,13 @@
 import express from 'express';
 import prisma from '../lib/prisma';
 import { bookingCreateCounter } from '../lib/metrics';
-import jwt from 'jsonwebtoken';
+import { requireRole, tryGetUserFromRequest, verifyJWT } from '@travel-web/shared';
 
 export const bookingRouter = express.Router();
 
-function requireAdmin(req: express.Request, res: express.Response, next: express.NextFunction) {
-    const auth = req.headers.authorization;
-    const bearer = auth?.startsWith('Bearer ') ? auth.slice('Bearer '.length) : undefined;
-
-    const cookieHeader = req.headers.cookie;
-    const cookieToken = cookieHeader
-        ?.split(';')
-        .map((s) => s.trim())
-        .find((c) => c.startsWith('access_token='))
-        ?.split('=')
-        .slice(1)
-        .join('=');
-
-    const token = bearer || cookieToken;
-    if (!token) return res.status(401).json({ message: 'Unauthorized' });
-
-    try {
-        const decoded = jwt.verify(token, getJwtSecret()) as jwt.JwtPayload | string;
-        if (typeof decoded === 'string') return res.status(401).json({ message: 'Unauthorized' });
-        const role = (decoded as any).role as string | undefined;
-        if (role !== 'ADMIN') return res.status(403).json({ message: 'Forbidden' });
-        (req as any).user = { id: decoded.sub, role };
-        return next();
-    } catch {
-        return res.status(401).json({ message: 'Unauthorized' });
-    }
-}
-
-function getJwtSecret() {
-    const secret = process.env.JWT_SECRET;
-    if (!secret) throw new Error('JWT_SECRET is not set');
-    return secret;
-}
-
 function getUserIdFromRequest(req: express.Request): string | undefined {
-    // Support both Authorization: Bearer <token> and cookie access_token.
-    const auth = req.headers.authorization;
-    const bearer = auth?.startsWith('Bearer ') ? auth.slice('Bearer '.length) : undefined;
-
-    const cookieHeader = req.headers.cookie;
-    const cookieToken = cookieHeader
-        ?.split(';')
-        .map((s) => s.trim())
-        .find((c) => c.startsWith('access_token='))
-        ?.split('=')
-        .slice(1)
-        .join('=');
-
-    const token = bearer || cookieToken;
-    if (!token) return undefined;
-
-    try {
-        const decoded = jwt.verify(token, getJwtSecret()) as jwt.JwtPayload | string;
-        if (typeof decoded === 'string') return undefined;
-        return typeof decoded.sub === 'string' ? decoded.sub : undefined;
-    } catch {
-        return undefined;
-    }
+    const user = tryGetUserFromRequest(req);
+    return typeof user?.id === 'string' ? user.id : undefined;
 }
 
 // My bookings (used by web dashboard)
@@ -105,7 +50,7 @@ bookingRouter.get('/', async (req, res, next) => {
 // Admin booking approval flow
 // =============================
 // Admin list bookings (supports ?status=PENDING)
-bookingRouter.get('/admin/bookings', requireAdmin, async (req, res, next) => {
+bookingRouter.get('/admin/bookings', verifyJWT, requireRole('ADMIN'), async (req, res, next) => {
     try {
         const status = typeof req.query.status === 'string' ? req.query.status : undefined;
         const bookings = await prisma.booking.findMany({
@@ -119,7 +64,7 @@ bookingRouter.get('/admin/bookings', requireAdmin, async (req, res, next) => {
 });
 
 // Admin update status (used by admin UI)
-bookingRouter.patch('/admin/bookings/:id/status', requireAdmin, async (req, res, next) => {
+bookingRouter.patch('/admin/bookings/:id/status', verifyJWT, requireRole('ADMIN'), async (req, res, next) => {
     const { id } = req.params;
     const status = (req.body?.status as string | undefined)?.toUpperCase();
     try {

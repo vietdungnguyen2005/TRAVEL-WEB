@@ -1,0 +1,54 @@
+{
+  "uid": "travel-web-demo",
+  "title": "Travel Web Demo",
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "10s",
+  "panels": [
+    {
+      "type": "timeseries",
+      "title": "Request rate (gateway)",
+      "gridPos": { "x": 0, "y": 0, "w": 12, "h": 8 },
+      "targets": [
+        {
+          "expr": "sum(rate(gateway_http_requests_total[1m]))",
+          "legendFormat": "rps"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Error rate (5xx) (gateway)",
+      "gridPos": { "x": 12, "y": 0, "w": 12, "h": 8 },
+      "targets": [
+        {
+          "expr": "sum(rate(gateway_http_requests_total{status=~\"5..\"}[1m])) / clamp_min(sum(rate(gateway_http_requests_total[1m])), 1e-9)",
+          "legendFormat": "5xx ratio"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "CPU (process) (gateway)",
+      "gridPos": { "x": 0, "y": 8, "w": 12, "h": 8 },
+      "targets": [
+        {
+          "expr": "rate(process_cpu_user_seconds_total{job=\"api-gateway\"}[1m]) + rate(process_cpu_system_seconds_total{job=\"api-gateway\"}[1m])",
+          "legendFormat": "cpu_seconds_per_second"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Memory RSS (process) (gateway)",
+      "gridPos": { "x": 12, "y": 8, "w": 12, "h": 8 },
+      "targets": [
+        {
+          "expr": "process_resident_memory_bytes{job=\"api-gateway\"}",
+          "legendFormat": "rss_bytes"
+        }
+      ]
+    }
+  ]
+}

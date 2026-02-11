@@ -6,10 +6,79 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = __importDefault(require("express"));
 const stripe_1 = __importDefault(require("stripe"));
 const prisma_1 = __importDefault(require("./lib/prisma"));
+const amqplib_1 = __importDefault(require("amqplib"));
 const shared_1 = require("@travel-web/shared");
 const load_env_profile_1 = require("../../../infra/scripts/load-env-profile");
+const shared_2 = require("@travel-web/shared");
 const app = (0, express_1.default)();
 const PORT = process.env.PORT || 3004;
+function getIdempotencyKey(req) {
+    const key = req.header('idempotency-key') || req.header('x-idempotency-key');
+    return typeof key === 'string' && key.trim().length > 0 ? key.trim() : null;
+}
+async function beginIdempotent(scope, key, bookingId) {
+    try {
+        await prisma_1.default.idempotencyKey.create({
+            data: { scope, key, bookingId: bookingId || null },
+        });
+        return { ok: true };
+    }
+    catch (err) {
+        // Unique violation -> already seen
+        const code = err?.code;
+        if (code === 'P2002')
+            return { ok: false, conflict: true };
+        throw err;
+    }
+}
+async function getIdempotentResponse(scope, key) {
+    const row = await prisma_1.default.idempotencyKey.findUnique({
+        where: { scope_key: { scope, key } },
+    });
+    if (!row || !row.response || !row.statusCode)
+        return null;
+    return { statusCode: row.statusCode, body: row.response };
+}
+async function saveIdempotentResponse(scope, key, statusCode, body) {
+    await prisma_1.default.idempotencyKey.update({
+        where: { scope_key: { scope, key } },
+        data: { statusCode, response: body },
+    });
+}
+function getTimeoutMs() {
+    const raw = process.env.HEALTHCHECK_TIMEOUT_MS;
+    const parsed = raw ? Number(raw) : 2000;
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : 2000;
+}
+async function withTimeout(promise, timeoutMs, label) {
+    let timeout = null;
+    try {
+        return await Promise.race([
+            promise,
+            new Promise((_resolve, reject) => {
+                timeout = setTimeout(() => reject(new Error(`${label} timed out after ${timeoutMs}ms`)), timeoutMs);
+            }),
+        ]);
+    }
+    finally {
+        if (timeout)
+            clearTimeout(timeout);
+    }
+}
+async function checkDb() {
+    const timeoutMs = getTimeoutMs();
+    await withTimeout(prisma_1.default.$queryRaw `SELECT 1`, timeoutMs, 'DB check');
+}
+async function checkRabbitMq() {
+    if (process.env.DISABLE_RABBITMQ === 'true')
+        return;
+    const url = process.env.RABBITMQ_URL;
+    if (!url)
+        throw new Error('RABBITMQ_URL is not set');
+    const timeoutMs = getTimeoutMs();
+    const conn = await withTimeout(amqplib_1.default.connect(url), timeoutMs, 'RabbitMQ connect');
+    await withTimeout(conn.close(), timeoutMs, 'RabbitMQ close');
+}
 // Load root env + selected profile env (.env.docker/.env.supabase)
 // In docker-compose, env can also be injected by the container; this won't override existing vars.
 (0, load_env_profile_1.loadEnvProfile)({ cwd: process.cwd().split('/services/')[0] });
@@ -25,6 +94,26 @@ const stripe = STRIPE_SECRET_KEY
 app.use(express_1.default.json());
 app.get('/health', (_req, res) => {
     res.status(200).json({ ok: true, service: 'payment-service' });
+});
+// Liveness: DB connectivity (Compose healthcheck can use this or /ready)
+app.get('/healthz', async (_req, res) => {
+    try {
+        await checkDb();
+        return res.status(200).json({ ok: true, service: 'payment-service' });
+    }
+    catch (err) {
+        return res.status(503).json({ ok: false, service: 'payment-service', dependency: 'db', error: err.message });
+    }
+});
+// Readiness: DB + RabbitMQ connectivity
+app.get('/ready', async (_req, res) => {
+    try {
+        await Promise.all([checkDb(), checkRabbitMq()]);
+        return res.status(200).json({ status: 'ready' });
+    }
+    catch (err) {
+        return res.status(503).json({ status: 'not-ready', error: err.message });
+    }
 });
 // Create checkout session
 app.post('/api/payments/create-checkout', async (req, res) => {
@@ -191,67 +280,88 @@ app.post('/api/payments/refund-request', async (req, res) => {
     return res.json({ success: true, bookingId, status: updated.status });
 });
 // Admin approves refund, then we execute refund and emit PaymentRefunded
-app.post('/api/payments/refund-approve', async (req, res) => {
+app.post('/api/payments/refund-approve', shared_2.verifyJWT, (0, shared_2.requireRole)('ADMIN'), async (req, res) => {
+    const idemKey = getIdempotencyKey(req);
+    if (!idemKey)
+        return res.status(400).json({ error: 'Idempotency-Key is required' });
     const { bookingId, adminNote } = req.body || {};
     if (!bookingId)
         return res.status(400).json({ error: 'bookingId is required' });
+    const existing = await getIdempotentResponse('refund-approve', idemKey);
+    if (existing)
+        return res.status(existing.statusCode).json(existing.body);
+    const started = await beginIdempotent('refund-approve', idemKey, bookingId);
+    if (!started.ok) {
+        const maybe = await getIdempotentResponse('refund-approve', idemKey);
+        if (maybe)
+            return res.status(maybe.statusCode).json(maybe.body);
+        return res.status(409).json({ error: 'Idempotency key is already in progress' });
+    }
     const payment = await prisma_1.default.payment.findUnique({ where: { bookingId } });
     if (!payment)
         return res.status(404).json({ error: 'Payment not found' });
-    if (payment.status !== 'REFUND_REQUESTED') {
-        return res.status(400).json({ error: `Refund is not in requested state (current=${payment.status})` });
-    }
-    await prisma_1.default.payment.update({
-        where: { bookingId },
-        data: {
-            status: 'REFUND_APPROVED',
-            metadata: {
-                ...(typeof payment.metadata === 'object' && payment.metadata
-                    ? payment.metadata
-                    : {}),
-                refundApprovedAt: new Date().toISOString(),
-                refundAdminNote: adminNote || null,
-            },
+    // Idempotent transition: only execute once.
+    const updated = await prisma_1.default.payment.updateMany({
+        where: {
+            bookingId,
+            status: { in: ['REFUND_REQUESTED', 'REFUND_APPROVED'] },
         },
-    });
-    // Execute the refund (simplified: just mark as REFUNDED)
-    await prisma_1.default.payment.update({
-        where: { bookingId },
         data: {
             status: 'REFUNDED',
             metadata: {
                 ...(typeof payment.metadata === 'object' && payment.metadata
                     ? payment.metadata
                     : {}),
+                refundApprovedAt: new Date().toISOString(),
+                refundAdminNote: adminNote || null,
                 refundExecutedAt: new Date().toISOString(),
             },
         },
     });
-    await (0, shared_1.rabbitPublish)({
-        routingKey: 'payment.paymentrefunded',
-        message: {
-            type: 'PaymentRefunded',
-            bookingId,
-            userId: payment.userId,
-            reason: 'approved',
-            at: new Date().toISOString(),
-        },
-    });
-    return res.json({ success: true, bookingId });
+    const body = updated.count > 0
+        ? { success: true, bookingId }
+        : { success: true, bookingId, alreadyRefunded: payment.status === 'REFUNDED' };
+    if (updated.count > 0) {
+        await (0, shared_1.rabbitPublish)({
+            routingKey: 'payment.paymentrefunded',
+            message: {
+                type: 'PaymentRefunded',
+                bookingId,
+                userId: payment.userId,
+                reason: 'approved',
+                at: new Date().toISOString(),
+            },
+        });
+    }
+    await saveIdempotentResponse('refund-approve', idemKey, 200, body);
+    return res.status(200).json(body);
 });
 // Admin rejects refund request
-app.post('/api/payments/refund-reject', async (req, res) => {
+app.post('/api/payments/refund-reject', shared_2.verifyJWT, (0, shared_2.requireRole)('ADMIN'), async (req, res) => {
+    const idemKey = getIdempotencyKey(req);
+    if (!idemKey)
+        return res.status(400).json({ error: 'Idempotency-Key is required' });
     const { bookingId, adminNote } = req.body || {};
     if (!bookingId)
         return res.status(400).json({ error: 'bookingId is required' });
+    const existing = await getIdempotentResponse('refund-reject', idemKey);
+    if (existing)
+        return res.status(existing.statusCode).json(existing.body);
+    const started = await beginIdempotent('refund-reject', idemKey, bookingId);
+    if (!started.ok) {
+        const maybe = await getIdempotentResponse('refund-reject', idemKey);
+        if (maybe)
+            return res.status(maybe.statusCode).json(maybe.body);
+        return res.status(409).json({ error: 'Idempotency key is already in progress' });
+    }
     const payment = await prisma_1.default.payment.findUnique({ where: { bookingId } });
     if (!payment)
         return res.status(404).json({ error: 'Payment not found' });
-    if (payment.status !== 'REFUND_REQUESTED') {
-        return res.status(400).json({ error: `Refund is not in requested state (current=${payment.status})` });
-    }
-    const updated = await prisma_1.default.payment.update({
-        where: { bookingId },
+    const updated = await prisma_1.default.payment.updateMany({
+        where: {
+            bookingId,
+            status: 'REFUND_REQUESTED',
+        },
         data: {
             status: 'REFUND_REJECTED',
             metadata: {
@@ -263,27 +373,49 @@ app.post('/api/payments/refund-reject', async (req, res) => {
             },
         },
     });
-    await (0, shared_1.rabbitPublish)({
-        routingKey: 'payment.refundrejected',
-        message: {
-            type: 'RefundRejected',
-            bookingId,
-            userId: updated.userId,
-            at: new Date().toISOString(),
-        },
-    });
-    return res.json({ success: true, bookingId, status: updated.status });
+    const body = updated.count > 0
+        ? { success: true, bookingId, status: 'REFUND_REJECTED' }
+        : { success: true, bookingId, status: payment.status };
+    if (updated.count > 0) {
+        await (0, shared_1.rabbitPublish)({
+            routingKey: 'payment.refundrejected',
+            message: {
+                type: 'RefundRejected',
+                bookingId,
+                userId: payment.userId,
+                at: new Date().toISOString(),
+            },
+        });
+    }
+    await saveIdempotentResponse('refund-reject', idemKey, 200, body);
+    return res.status(200).json(body);
 });
 // Refund payment by bookingId (Stripe refund is simplified here)
-app.post('/api/payments/refund', async (req, res) => {
+app.post('/api/payments/refund', shared_2.verifyJWT, (0, shared_2.requireRole)('ADMIN'), async (req, res) => {
+    const idemKey = getIdempotencyKey(req);
+    if (!idemKey)
+        return res.status(400).json({ error: 'Idempotency-Key is required' });
     const { bookingId, reason } = req.body || {};
     if (!bookingId)
         return res.status(400).json({ error: 'bookingId is required' });
+    const existing = await getIdempotentResponse('refund', idemKey);
+    if (existing)
+        return res.status(existing.statusCode).json(existing.body);
+    const started = await beginIdempotent('refund', idemKey, bookingId);
+    if (!started.ok) {
+        const maybe = await getIdempotentResponse('refund', idemKey);
+        if (maybe)
+            return res.status(maybe.statusCode).json(maybe.body);
+        return res.status(409).json({ error: 'Idempotency key is already in progress' });
+    }
     const payment = await prisma_1.default.payment.findUnique({ where: { bookingId } });
     if (!payment)
         return res.status(404).json({ error: 'Payment not found' });
-    await prisma_1.default.payment.update({
-        where: { bookingId },
+    const updated = await prisma_1.default.payment.updateMany({
+        where: {
+            bookingId,
+            status: { not: 'REFUNDED' },
+        },
         data: {
             status: 'REFUNDED',
             metadata: {
@@ -291,20 +423,27 @@ app.post('/api/payments/refund', async (req, res) => {
                     ? payment.metadata
                     : {}),
                 refundReason: reason || 'requested',
+                refundExecutedAt: new Date().toISOString(),
             },
         },
     });
-    await (0, shared_1.rabbitPublish)({
-        routingKey: 'payment.paymentrefunded',
-        message: {
-            type: 'PaymentRefunded',
-            bookingId,
-            userId: payment.userId,
-            reason: reason || 'requested',
-            at: new Date().toISOString(),
-        },
-    });
-    return res.json({ success: true, bookingId });
+    const body = updated.count > 0
+        ? { success: true, bookingId }
+        : { success: true, bookingId, alreadyRefunded: true };
+    if (updated.count > 0) {
+        await (0, shared_1.rabbitPublish)({
+            routingKey: 'payment.paymentrefunded',
+            message: {
+                type: 'PaymentRefunded',
+                bookingId,
+                userId: payment.userId,
+                reason: reason || 'requested',
+                at: new Date().toISOString(),
+            },
+        });
+    }
+    await saveIdempotentResponse('refund', idemKey, 200, body);
+    return res.status(200).json(body);
 });
 // Stripe webhook endpoint needs raw body. Use express.raw for this route only.
 app.post('/api/payments/webhook', express_1.default.raw({ type: 'application/json' }), async (req, res) => {
@@ -352,7 +491,7 @@ app.listen(PORT, () => {
         (0, shared_1.consulRegisterService)({
             serviceName: 'paymentService',
             port: Number(PORT),
-            healthCheckPath: '/health',
+            healthCheckPath: '/healthz',
         }).catch((err) => console.error('Consul register failed', err));
     }
 });

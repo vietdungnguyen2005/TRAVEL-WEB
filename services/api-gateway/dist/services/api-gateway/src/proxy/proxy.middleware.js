@@ -16,6 +16,12 @@ function proxyTo(serviceKey, pathPrefix) {
         },
         proxyTimeout: Number(process.env.UPSTREAM_TIMEOUT_MS || 15000),
         timeout: Number(process.env.UPSTREAM_TIMEOUT_MS || 15000),
+        onProxyReq: (proxyReq, req) => {
+            const requestId = req.requestId;
+            if (requestId) {
+                proxyReq.setHeader('x-request-id', requestId);
+            }
+        },
     });
 }
 exports.proxyMiddleware = {

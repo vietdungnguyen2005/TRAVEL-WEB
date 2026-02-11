@@ -5,9 +5,9 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.consulRegisterService = consulRegisterService;
 exports.consulDeregisterService = consulDeregisterService;
-const axios_1 = __importDefault(require("axios"));
 const os_1 = __importDefault(require("os"));
 const logger_1 = require("../logger");
+const axios_client_1 = require("../http/axios-client");
 const logger = new logger_1.Logger('ConsulRegister');
 function getDefaultAddress() {
     // In Docker, the container name is often resolvable. As a fallback, use hostname.
@@ -33,11 +33,11 @@ async function consulRegisterService(opts) {
             DeregisterCriticalServiceAfter: deregisterAfter,
         },
     };
-    await axios_1.default.put(`${consulUrl}/v1/agent/service/register`, payload, { timeout: 4000 });
+    await axios_client_1.httpClient.put(`${consulUrl}/v1/agent/service/register`, payload);
     logger.info('Registered service in Consul', { serviceName: opts.serviceName, serviceId, address, port: opts.port, checkUrl });
 }
 async function consulDeregisterService(serviceId, consulUrl) {
     const base = (consulUrl || process.env.CONSUL_URL || 'http://consul:8500').replace(/\/$/, '');
-    await axios_1.default.put(`${base}/v1/agent/service/deregister/${encodeURIComponent(serviceId)}`, null, { timeout: 4000 });
+    await axios_client_1.httpClient.put(`${base}/v1/agent/service/deregister/${encodeURIComponent(serviceId)}`, null);
     logger.info('Deregistered service from Consul', { serviceId });
 }

@@ -7,66 +7,11 @@ exports.bookingRouter = void 0;
 const express_1 = __importDefault(require("express"));
 const prisma_1 = __importDefault(require("../lib/prisma"));
 const metrics_1 = require("../lib/metrics");
-const jsonwebtoken_1 = __importDefault(require("jsonwebtoken"));
+const shared_1 = require("@travel-web/shared");
 exports.bookingRouter = express_1.default.Router();
-function requireAdmin(req, res, next) {
-    const auth = req.headers.authorization;
-    const bearer = auth?.startsWith('Bearer ') ? auth.slice('Bearer '.length) : undefined;
-    const cookieHeader = req.headers.cookie;
-    const cookieToken = cookieHeader
-        ?.split(';')
-        .map((s) => s.trim())
-        .find((c) => c.startsWith('access_token='))
-        ?.split('=')
-        .slice(1)
-        .join('=');
-    const token = bearer || cookieToken;
-    if (!token)
-        return res.status(401).json({ message: 'Unauthorized' });
-    try {
-        const decoded = jsonwebtoken_1.default.verify(token, getJwtSecret());
-        if (typeof decoded === 'string')
-            return res.status(401).json({ message: 'Unauthorized' });
-        const role = decoded.role;
-        if (role !== 'ADMIN')
-            return res.status(403).json({ message: 'Forbidden' });
-        req.user = { id: decoded.sub, role };
-        return next();
-    }
-    catch {
-        return res.status(401).json({ message: 'Unauthorized' });
-    }
-}
-function getJwtSecret() {
-    const secret = process.env.JWT_SECRET;
-    if (!secret)
-        throw new Error('JWT_SECRET is not set');
-    return secret;
-}
 function getUserIdFromRequest(req) {
-    // Support both Authorization: Bearer <token> and cookie access_token.
-    const auth = req.headers.authorization;
-    const bearer = auth?.startsWith('Bearer ') ? auth.slice('Bearer '.length) : undefined;
-    const cookieHeader = req.headers.cookie;
-    const cookieToken = cookieHeader
-        ?.split(';')
-        .map((s) => s.trim())
-        .find((c) => c.startsWith('access_token='))
-        ?.split('=')
-        .slice(1)
-        .join('=');
-    const token = bearer || cookieToken;
-    if (!token)
-        return undefined;
-    try {
-        const decoded = jsonwebtoken_1.default.verify(token, getJwtSecret());
-        if (typeof decoded === 'string')
-            return undefined;
-        return typeof decoded.sub === 'string' ? decoded.sub : undefined;
-    }
-    catch {
-        return undefined;
-    }
+    const user = (0, shared_1.tryGetUserFromRequest)(req);
+    return typeof user?.id === 'string' ? user.id : undefined;
 }
 // My bookings (used by web dashboard)
 exports.bookingRouter.get('/my-bookings', async (req, res, next) => {
@@ -105,7 +50,7 @@ exports.bookingRouter.get('/', async (req, res, next) => {
 // Admin booking approval flow
 // =============================
 // Admin list bookings (supports ?status=PENDING)
-exports.bookingRouter.get('/admin/bookings', requireAdmin, async (req, res, next) => {
+exports.bookingRouter.get('/admin/bookings', shared_1.verifyJWT, (0, shared_1.requireRole)('ADMIN'), async (req, res, next) => {
     try {
         const status = typeof req.query.status === 'string' ? req.query.status : undefined;
         const bookings = await prisma_1.default.booking.findMany({
@@ -119,7 +64,7 @@ exports.bookingRouter.get('/admin/bookings', requireAdmin, async (req, res, next
     }
 });
 // Admin update status (used by admin UI)
-exports.bookingRouter.patch('/admin/bookings/:id/status', requireAdmin, async (req, res, next) => {
+exports.bookingRouter.patch('/admin/bookings/:id/status', shared_1.verifyJWT, (0, shared_1.requireRole)('ADMIN'), async (req, res, next) => {
     const { id } = req.params;
     const status = req.body?.status?.toUpperCase();
     try {

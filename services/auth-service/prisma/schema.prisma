@@ -6,6 +6,7 @@ generator client {
 
 datasource db {
   provider = "postgresql"
+  binaryTargets = ["native", "windows"]
   url       = env("AUTH_DATABASE_URL")
   schemas  = ["app_auth"]
 }
