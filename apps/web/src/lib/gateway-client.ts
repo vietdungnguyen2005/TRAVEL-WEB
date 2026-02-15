@@ -49,6 +49,22 @@ export function gatewayUrl(path: string) {
     return `${base}${p}`;
 }
 
+function getConnectionRefused(err: unknown): boolean {
+    if (!err || typeof err !== 'object') return false;
+    const o = err as Record<string, unknown>;
+    if (o.code === 'ECONNREFUSED') return true;
+    const cause = o.cause;
+    if (cause && typeof cause === 'object') return getConnectionRefused(cause);
+    const errors = o.errors as unknown[] | undefined;
+    if (Array.isArray(errors) && errors.length) return getConnectionRefused(errors[0]);
+    return false;
+}
+
+const isConnectionError = (err: unknown): boolean => {
+    if (err instanceof TypeError && (err.message === 'fetch failed' || err.message?.includes('fetch'))) return true;
+    return getConnectionRefused(err);
+};
+
 export async function gatewayFetch(path: string, options: GatewayFetchOptions = {}) {
     const { attachAccessToken, headers, ...rest } = options;
 
@@ -66,11 +82,53 @@ export async function gatewayFetch(path: string, options: GatewayFetchOptions = 
         }
     }
 
-    return fetch(gatewayUrl(path), {
-        ...rest,
-        headers: finalHeaders,
-        // Required so the browser will accept Set-Cookie from the gateway
-        // and send cookies on subsequent requests (cookie-based auth).
-        credentials: 'include',
-    });
+    const url = gatewayUrl(path);
+    const { retries: _retries, ...fetchOpts } = rest as RequestInit & { retries?: number };
+    const method = (fetchOpts.method ?? 'GET').toUpperCase();
+    const isServer = typeof window === 'undefined';
+    // SSR: fail fast (2s) so pages don't block 12s when gateway is down. Client: retry for better UX.
+    const maxRetries =
+        typeof _retries === 'number'
+            ? _retries
+            : isServer
+              ? 0
+              : method === 'GET'
+                ? 2
+                : 0;
+    const timeoutMs = isServer ? 2000 : 12000;
+    let lastError: unknown;
+
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+        let abortController: AbortController | undefined;
+        let timeoutId: NodeJS.Timeout | undefined;
+
+        if (!fetchOpts.signal && typeof AbortController !== 'undefined') {
+            abortController = new AbortController();
+            timeoutId = setTimeout(() => abortController?.abort(), timeoutMs);
+        }
+
+        try {
+            const response = await fetch(url, {
+                ...fetchOpts,
+                headers: finalHeaders,
+                credentials: 'include',
+                signal: fetchOpts.signal || abortController?.signal,
+            });
+            if (timeoutId) clearTimeout(timeoutId);
+            return response;
+        } catch (error) {
+            lastError = error;
+            if (timeoutId) clearTimeout(timeoutId);
+            if (attempt < maxRetries && method === 'GET' && isConnectionError(error)) {
+                const delayMs = [800, 1600][attempt] ?? 1000;
+                await new Promise((r) => setTimeout(r, delayMs));
+                continue;
+            }
+            if (error instanceof Error) {
+                console.error(`Gateway fetch failed for ${url}:`, error.message);
+            }
+            throw error;
+        }
+    }
+    throw lastError;
 }

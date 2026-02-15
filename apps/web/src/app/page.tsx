@@ -22,6 +22,10 @@ export default async function Home() {
         .filter((r: any) => r?.featured && r?.available)
         .sort((a: any, b: any) => Number(a?.pricePerNight ?? 0) - Number(b?.pricePerNight ?? 0))
         .slice(0, 3);
+    } else {
+      // eslint-disable-next-line no-console
+      console.warn("Failed to fetch rooms:", res.status, res.statusText);
+      featuredRooms = [];
     }
   } catch (err) {
     // eslint-disable-next-line no-console

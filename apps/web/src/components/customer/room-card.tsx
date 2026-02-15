@@ -34,6 +34,11 @@ export function RoomCard({ room }: RoomCardProps) {
           fill
           className="object-cover"
           sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+          onError={(e) => {
+            // Fallback to placeholder if image fails to load
+            const target = e.target as HTMLImageElement;
+            target.src = '/placeholder-room.jpg';
+          }}
         />
         {room.featured && (
           <Badge className="absolute top-4 right-4 bg-yellow-500 hover:bg-yellow-600">

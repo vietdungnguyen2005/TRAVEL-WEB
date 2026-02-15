@@ -1390,6 +1390,20 @@ function gatewayUrl(path) {
     const p = path.startsWith("/") ? path : `/${path}`;
     return `${base}${p}`;
 }
+function getConnectionRefused(err) {
+    if (!err || typeof err !== 'object') return false;
+    const o = err;
+    if (o.code === 'ECONNREFUSED') return true;
+    const cause = o.cause;
+    if (cause && typeof cause === 'object') return getConnectionRefused(cause);
+    const errors = o.errors;
+    if (Array.isArray(errors) && errors.length) return getConnectionRefused(errors[0]);
+    return false;
+}
+const isConnectionError = (err)=>{
+    if (err instanceof TypeError && (err.message === 'fetch failed' || err.message?.includes('fetch'))) return true;
+    return getConnectionRefused(err);
+};
 async function gatewayFetch(path, options = {}) {
     const { attachAccessToken, headers, ...rest } = options;
     const finalHeaders = new Headers(headers);
@@ -1403,13 +1417,48 @@ async function gatewayFetch(path, options = {}) {
             finalHeaders.set("Authorization", `Bearer ${token}`);
         }
     }
-    return fetch(gatewayUrl(path), {
-        ...rest,
-        headers: finalHeaders,
-        // Required so the browser will accept Set-Cookie from the gateway
-        // and send cookies on subsequent requests (cookie-based auth).
-        credentials: 'include'
-    });
+    const url = gatewayUrl(path);
+    const { retries: _retries, ...fetchOpts } = rest;
+    const method = (fetchOpts.method ?? 'GET').toUpperCase();
+    const isServer = ("TURBOPACK compile-time value", "undefined") === 'undefined';
+    // SSR: fail fast (2s) so pages don't block 12s when gateway is down. Client: retry for better UX.
+    const maxRetries = typeof _retries === 'number' ? _retries : ("TURBOPACK compile-time truthy", 1) ? 0 : "TURBOPACK unreachable";
+    const timeoutMs = ("TURBOPACK compile-time truthy", 1) ? 2000 : "TURBOPACK unreachable";
+    let lastError;
+    for(let attempt = 0; attempt <= maxRetries; attempt++){
+        let abortController;
+        let timeoutId;
+        if (!fetchOpts.signal && typeof AbortController !== 'undefined') {
+            abortController = new AbortController();
+            timeoutId = setTimeout(()=>abortController?.abort(), timeoutMs);
+        }
+        try {
+            const response = await fetch(url, {
+                ...fetchOpts,
+                headers: finalHeaders,
+                credentials: 'include',
+                signal: fetchOpts.signal || abortController?.signal
+            });
+            if (timeoutId) clearTimeout(timeoutId);
+            return response;
+        } catch (error) {
+            lastError = error;
+            if (timeoutId) clearTimeout(timeoutId);
+            if (attempt < maxRetries && method === 'GET' && isConnectionError(error)) {
+                const delayMs = [
+                    800,
+                    1600
+                ][attempt] ?? 1000;
+                await new Promise((r)=>setTimeout(r, delayMs));
+                continue;
+            }
+            if (error instanceof Error) {
+                console.error(`Gateway fetch failed for ${url}:`, error.message);
+            }
+            throw error;
+        }
+    }
+    throw lastError;
 }
 }),
 "[project]/apps/web/src/components/customer/hero-section.tsx [app-ssr] (ecmascript)", ((__turbopack_context__) => {
@@ -1464,13 +1513,14 @@ function HeroSection() {
         fetchHeroImages();
     }, []);
     (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["useEffect"])(()=>{
-        if (heroImages.length <= 1) return;
+        const safeHeroImages = Array.isArray(heroImages) ? heroImages : [];
+        if (safeHeroImages.length <= 1) return;
         const interval = setInterval(()=>{
-            setCurrentIndex((prev)=>(prev + 1) % heroImages.length);
+            setCurrentIndex((prev)=>(prev + 1) % safeHeroImages.length);
         }, 5000); // Auto-slide mỗi 5 giây
         return ()=>clearInterval(interval);
     }, [
-        heroImages.length
+        heroImages
     ]);
     async function fetchHeroImages() {
         try {
@@ -1479,19 +1529,29 @@ function HeroSection() {
             });
             if (response.ok) {
                 const data = await response.json();
-                setHeroImages(data);
+                // Ensure data is always an array
+                const images = Array.isArray(data) ? data : Array.isArray(data?.data) ? data.data : [];
+                // Filter only active images and sort by order
+                const activeImages = images.filter((img)=>img?.active !== false).sort((a, b)=>(a.order || 0) - (b.order || 0));
+                setHeroImages(activeImages);
+            } else {
+                console.warn("Failed to fetch hero images:", response.status, response.statusText);
+                setHeroImages([]);
             }
         } catch (error) {
             console.error("Error fetching hero images:", error);
+            setHeroImages([]);
         } finally{
             setIsLoading(false);
         }
     }
     const handlePrevious = ()=>{
-        setCurrentIndex((prev)=>prev === 0 ? heroImages.length - 1 : prev - 1);
+        const safeHeroImages = Array.isArray(heroImages) ? heroImages : [];
+        setCurrentIndex((prev)=>prev === 0 ? safeHeroImages.length - 1 : prev - 1);
     };
     const handleNext = ()=>{
-        setCurrentIndex((prev)=>(prev + 1) % heroImages.length);
+        const safeHeroImages = Array.isArray(heroImages) ? heroImages : [];
+        setCurrentIndex((prev)=>(prev + 1) % safeHeroImages.length);
     };
     const handleSearch = ()=>{
         const params = new URLSearchParams();
@@ -1500,9 +1560,11 @@ function HeroSection() {
         params.set("guests", guests);
         router.push(`/rooms?${params.toString()}`);
     };
-    const currentImage = heroImages[currentIndex];
+    // Ensure heroImages is always an array
+    const safeHeroImages = Array.isArray(heroImages) ? heroImages : [];
+    const currentImage = safeHeroImages[currentIndex];
     // Fallback nếu không có ảnh hoặc đang loading
-    if (isLoading || heroImages.length === 0) {
+    if (isLoading || safeHeroImages.length === 0) {
         return /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("section", {
             className: "relative h-[600px] flex items-center justify-center bg-gradient-to-br from-blue-600 to-blue-800",
             children: [
@@ -1510,7 +1572,7 @@ function HeroSection() {
                     className: "absolute inset-0 bg-black/20"
                 }, void 0, false, {
                     fileName: "[project]/apps/web/src/components/customer/hero-section.tsx",
-                    lineNumber: 100,
+                    lineNumber: 115,
                     columnNumber: 9
                 }, this),
                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -1521,7 +1583,7 @@ function HeroSection() {
                             children: "Đặt Phòng Khách Sạn Tuyệt Vời"
                         }, void 0, false, {
                             fileName: "[project]/apps/web/src/components/customer/hero-section.tsx",
-                            lineNumber: 102,
+                            lineNumber: 117,
                             columnNumber: 11
                         }, this),
                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
@@ -1529,7 +1591,7 @@ function HeroSection() {
                             children: "Trải nghiệm kỳ nghỉ hoàn hảo với giá tốt nhất"
                         }, void 0, false, {
                             fileName: "[project]/apps/web/src/components/customer/hero-section.tsx",
-                            lineNumber: 105,
+                            lineNumber: 120,
                             columnNumber: 11
                         }, this),
                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])(SearchCard, {
@@ -1542,26 +1604,26 @@ function HeroSection() {
                             handleSearch: handleSearch
                         }, void 0, false, {
                             fileName: "[project]/apps/web/src/components/customer/hero-section.tsx",
-                            lineNumber: 108,
+                            lineNumber: 123,
                             columnNumber: 11
                         }, this)
                     ]
                 }, void 0, true, {
                     fileName: "[project]/apps/web/src/components/customer/hero-section.tsx",
-                    lineNumber: 101,
+                    lineNumber: 116,
                     columnNumber: 9
                 }, this)
             ]
         }, void 0, true, {
             fileName: "[project]/apps/web/src/components/customer/hero-section.tsx",
-            lineNumber: 99,
+            lineNumber: 114,
             columnNumber: 7
         }, this);
     }
     return /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("section", {
         className: "relative h-[600px] flex items-center justify-center overflow-hidden",
         children: [
-            heroImages.map((image, index)=>/*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
+            safeHeroImages.map((image, index)=>/*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
                     className: (0, __TURBOPACK__imported__module__$5b$project$5d2f$apps$2f$web$2f$src$2f$lib$2f$utils$2e$ts__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["cn"])("absolute inset-0 transition-opacity duration-1000", index === currentIndex ? "opacity-100" : "opacity-0"),
                     children: [
                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$image$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["default"], {
@@ -1570,26 +1632,31 @@ function HeroSection() {
                             fill: true,
                             className: "object-cover",
                             priority: index === 0,
-                            sizes: "100vw"
+                            sizes: "100vw",
+                            onError: (e)=>{
+                                // Fallback to placeholder if image fails to load
+                                const target = e.target;
+                                target.src = '/placeholder-hero.jpg';
+                            }
                         }, void 0, false, {
                             fileName: "[project]/apps/web/src/components/customer/hero-section.tsx",
-                            lineNumber: 133,
+                            lineNumber: 148,
                             columnNumber: 11
                         }, this),
                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
                             className: "absolute inset-0 bg-black/40"
                         }, void 0, false, {
                             fileName: "[project]/apps/web/src/components/customer/hero-section.tsx",
-                            lineNumber: 141,
+                            lineNumber: 161,
                             columnNumber: 11
                         }, this)
                     ]
                 }, image.id, true, {
                     fileName: "[project]/apps/web/src/components/customer/hero-section.tsx",
-                    lineNumber: 126,
+                    lineNumber: 141,
                     columnNumber: 9
                 }, this)),
-            heroImages.length > 1 && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["Fragment"], {
+            safeHeroImages.length > 1 && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["Fragment"], {
                 children: [
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("button", {
                         onClick: handlePrevious,
@@ -1599,12 +1666,12 @@ function HeroSection() {
                             className: "h-6 w-6"
                         }, void 0, false, {
                             fileName: "[project]/apps/web/src/components/customer/hero-section.tsx",
-                            lineNumber: 153,
+                            lineNumber: 173,
                             columnNumber: 13
                         }, this)
                     }, void 0, false, {
                         fileName: "[project]/apps/web/src/components/customer/hero-section.tsx",
-                        lineNumber: 148,
+                        lineNumber: 168,
                         columnNumber: 11
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("button", {
@@ -1615,30 +1682,30 @@ function HeroSection() {
                             className: "h-6 w-6"
                         }, void 0, false, {
                             fileName: "[project]/apps/web/src/components/customer/hero-section.tsx",
-                            lineNumber: 160,
+                            lineNumber: 180,
                             columnNumber: 13
                         }, this)
                     }, void 0, false, {
                         fileName: "[project]/apps/web/src/components/customer/hero-section.tsx",
-                        lineNumber: 155,
+                        lineNumber: 175,
                         columnNumber: 11
                     }, this)
                 ]
             }, void 0, true),
-            heroImages.length > 1 && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
+            safeHeroImages.length > 1 && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
                 className: "absolute bottom-24 left-1/2 -translate-x-1/2 z-20 flex gap-2",
-                children: heroImages.map((_, index)=>/*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("button", {
+                children: safeHeroImages.map((_, index)=>/*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("button", {
                         onClick: ()=>setCurrentIndex(index),
                         className: (0, __TURBOPACK__imported__module__$5b$project$5d2f$apps$2f$web$2f$src$2f$lib$2f$utils$2e$ts__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["cn"])("w-2 h-2 rounded-full transition-all", index === currentIndex ? "bg-white w-8" : "bg-white/50 hover:bg-white/75"),
                         "aria-label": `Go to slide ${index + 1}`
                     }, index, false, {
                         fileName: "[project]/apps/web/src/components/customer/hero-section.tsx",
-                        lineNumber: 169,
+                        lineNumber: 189,
                         columnNumber: 13
                     }, this))
             }, void 0, false, {
                 fileName: "[project]/apps/web/src/components/customer/hero-section.tsx",
-                lineNumber: 167,
+                lineNumber: 187,
                 columnNumber: 9
             }, this),
             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -1649,7 +1716,7 @@ function HeroSection() {
                         children: currentImage.title
                     }, void 0, false, {
                         fileName: "[project]/apps/web/src/components/customer/hero-section.tsx",
-                        lineNumber: 186,
+                        lineNumber: 206,
                         columnNumber: 9
                     }, this),
                     currentImage.subtitle && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
@@ -1657,7 +1724,7 @@ function HeroSection() {
                         children: currentImage.subtitle
                     }, void 0, false, {
                         fileName: "[project]/apps/web/src/components/customer/hero-section.tsx",
-                        lineNumber: 190,
+                        lineNumber: 210,
                         columnNumber: 11
                     }, this),
                     currentImage.buttonText && currentImage.buttonLink && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -1671,17 +1738,17 @@ function HeroSection() {
                                 children: currentImage.buttonText
                             }, void 0, false, {
                                 fileName: "[project]/apps/web/src/components/customer/hero-section.tsx",
-                                lineNumber: 203,
+                                lineNumber: 223,
                                 columnNumber: 15
                             }, this)
                         }, void 0, false, {
                             fileName: "[project]/apps/web/src/components/customer/hero-section.tsx",
-                            lineNumber: 198,
+                            lineNumber: 218,
                             columnNumber: 13
                         }, this)
                     }, void 0, false, {
                         fileName: "[project]/apps/web/src/components/customer/hero-section.tsx",
-                        lineNumber: 197,
+                        lineNumber: 217,
                         columnNumber: 11
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])(SearchCard, {
@@ -1694,19 +1761,19 @@ function HeroSection() {
                         handleSearch: handleSearch
                     }, void 0, false, {
                         fileName: "[project]/apps/web/src/components/customer/hero-section.tsx",
-                        lineNumber: 211,
+                        lineNumber: 231,
                         columnNumber: 9
                     }, this)
                 ]
             }, void 0, true, {
                 fileName: "[project]/apps/web/src/components/customer/hero-section.tsx",
-                lineNumber: 185,
+                lineNumber: 205,
                 columnNumber: 7
             }, this)
         ]
     }, void 0, true, {
         fileName: "[project]/apps/web/src/components/customer/hero-section.tsx",
-        lineNumber: 123,
+        lineNumber: 138,
         columnNumber: 5
     }, this);
 }
@@ -1725,7 +1792,7 @@ function SearchCard({ checkIn, setCheckIn, checkOut, setCheckOut, guests, setGue
                             children: "Ngày nhận phòng"
                         }, void 0, false, {
                             fileName: "[project]/apps/web/src/components/customer/hero-section.tsx",
-                            lineNumber: 248,
+                            lineNumber: 268,
                             columnNumber: 11
                         }, this),
                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$apps$2f$web$2f$src$2f$components$2f$ui$2f$popover$2e$tsx__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["Popover"], {
@@ -1740,7 +1807,7 @@ function SearchCard({ checkIn, setCheckIn, checkOut, setCheckOut, guests, setGue
                                                 className: "mr-2 h-4 w-4"
                                             }, void 0, false, {
                                                 fileName: "[project]/apps/web/src/components/customer/hero-section.tsx",
-                                                lineNumber: 260,
+                                                lineNumber: 280,
                                                 columnNumber: 17
                                             }, this),
                                             checkIn ? (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$date$2d$fns$2f$format$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__$3c$locals$3e$__["format"])(checkIn, "dd/MM/yyyy", {
@@ -1749,18 +1816,18 @@ function SearchCard({ checkIn, setCheckIn, checkOut, setCheckOut, guests, setGue
                                                 children: "Chọn ngày"
                                             }, void 0, false, {
                                                 fileName: "[project]/apps/web/src/components/customer/hero-section.tsx",
-                                                lineNumber: 264,
+                                                lineNumber: 284,
                                                 columnNumber: 19
                                             }, this)
                                         ]
                                     }, void 0, true, {
                                         fileName: "[project]/apps/web/src/components/customer/hero-section.tsx",
-                                        lineNumber: 253,
+                                        lineNumber: 273,
                                         columnNumber: 15
                                     }, this)
                                 }, void 0, false, {
                                     fileName: "[project]/apps/web/src/components/customer/hero-section.tsx",
-                                    lineNumber: 252,
+                                    lineNumber: 272,
                                     columnNumber: 13
                                 }, this),
                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$apps$2f$web$2f$src$2f$components$2f$ui$2f$popover$2e$tsx__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["PopoverContent"], {
@@ -1774,24 +1841,24 @@ function SearchCard({ checkIn, setCheckIn, checkOut, setCheckOut, guests, setGue
                                         initialFocus: true
                                     }, void 0, false, {
                                         fileName: "[project]/apps/web/src/components/customer/hero-section.tsx",
-                                        lineNumber: 269,
+                                        lineNumber: 289,
                                         columnNumber: 15
                                     }, this)
                                 }, void 0, false, {
                                     fileName: "[project]/apps/web/src/components/customer/hero-section.tsx",
-                                    lineNumber: 268,
+                                    lineNumber: 288,
                                     columnNumber: 13
                                 }, this)
                             ]
                         }, void 0, true, {
                             fileName: "[project]/apps/web/src/components/customer/hero-section.tsx",
-                            lineNumber: 251,
+                            lineNumber: 271,
                             columnNumber: 11
                         }, this)
                     ]
                 }, void 0, true, {
                     fileName: "[project]/apps/web/src/components/customer/hero-section.tsx",
-                    lineNumber: 247,
+                    lineNumber: 267,
                     columnNumber: 9
                 }, this),
                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -1802,7 +1869,7 @@ function SearchCard({ checkIn, setCheckIn, checkOut, setCheckOut, guests, setGue
                             children: "Ngày trả phòng"
                         }, void 0, false, {
                             fileName: "[project]/apps/web/src/components/customer/hero-section.tsx",
-                            lineNumber: 282,
+                            lineNumber: 302,
                             columnNumber: 11
                         }, this),
                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$apps$2f$web$2f$src$2f$components$2f$ui$2f$popover$2e$tsx__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["Popover"], {
@@ -1817,7 +1884,7 @@ function SearchCard({ checkIn, setCheckIn, checkOut, setCheckOut, guests, setGue
                                                 className: "mr-2 h-4 w-4"
                                             }, void 0, false, {
                                                 fileName: "[project]/apps/web/src/components/customer/hero-section.tsx",
-                                                lineNumber: 294,
+                                                lineNumber: 314,
                                                 columnNumber: 17
                                             }, this),
                                             checkOut ? (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$date$2d$fns$2f$format$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__$3c$locals$3e$__["format"])(checkOut, "dd/MM/yyyy", {
@@ -1826,18 +1893,18 @@ function SearchCard({ checkIn, setCheckIn, checkOut, setCheckOut, guests, setGue
                                                 children: "Chọn ngày"
                                             }, void 0, false, {
                                                 fileName: "[project]/apps/web/src/components/customer/hero-section.tsx",
-                                                lineNumber: 298,
+                                                lineNumber: 318,
                                                 columnNumber: 19
                                             }, this)
                                         ]
                                     }, void 0, true, {
                                         fileName: "[project]/apps/web/src/components/customer/hero-section.tsx",
-                                        lineNumber: 287,
+                                        lineNumber: 307,
                                         columnNumber: 15
                                     }, this)
                                 }, void 0, false, {
                                     fileName: "[project]/apps/web/src/components/customer/hero-section.tsx",
-                                    lineNumber: 286,
+                                    lineNumber: 306,
                                     columnNumber: 13
                                 }, this),
                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$apps$2f$web$2f$src$2f$components$2f$ui$2f$popover$2e$tsx__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["PopoverContent"], {
@@ -1855,24 +1922,24 @@ function SearchCard({ checkIn, setCheckIn, checkOut, setCheckOut, guests, setGue
                                         initialFocus: true
                                     }, void 0, false, {
                                         fileName: "[project]/apps/web/src/components/customer/hero-section.tsx",
-                                        lineNumber: 303,
+                                        lineNumber: 323,
                                         columnNumber: 15
                                     }, this)
                                 }, void 0, false, {
                                     fileName: "[project]/apps/web/src/components/customer/hero-section.tsx",
-                                    lineNumber: 302,
+                                    lineNumber: 322,
                                     columnNumber: 13
                                 }, this)
                             ]
                         }, void 0, true, {
                             fileName: "[project]/apps/web/src/components/customer/hero-section.tsx",
-                            lineNumber: 285,
+                            lineNumber: 305,
                             columnNumber: 11
                         }, this)
                     ]
                 }, void 0, true, {
                     fileName: "[project]/apps/web/src/components/customer/hero-section.tsx",
-                    lineNumber: 281,
+                    lineNumber: 301,
                     columnNumber: 9
                 }, this),
                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -1883,7 +1950,7 @@ function SearchCard({ checkIn, setCheckIn, checkOut, setCheckOut, guests, setGue
                             children: "Số khách"
                         }, void 0, false, {
                             fileName: "[project]/apps/web/src/components/customer/hero-section.tsx",
-                            lineNumber: 320,
+                            lineNumber: 340,
                             columnNumber: 11
                         }, this),
                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$apps$2f$web$2f$src$2f$components$2f$ui$2f$select$2e$tsx__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["Select"], {
@@ -1897,18 +1964,18 @@ function SearchCard({ checkIn, setCheckIn, checkOut, setCheckOut, guests, setGue
                                             className: "mr-2 h-4 w-4"
                                         }, void 0, false, {
                                             fileName: "[project]/apps/web/src/components/customer/hero-section.tsx",
-                                            lineNumber: 325,
+                                            lineNumber: 345,
                                             columnNumber: 15
                                         }, this),
                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$apps$2f$web$2f$src$2f$components$2f$ui$2f$select$2e$tsx__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["SelectValue"], {}, void 0, false, {
                                             fileName: "[project]/apps/web/src/components/customer/hero-section.tsx",
-                                            lineNumber: 326,
+                                            lineNumber: 346,
                                             columnNumber: 15
                                         }, this)
                                     ]
                                 }, void 0, true, {
                                     fileName: "[project]/apps/web/src/components/customer/hero-section.tsx",
-                                    lineNumber: 324,
+                                    lineNumber: 344,
                                     columnNumber: 13
                                 }, this),
                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$apps$2f$web$2f$src$2f$components$2f$ui$2f$select$2e$tsx__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["SelectContent"], {
@@ -1918,7 +1985,7 @@ function SearchCard({ checkIn, setCheckIn, checkOut, setCheckOut, guests, setGue
                                             children: "1 khách"
                                         }, void 0, false, {
                                             fileName: "[project]/apps/web/src/components/customer/hero-section.tsx",
-                                            lineNumber: 329,
+                                            lineNumber: 349,
                                             columnNumber: 15
                                         }, this),
                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$apps$2f$web$2f$src$2f$components$2f$ui$2f$select$2e$tsx__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["SelectItem"], {
@@ -1926,7 +1993,7 @@ function SearchCard({ checkIn, setCheckIn, checkOut, setCheckOut, guests, setGue
                                             children: "2 khách"
                                         }, void 0, false, {
                                             fileName: "[project]/apps/web/src/components/customer/hero-section.tsx",
-                                            lineNumber: 330,
+                                            lineNumber: 350,
                                             columnNumber: 15
                                         }, this),
                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$apps$2f$web$2f$src$2f$components$2f$ui$2f$select$2e$tsx__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["SelectItem"], {
@@ -1934,7 +2001,7 @@ function SearchCard({ checkIn, setCheckIn, checkOut, setCheckOut, guests, setGue
                                             children: "3 khách"
                                         }, void 0, false, {
                                             fileName: "[project]/apps/web/src/components/customer/hero-section.tsx",
-                                            lineNumber: 331,
+                                            lineNumber: 351,
                                             columnNumber: 15
                                         }, this),
                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$apps$2f$web$2f$src$2f$components$2f$ui$2f$select$2e$tsx__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["SelectItem"], {
@@ -1942,7 +2009,7 @@ function SearchCard({ checkIn, setCheckIn, checkOut, setCheckOut, guests, setGue
                                             children: "4 khách"
                                         }, void 0, false, {
                                             fileName: "[project]/apps/web/src/components/customer/hero-section.tsx",
-                                            lineNumber: 332,
+                                            lineNumber: 352,
                                             columnNumber: 15
                                         }, this),
                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$apps$2f$web$2f$src$2f$components$2f$ui$2f$select$2e$tsx__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["SelectItem"], {
@@ -1950,7 +2017,7 @@ function SearchCard({ checkIn, setCheckIn, checkOut, setCheckOut, guests, setGue
                                             children: "5 khách"
                                         }, void 0, false, {
                                             fileName: "[project]/apps/web/src/components/customer/hero-section.tsx",
-                                            lineNumber: 333,
+                                            lineNumber: 353,
                                             columnNumber: 15
                                         }, this),
                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$apps$2f$web$2f$src$2f$components$2f$ui$2f$select$2e$tsx__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["SelectItem"], {
@@ -1958,25 +2025,25 @@ function SearchCard({ checkIn, setCheckIn, checkOut, setCheckOut, guests, setGue
                                             children: "6+ khách"
                                         }, void 0, false, {
                                             fileName: "[project]/apps/web/src/components/customer/hero-section.tsx",
-                                            lineNumber: 334,
+                                            lineNumber: 354,
                                             columnNumber: 15
                                         }, this)
                                     ]
                                 }, void 0, true, {
                                     fileName: "[project]/apps/web/src/components/customer/hero-section.tsx",
-                                    lineNumber: 328,
+                                    lineNumber: 348,
                                     columnNumber: 13
                                 }, this)
                             ]
                         }, void 0, true, {
                             fileName: "[project]/apps/web/src/components/customer/hero-section.tsx",
-                            lineNumber: 323,
+                            lineNumber: 343,
                             columnNumber: 11
                         }, this)
                     ]
                 }, void 0, true, {
                     fileName: "[project]/apps/web/src/components/customer/hero-section.tsx",
-                    lineNumber: 319,
+                    lineNumber: 339,
                     columnNumber: 9
                 }, this),
                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -1990,30 +2057,30 @@ function SearchCard({ checkIn, setCheckIn, checkOut, setCheckOut, guests, setGue
                                 className: "mr-2 h-4 w-4"
                             }, void 0, false, {
                                 fileName: "[project]/apps/web/src/components/customer/hero-section.tsx",
-                                lineNumber: 346,
+                                lineNumber: 366,
                                 columnNumber: 13
                             }, this),
                             "Tìm phòng"
                         ]
                     }, void 0, true, {
                         fileName: "[project]/apps/web/src/components/customer/hero-section.tsx",
-                        lineNumber: 341,
+                        lineNumber: 361,
                         columnNumber: 11
                     }, this)
                 }, void 0, false, {
                     fileName: "[project]/apps/web/src/components/customer/hero-section.tsx",
-                    lineNumber: 340,
+                    lineNumber: 360,
                     columnNumber: 9
                 }, this)
             ]
         }, void 0, true, {
             fileName: "[project]/apps/web/src/components/customer/hero-section.tsx",
-            lineNumber: 245,
+            lineNumber: 265,
             columnNumber: 7
         }, this)
     }, void 0, false, {
         fileName: "[project]/apps/web/src/components/customer/hero-section.tsx",
-        lineNumber: 244,
+        lineNumber: 264,
         columnNumber: 5
     }, this);
 }

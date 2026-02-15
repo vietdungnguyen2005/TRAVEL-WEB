@@ -58,6 +58,11 @@ function gatewayUrl(path) {
     const p = path.startsWith("/") ? path : `/${path}`;
     return `${base}${p}`;
 }
+const isConnectionError = (err)=>{
+    if (err instanceof TypeError && (err.message === 'fetch failed' || err.message?.includes('fetch'))) return true;
+    const cause = err instanceof Error ? err.cause : null;
+    return cause && typeof cause === 'object' && cause.code === 'ECONNREFUSED';
+};
 async function gatewayFetch(path, options = {}) {
     const { attachAccessToken, headers, ...rest } = options;
     const finalHeaders = new Headers(headers);
@@ -71,13 +76,41 @@ async function gatewayFetch(path, options = {}) {
             finalHeaders.set("Authorization", `Bearer ${token}`);
         }
     }
-    return fetch(gatewayUrl(path), {
-        ...rest,
-        headers: finalHeaders,
-        // Required so the browser will accept Set-Cookie from the gateway
-        // and send cookies on subsequent requests (cookie-based auth).
-        credentials: 'include'
-    });
+    const url = gatewayUrl(path);
+    const { retries: _retries, ...fetchOpts } = rest;
+    const method = (fetchOpts.method ?? 'GET').toUpperCase();
+    const maxRetries = typeof _retries === 'number' ? _retries : method === 'GET' ? 2 : 0;
+    let lastError;
+    for(let attempt = 0; attempt <= maxRetries; attempt++){
+        let abortController;
+        let timeoutId;
+        if (!fetchOpts.signal && typeof AbortController !== 'undefined') {
+            abortController = new AbortController();
+            timeoutId = setTimeout(()=>abortController?.abort(), 10000);
+        }
+        try {
+            const response = await fetch(url, {
+                ...fetchOpts,
+                headers: finalHeaders,
+                credentials: 'include',
+                signal: fetchOpts.signal || abortController?.signal
+            });
+            if (timeoutId) clearTimeout(timeoutId);
+            return response;
+        } catch (error) {
+            lastError = error;
+            if (timeoutId) clearTimeout(timeoutId);
+            if (attempt < maxRetries && method === 'GET' && isConnectionError(error)) {
+                await new Promise((r)=>setTimeout(r, 1000 * (attempt + 1)));
+                continue;
+            }
+            if (error instanceof Error) {
+                console.error(`Gateway fetch failed for ${url}:`, error.message);
+            }
+            throw error;
+        }
+    }
+    throw lastError;
 }
 }),
 "[project]/apps/web/src/lib/auth-session.ts [app-rsc] (ecmascript)", ((__turbopack_context__) => {
@@ -896,7 +929,12 @@ function RoomCard({ room }) {
                         alt: room.name,
                         fill: true,
                         className: "object-cover",
-                        sizes: "(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                        sizes: "(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw",
+                        onError: (e)=>{
+                            // Fallback to placeholder if image fails to load
+                            const target = e.target;
+                            target.src = '/placeholder-room.jpg';
+                        }
                     }, void 0, false, {
                         fileName: "[project]/apps/web/src/components/customer/room-card.tsx",
                         lineNumber: 31,
@@ -907,7 +945,7 @@ function RoomCard({ room }) {
                         children: "Featured"
                     }, void 0, false, {
                         fileName: "[project]/apps/web/src/components/customer/room-card.tsx",
-                        lineNumber: 39,
+                        lineNumber: 44,
                         columnNumber: 11
                     }, this)
                 ]
@@ -927,17 +965,17 @@ function RoomCard({ room }) {
                                 children: room.name
                             }, void 0, false, {
                                 fileName: "[project]/apps/web/src/components/customer/room-card.tsx",
-                                lineNumber: 48,
+                                lineNumber: 53,
                                 columnNumber: 13
                             }, this)
                         }, void 0, false, {
                             fileName: "[project]/apps/web/src/components/customer/room-card.tsx",
-                            lineNumber: 47,
+                            lineNumber: 52,
                             columnNumber: 11
                         }, this)
                     }, void 0, false, {
                         fileName: "[project]/apps/web/src/components/customer/room-card.tsx",
-                        lineNumber: 46,
+                        lineNumber: 51,
                         columnNumber: 9
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$rsc$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$rsc$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
@@ -945,7 +983,7 @@ function RoomCard({ room }) {
                         children: room.description
                     }, void 0, false, {
                         fileName: "[project]/apps/web/src/components/customer/room-card.tsx",
-                        lineNumber: 52,
+                        lineNumber: 57,
                         columnNumber: 9
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$rsc$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$rsc$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -958,20 +996,20 @@ function RoomCard({ room }) {
                                         className: "h-4 w-4"
                                     }, void 0, false, {
                                         fileName: "[project]/apps/web/src/components/customer/room-card.tsx",
-                                        lineNumber: 58,
+                                        lineNumber: 63,
                                         columnNumber: 13
                                     }, this),
                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$rsc$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$rsc$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
                                         children: capacityText
                                     }, void 0, false, {
                                         fileName: "[project]/apps/web/src/components/customer/room-card.tsx",
-                                        lineNumber: 59,
+                                        lineNumber: 64,
                                         columnNumber: 13
                                     }, this)
                                 ]
                             }, void 0, true, {
                                 fileName: "[project]/apps/web/src/components/customer/room-card.tsx",
-                                lineNumber: 57,
+                                lineNumber: 62,
                                 columnNumber: 11
                             }, this),
                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$rsc$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$rsc$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -981,20 +1019,20 @@ function RoomCard({ room }) {
                                         className: "h-4 w-4"
                                     }, void 0, false, {
                                         fileName: "[project]/apps/web/src/components/customer/room-card.tsx",
-                                        lineNumber: 62,
+                                        lineNumber: 67,
                                         columnNumber: 13
                                     }, this),
                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$rsc$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$rsc$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
                                         children: bedCountText
                                     }, void 0, false, {
                                         fileName: "[project]/apps/web/src/components/customer/room-card.tsx",
-                                        lineNumber: 63,
+                                        lineNumber: 68,
                                         columnNumber: 13
                                     }, this)
                                 ]
                             }, void 0, true, {
                                 fileName: "[project]/apps/web/src/components/customer/room-card.tsx",
-                                lineNumber: 61,
+                                lineNumber: 66,
                                 columnNumber: 11
                             }, this),
                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$rsc$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$rsc$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -1004,26 +1042,26 @@ function RoomCard({ room }) {
                                         className: "h-4 w-4"
                                     }, void 0, false, {
                                         fileName: "[project]/apps/web/src/components/customer/room-card.tsx",
-                                        lineNumber: 66,
+                                        lineNumber: 71,
                                         columnNumber: 13
                                     }, this),
                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$rsc$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$rsc$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
                                         children: sizeText
                                     }, void 0, false, {
                                         fileName: "[project]/apps/web/src/components/customer/room-card.tsx",
-                                        lineNumber: 67,
+                                        lineNumber: 72,
                                         columnNumber: 13
                                     }, this)
                                 ]
                             }, void 0, true, {
                                 fileName: "[project]/apps/web/src/components/customer/room-card.tsx",
-                                lineNumber: 65,
+                                lineNumber: 70,
                                 columnNumber: 11
                             }, this)
                         ]
                     }, void 0, true, {
                         fileName: "[project]/apps/web/src/components/customer/room-card.tsx",
-                        lineNumber: 56,
+                        lineNumber: 61,
                         columnNumber: 9
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$rsc$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$rsc$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -1038,7 +1076,7 @@ function RoomCard({ room }) {
                                     ]
                                 }, void 0, true, {
                                     fileName: "[project]/apps/web/src/components/customer/room-card.tsx",
-                                    lineNumber: 73,
+                                    lineNumber: 78,
                                     columnNumber: 13
                                 }, this),
                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$rsc$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$rsc$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
@@ -1046,24 +1084,24 @@ function RoomCard({ room }) {
                                     children: "/ night"
                                 }, void 0, false, {
                                     fileName: "[project]/apps/web/src/components/customer/room-card.tsx",
-                                    lineNumber: 76,
+                                    lineNumber: 81,
                                     columnNumber: 13
                                 }, this)
                             ]
                         }, void 0, true, {
                             fileName: "[project]/apps/web/src/components/customer/room-card.tsx",
-                            lineNumber: 72,
+                            lineNumber: 77,
                             columnNumber: 11
                         }, this)
                     }, void 0, false, {
                         fileName: "[project]/apps/web/src/components/customer/room-card.tsx",
-                        lineNumber: 71,
+                        lineNumber: 76,
                         columnNumber: 9
                     }, this)
                 ]
             }, void 0, true, {
                 fileName: "[project]/apps/web/src/components/customer/room-card.tsx",
-                lineNumber: 45,
+                lineNumber: 50,
                 columnNumber: 7
             }, this),
             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$rsc$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$rsc$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$apps$2f$web$2f$src$2f$components$2f$ui$2f$card$2e$tsx__$5b$app$2d$rsc$5d$__$28$ecmascript$29$__["CardFooter"], {
@@ -1076,17 +1114,17 @@ function RoomCard({ room }) {
                         children: "View Details"
                     }, void 0, false, {
                         fileName: "[project]/apps/web/src/components/customer/room-card.tsx",
-                        lineNumber: 83,
+                        lineNumber: 88,
                         columnNumber: 11
                     }, this)
                 }, void 0, false, {
                     fileName: "[project]/apps/web/src/components/customer/room-card.tsx",
-                    lineNumber: 82,
+                    lineNumber: 87,
                     columnNumber: 9
                 }, this)
             }, void 0, false, {
                 fileName: "[project]/apps/web/src/components/customer/room-card.tsx",
-                lineNumber: 81,
+                lineNumber: 86,
                 columnNumber: 7
             }, this)
         ]

@@ -5,14 +5,15 @@ import type { RequestWithId } from '../middlewares/requestId.middleware';
 
 type ServiceKey = keyof typeof staticServices;
 
-function proxyTo(serviceKey: ServiceKey, pathPrefix: string) {
+type ProxyOptions = {
+    pathRewrite?: Record<string, string>;
+};
+
+function proxyTo(serviceKey: ServiceKey, _pathPrefix: string, opts?: ProxyOptions) {
     return createProxyMiddleware({
-        // Used by http-proxy-middleware for initial setup/logging; real routing happens via router().
         target: getServicePlaceholderTarget(serviceKey),
         changeOrigin: true,
-        // Keep the prefix because upstream services mount their routers under the same prefix
-        // e.g. auth-service mounts under `/api/auth`.
-        pathRewrite: undefined,
+        pathRewrite: opts?.pathRewrite,
         router: async () => {
             return await getServiceTarget(serviceKey);
         },
@@ -30,6 +31,10 @@ function proxyTo(serviceKey: ServiceKey, pathPrefix: string) {
 export const proxyMiddleware = {
     auth: proxyTo('authService', '/api/auth'),
     bookings: proxyTo('bookingService', '/api/bookings'),
+    /** Admin bookings: booking service expects /api/bookings/admin/bookings */
+    bookingsAdmin: proxyTo('bookingService', '/api/bookings', {
+        pathRewrite: { '^/api/admin': '/api/bookings/admin' },
+    }),
     rooms: proxyTo('roomService', '/api/rooms'),
     payments: proxyTo('paymentService', '/api/payments'),
     reviews: proxyTo('reviewService', '/api/reviews'),

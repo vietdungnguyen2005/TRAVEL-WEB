@@ -1,6 +1,11 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  // On Windows, filesystem cache can cause "Persisting failed" / compaction lock errors.
+  // Disable dev cache to avoid file-in-use issues (slower cold start, fewer lock errors).
+  experimental: {
+    turbopackFileSystemCacheForDev: process.platform === "win32" ? false : undefined,
+  },
   // Allow dev assets to be loaded when you open the site via LAN IP.
   // Next's dev server can consider these cross-origin for /_next/*.
   // Note: wildcards ("*") are NOT supported here. List explicit origins.
@@ -20,6 +25,10 @@ const nextConfig: NextConfig = {
       {
         protocol: "https",
         hostname: "res.cloudinary.com",
+      },
+      {
+        protocol: "https",
+        hostname: "*.supabase.co",
       },
     ],
   },

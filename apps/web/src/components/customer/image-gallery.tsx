@@ -40,6 +40,11 @@ export function ImageGallery({ images, roomName }: ImageGalleryProps) {
           className="object-cover"
           priority
           sizes="(max-width: 768px) 100vw, 80vw"
+          onError={(e) => {
+            // Fallback to placeholder if image fails to load
+            const target = e.target as HTMLImageElement;
+            target.src = '/placeholder-room.jpg';
+          }}
         />
         
         {/* Navigation Arrows */}
@@ -89,6 +94,11 @@ export function ImageGallery({ images, roomName }: ImageGalleryProps) {
                 fill
                 className="object-cover"
                 sizes="(max-width: 768px) 25vw, 15vw"
+                onError={(e) => {
+                  // Fallback to placeholder if image fails to load
+                  const target = e.target as HTMLImageElement;
+                  target.src = '/placeholder-room.jpg';
+                }}
               />
             </button>
           ))}

@@ -49,37 +49,50 @@ export function HeroSection() {
   }, []);
 
   useEffect(() => {
-    if (heroImages.length <= 1) return;
+    const safeHeroImages = Array.isArray(heroImages) ? heroImages : [];
+    if (safeHeroImages.length <= 1) return;
 
     const interval = setInterval(() => {
-      setCurrentIndex((prev) => (prev + 1) % heroImages.length);
+      setCurrentIndex((prev) => (prev + 1) % safeHeroImages.length);
     }, 5000); // Auto-slide mỗi 5 giây
 
     return () => clearInterval(interval);
-  }, [heroImages.length]);
+  }, [heroImages]);
 
   async function fetchHeroImages() {
     try {
       const response = await gatewayFetch("/api/hero-images", { method: "GET" });
       if (response.ok) {
         const data = await response.json();
-        setHeroImages(data);
+        // Ensure data is always an array
+        const images = Array.isArray(data) ? data : (Array.isArray(data?.data) ? data.data : []);
+        // Filter only active images and sort by order
+        const activeImages = images
+          .filter((img: HeroImage) => img?.active !== false)
+          .sort((a: HeroImage, b: HeroImage) => (a.order || 0) - (b.order || 0));
+        setHeroImages(activeImages);
+      } else {
+        console.warn("Failed to fetch hero images:", response.status, response.statusText);
+        setHeroImages([]);
       }
     } catch (error) {
       console.error("Error fetching hero images:", error);
+      setHeroImages([]);
     } finally {
       setIsLoading(false);
     }
   }
 
   const handlePrevious = () => {
+    const safeHeroImages = Array.isArray(heroImages) ? heroImages : [];
     setCurrentIndex((prev) =>
-      prev === 0 ? heroImages.length - 1 : prev - 1
+      prev === 0 ? safeHeroImages.length - 1 : prev - 1
     );
   };
 
   const handleNext = () => {
-    setCurrentIndex((prev) => (prev + 1) % heroImages.length);
+    const safeHeroImages = Array.isArray(heroImages) ? heroImages : [];
+    setCurrentIndex((prev) => (prev + 1) % safeHeroImages.length);
   };
 
   const handleSearch = () => {
@@ -91,10 +104,12 @@ export function HeroSection() {
     router.push(`/rooms?${params.toString()}`);
   };
 
-  const currentImage = heroImages[currentIndex];
+  // Ensure heroImages is always an array
+  const safeHeroImages = Array.isArray(heroImages) ? heroImages : [];
+  const currentImage = safeHeroImages[currentIndex];
 
   // Fallback nếu không có ảnh hoặc đang loading
-  if (isLoading || heroImages.length === 0) {
+  if (isLoading || safeHeroImages.length === 0) {
     return (
       <section className="relative h-[600px] flex items-center justify-center bg-gradient-to-br from-blue-600 to-blue-800">
         <div className="absolute inset-0 bg-black/20" />
@@ -122,7 +137,7 @@ export function HeroSection() {
   return (
     <section className="relative h-[600px] flex items-center justify-center overflow-hidden">
       {/* Background Images with Transition */}
-      {heroImages.map((image, index) => (
+      {safeHeroImages.map((image, index) => (
         <div
           key={image.id}
           className={cn(
@@ -137,13 +152,18 @@ export function HeroSection() {
             className="object-cover"
             priority={index === 0}
             sizes="100vw"
+            onError={(e) => {
+              // Fallback to placeholder if image fails to load
+              const target = e.target as HTMLImageElement;
+              target.src = '/placeholder-hero.jpg';
+            }}
           />
           <div className="absolute inset-0 bg-black/40" />
         </div>
       ))}
 
       {/* Navigation Arrows */}
-      {heroImages.length > 1 && (
+      {safeHeroImages.length > 1 && (
         <>
           <button
             onClick={handlePrevious}
@@ -163,9 +183,9 @@ export function HeroSection() {
       )}
 
       {/* Dots Indicator */}
-      {heroImages.length > 1 && (
+      {safeHeroImages.length > 1 && (
         <div className="absolute bottom-24 left-1/2 -translate-x-1/2 z-20 flex gap-2">
-          {heroImages.map((_, index) => (
+          {safeHeroImages.map((_, index) => (
             <button
               key={index}
               onClick={() => setCurrentIndex(index)}

@@ -103,10 +103,11 @@ export default function HeroImagesPage() {
     const method = editingImage ? "PUT" : "POST";
 
     try {
-      const response = await fetch(url, {
+      const response = await gatewayFetch(url, {
         method,
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(formData),
+        attachAccessToken: true,
       });
 
       if (response.ok) {

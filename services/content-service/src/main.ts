@@ -2,6 +2,7 @@ import express from 'express';
 import cors from 'cors';
 import { healthHandler, readyHandler } from './lib/health';
 import { heroImagesRouter } from './http/routes';
+import { adminHeroImagesRouter } from './http/routes/admin-hero-images';
 import { errorHandler } from './http/middlewares/error-handler';
 
 const app = express();
@@ -19,6 +20,7 @@ app.get('/healthz', healthHandler);
 app.get('/ready', readyHandler);
 
 app.use('/api', heroImagesRouter);
+app.use('/api/admin', adminHeroImagesRouter);
 
 app.use(errorHandler);
 

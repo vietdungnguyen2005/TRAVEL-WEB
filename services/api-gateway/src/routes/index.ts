@@ -23,7 +23,7 @@ router.use('/api/blog', proxyMiddleware.blog);
 router.use('/api/admin/users', proxyMiddleware.auth);
 router.use('/api/admin/stats', proxyMiddleware.auth);
 router.use('/api/admin/analytics', proxyMiddleware.auth);
-router.use('/api/admin/bookings', proxyMiddleware.bookings);
+router.use('/api/admin/bookings', proxyMiddleware.bookingsAdmin);
 router.use('/api/admin/rooms', proxyMiddleware.rooms);
 router.use('/api/admin/room-types', proxyMiddleware.rooms);
 router.use('/api/admin/hero-images', proxyMiddleware.content);

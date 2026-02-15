@@ -256,7 +256,7 @@ __turbopack_context__.s([
 ]);
 const publicEnv = {
     // Default for local dev/build. In production, set NEXT_PUBLIC_API_GATEWAY_URL explicitly.
-    NEXT_PUBLIC_API_GATEWAY_URL: ("TURBOPACK compile-time value", "http://localhost:4000") ?? "http://localhost:4000"
+    NEXT_PUBLIC_API_GATEWAY_URL: process.env.NEXT_PUBLIC_API_GATEWAY_URL ?? "http://localhost:4000"
 };
 }),
 "[project]/apps/web/src/lib/gateway-client.ts [app-ssr] (ecmascript)", ((__turbopack_context__) => {
@@ -282,7 +282,13 @@ function getAccessTokenFromCookie() {
     }
 }
 function gatewayUrl(path) {
-    const base = __TURBOPACK__imported__module__$5b$project$5d2f$apps$2f$web$2f$src$2f$lib$2f$public$2d$env$2e$ts__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["publicEnv"].NEXT_PUBLIC_API_GATEWAY_URL.replace(/\/$/, "");
+    let base = __TURBOPACK__imported__module__$5b$project$5d2f$apps$2f$web$2f$src$2f$lib$2f$public$2d$env$2e$ts__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["publicEnv"].NEXT_PUBLIC_API_GATEWAY_URL;
+    // If the app is opened via LAN IP (e.g. http://192.168.x.x:3000) but the
+    // gateway base is localhost, browser requests will go cross-origin and can
+    // cause cookie/credentials surprises. In dev, rewrite localhost -> current host.
+    if ("TURBOPACK compile-time falsy", 0) //TURBOPACK unreachable
+    ;
+    base = base.replace(/\/$/, "");
     const p = path.startsWith("/") ? path : `/${path}`;
     return `${base}${p}`;
 }
@@ -299,13 +305,41 @@ async function gatewayFetch(path, options = {}) {
             finalHeaders.set("Authorization", `Bearer ${token}`);
         }
     }
-    return fetch(gatewayUrl(path), {
-        ...rest,
-        headers: finalHeaders,
-        // Required so the browser will accept Set-Cookie from the gateway
-        // and send cookies on subsequent requests (cookie-based auth).
-        credentials: 'include'
-    });
+    const url = gatewayUrl(path);
+    // Create abort controller for timeout if not provided
+    let abortController;
+    let timeoutId;
+    if (!rest.signal && typeof AbortController !== 'undefined') {
+        abortController = new AbortController();
+        timeoutId = setTimeout(()=>{
+            abortController?.abort();
+        }, 10000); // 10 second timeout
+    }
+    try {
+        const response = await fetch(url, {
+            ...rest,
+            headers: finalHeaders,
+            // Required so the browser will accept Set-Cookie from the gateway
+            // and send cookies on subsequent requests (cookie-based auth).
+            credentials: 'include',
+            signal: rest.signal || abortController?.signal
+        });
+        // Clear timeout on success
+        if (timeoutId) {
+            clearTimeout(timeoutId);
+        }
+        return response;
+    } catch (error) {
+        // Clear timeout on error
+        if (timeoutId) {
+            clearTimeout(timeoutId);
+        }
+        // Log error for debugging
+        if (error instanceof Error) {
+            console.error(`Gateway fetch failed for ${url}:`, error.message);
+        }
+        throw error;
+    }
 }
 }),
 "[project]/apps/web/src/app/(auth)/auth/register/page.tsx [app-ssr] (ecmascript)", ((__turbopack_context__) => {

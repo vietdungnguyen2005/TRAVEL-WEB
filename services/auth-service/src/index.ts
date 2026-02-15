@@ -1,6 +1,7 @@
 import express from 'express';
 import { consulRegisterService, Logger } from '@travel-web/shared';
 import { authRouter } from './http/routes';
+import { adminRouter } from './http/routes/admin';
 import { errorHandler } from './http/middlewares/error-handler';
 import cookieParser from 'cookie-parser';
 import { loadEnvProfile } from '../../../infra/scripts/load-env-profile';
@@ -18,6 +19,7 @@ const PORT = process.env.PORT || 3001;
 app.use(express.json());
 app.use(cookieParser());
 app.use('/api/auth', authRouter);
+app.use('/api/admin', adminRouter);
 
 app.get('/health', (_req, res) => {
     res.status(200).json({ ok: true, service: 'auth-service' });
