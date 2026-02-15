@@ -2,6 +2,7 @@ import { createProxyMiddleware } from 'http-proxy-middleware';
 import { getServicePlaceholderTarget, getServiceTarget } from '../discovery/service-resolver';
 import { services as staticServices } from '../config/services.config';
 import type { RequestWithId } from '../middlewares/requestId.middleware';
+import type { RequestWithAuth } from '../middlewares/auth.middleware';
 
 type ServiceKey = keyof typeof staticServices;
 
@@ -24,6 +25,10 @@ function proxyTo(serviceKey: ServiceKey, _pathPrefix: string, opts?: ProxyOption
             if (requestId) {
                 proxyReq.setHeader('x-request-id', requestId);
             }
+
+            const auth = (req as RequestWithAuth).auth;
+            if (auth?.userId) proxyReq.setHeader('x-user-id', auth.userId);
+            if (auth?.role) proxyReq.setHeader('x-user-role', auth.role);
         },
     });
 }

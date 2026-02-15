@@ -13,6 +13,10 @@ export type ConsumeOptions = {
     bindingKeys: string[];
     prefetch?: number;
     consumerTag?: string;
+    enableDlq?: boolean;
+    deadLetterExchange?: string;
+    deadLetterQueue?: string;
+    deadLetterRoutingKey?: string;
 };
 export type ConsumeHandler = (payload: unknown, raw: ConsumeMessage) => Promise<void> | void;
 export declare function rabbitConnect(config?: Partial<RabbitMqConfig>): Promise<{

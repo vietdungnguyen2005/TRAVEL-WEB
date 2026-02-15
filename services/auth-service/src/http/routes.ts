@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { register, login, verifyToken } from '../modules/auth/auth.controller';
+import { register, login, verifyToken, refresh, logoutAll } from '../modules/auth/auth.controller';
 import { googleCallback, googleStart } from '../modules/oauth/google/google.controller';
 import { forgotPassword } from './routes/forgot-password';
 import { resetPasswordHandler } from './routes/reset-password-express';
@@ -14,6 +14,7 @@ export const authRouter = Router();
 authRouter.post('/register', register);
 authRouter.post('/login', login);
 authRouter.post('/verify', verifyToken);
+authRouter.post('/refresh', refresh);
 
 // Password reset (Express handlers)
 authRouter.post('/forgot-password', forgotPassword);
@@ -26,6 +27,7 @@ authRouter.post('/resend-verification', resendVerificationEmailHandler);
 
 // Logout
 authRouter.post('/logout', logout);
+authRouter.post('/logout-all', requireAuth, logoutAll);
 
 // OAuth (Google)
 authRouter.get('/oauth/google', googleStart);

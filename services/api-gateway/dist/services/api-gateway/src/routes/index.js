@@ -3,10 +3,17 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = require("express");
 const redis_1 = require("redis");
 const proxy_middleware_1 = require("../proxy/proxy.middleware");
+const auth_middleware_1 = require("../middlewares/auth.middleware");
 const discovery_config_1 = require("../config/discovery.config");
 const service_resolver_1 = require("../discovery/service-resolver");
 const metrics_1 = require("../lib/metrics");
 const router = (0, express_1.Router)();
+// JWT protection (verify at gateway, forward user context via x-user-* headers)
+router.use((0, auth_middleware_1.requireAuthForPaths)([
+    '/api/bookings',
+    '/api/payments',
+    '/api/admin',
+]));
 // Proxy routes
 router.use('/api/auth', proxy_middleware_1.proxyMiddleware.auth);
 router.use('/api/bookings', proxy_middleware_1.proxyMiddleware.bookings);
@@ -22,7 +29,7 @@ router.use('/api/blog', proxy_middleware_1.proxyMiddleware.blog);
 router.use('/api/admin/users', proxy_middleware_1.proxyMiddleware.auth);
 router.use('/api/admin/stats', proxy_middleware_1.proxyMiddleware.auth);
 router.use('/api/admin/analytics', proxy_middleware_1.proxyMiddleware.auth);
-router.use('/api/admin/bookings', proxy_middleware_1.proxyMiddleware.bookings);
+router.use('/api/admin/bookings', proxy_middleware_1.proxyMiddleware.bookingsAdmin);
 router.use('/api/admin/rooms', proxy_middleware_1.proxyMiddleware.rooms);
 router.use('/api/admin/room-types', proxy_middleware_1.proxyMiddleware.rooms);
 router.use('/api/admin/hero-images', proxy_middleware_1.proxyMiddleware.content);

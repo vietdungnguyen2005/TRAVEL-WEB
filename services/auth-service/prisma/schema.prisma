@@ -2,11 +2,11 @@ generator client {
   provider = "prisma-client-js"
   output   = "../node_modules/.prisma/auth-client"
   previewFeatures = ["multiSchema"]
+  binaryTargets = ["native", "windows"]
 }
 
 datasource db {
   provider = "postgresql"
-  binaryTargets = ["native", "windows"]
   url       = env("AUTH_DATABASE_URL")
   schemas  = ["app_auth"]
 }
@@ -30,7 +30,29 @@ model User {
   resetPasswordExpires DateTime?
   createdAt            DateTime @default(now())
   updatedAt            DateTime @updatedAt
+
+  refreshTokens         RefreshToken[]
   
   @@index([email])
+  @@schema("app_auth")
+}
+
+model RefreshToken {
+  id                String   @id @default(uuid())
+  userId            String
+  tokenHash         String   @unique
+  familyId          String
+  createdAt         DateTime @default(now())
+  expiresAt         DateTime
+  lastUsedAt        DateTime?
+  revokedAt         DateTime?
+  replacedByTokenId String?
+  ip                String?
+  userAgent         String?
+
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([familyId])
   @@schema("app_auth")
 }

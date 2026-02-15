@@ -1,17 +1,16 @@
 import type { NextFunction, Request, Response } from 'express';
-import { decodeJwtUser, extractAccessTokenFromHeaders, getJwtSecretOrThrow, verifyJwtToken } from './jwt';
+import { decodeJwtUser, extractAccessTokenFromHeaders, verifyJwtToken } from './jwt';
 
 export function verifyJWT(req: Request, res: Response, next: NextFunction) {
     const token = extractAccessTokenFromHeaders({ authorization: req.headers.authorization, cookie: req.headers.cookie });
     if (!token) return res.status(401).json({ error: 'Unauthorized' });
 
     try {
-        const secret = getJwtSecretOrThrow();
-        const payload = verifyJwtToken(token, secret);
+        const payload = verifyJwtToken(token);
         (req as any).user = decodeJwtUser(payload);
         return next();
     } catch (err) {
-        if (err instanceof Error && err.message === 'JWT_SECRET is not set') {
+        if (err instanceof Error && err.message.includes('is not set')) {
             return res.status(500).json({ error: 'Server misconfigured' });
         }
         return res.status(401).json({ error: 'Unauthorized' });
@@ -32,8 +31,7 @@ export function tryGetUserFromRequest(req: Request) {
     const token = extractAccessTokenFromHeaders({ authorization: req.headers.authorization, cookie: req.headers.cookie });
     if (!token) return null;
     try {
-        const secret = getJwtSecretOrThrow();
-        const payload = verifyJwtToken(token, secret);
+        const payload = verifyJwtToken(token);
         return decodeJwtUser(payload);
     } catch {
         return null;

@@ -3,16 +3,51 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getJwtSecretOrThrow = getJwtSecretOrThrow;
+exports.getJwtIssuer = getJwtIssuer;
+exports.getJwtAudience = getJwtAudience;
+exports.getJwtVerifierKeyOrThrow = getJwtVerifierKeyOrThrow;
 exports.extractAccessTokenFromHeaders = extractAccessTokenFromHeaders;
 exports.decodeJwtUser = decodeJwtUser;
 exports.verifyJwtToken = verifyJwtToken;
 const jsonwebtoken_1 = __importDefault(require("jsonwebtoken"));
-function getJwtSecretOrThrow() {
+function readPemFromEnv(envValue) {
+    if (!envValue)
+        return undefined;
+    const trimmed = envValue.trim();
+    if (!trimmed)
+        return undefined;
+    if (trimmed.includes('BEGIN ') && trimmed.includes('\\n')) {
+        return trimmed.replace(/\\n/g, '\n');
+    }
+    return trimmed;
+}
+function readPemOrBase64(envPem, envBase64) {
+    const pem = readPemFromEnv(envPem);
+    if (pem)
+        return pem;
+    const b64 = envBase64?.trim();
+    if (!b64)
+        return undefined;
+    const decoded = Buffer.from(b64, 'base64').toString('utf8');
+    return readPemFromEnv(decoded);
+}
+function getJwtIssuer() {
+    return process.env.JWT_ISSUER;
+}
+function getJwtAudience() {
+    return process.env.JWT_AUDIENCE;
+}
+function getJwtVerifierKeyOrThrow() {
+    // Production: RS256 with public key
+    const publicKey = readPemOrBase64(process.env.JWT_PUBLIC_KEY, process.env.JWT_PUBLIC_KEY_BASE64);
+    if (publicKey) {
+        return { key: publicKey, algorithms: ['RS256'] };
+    }
+    // Backward compatibility: HS256 with shared secret
     const secret = process.env.JWT_SECRET;
     if (!secret)
-        throw new Error('JWT_SECRET is not set');
-    return secret;
+        throw new Error('JWT_PUBLIC_KEY/JWT_SECRET is not set');
+    return { key: secret, algorithms: ['HS256'] };
 }
 function extractAccessTokenFromHeaders(headers) {
     const authorization = typeof headers.authorization === 'string' ? headers.authorization : undefined;
@@ -36,8 +71,15 @@ function decodeJwtUser(payload) {
         email: typeof payload.email === 'string' ? payload.email : undefined,
     };
 }
-function verifyJwtToken(token, secret) {
-    const verified = jsonwebtoken_1.default.verify(token, secret);
+function verifyJwtToken(token) {
+    const { key, algorithms } = getJwtVerifierKeyOrThrow();
+    const issuer = getJwtIssuer();
+    const audience = getJwtAudience();
+    const verified = jsonwebtoken_1.default.verify(token, key, {
+        algorithms,
+        issuer: issuer || undefined,
+        audience: audience || undefined,
+    });
     if (typeof verified === 'string')
         throw new Error('Invalid token');
     return verified;

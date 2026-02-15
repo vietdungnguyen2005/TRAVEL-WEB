@@ -5,6 +5,7 @@ import { adminRouter } from './http/routes/admin';
 import { errorHandler } from './http/middlewares/error-handler';
 import cookieParser from 'cookie-parser';
 import { loadEnvProfile } from '../../../infra/scripts/load-env-profile';
+import { getJwks } from './lib/jwt.rs256';
 
 // Load root env + selected profile env (.env.docker/.env.supabase)
 // Only do this when explicitly requested; in docker-compose we rely on container-provided env.
@@ -16,8 +17,22 @@ const logger = new Logger('AuthService');
 const app = express();
 const PORT = process.env.PORT || 3001;
 
+if (process.env.TRUST_PROXY === '1' || process.env.TRUST_PROXY === 'true') {
+    app.set('trust proxy', 1);
+}
+
 app.use(express.json());
 app.use(cookieParser());
+
+// Standard discovery endpoint for public keys (used by API Gateway)
+app.get('/.well-known/jwks.json', (_req, res) => {
+    try {
+        return res.status(200).json(getJwks());
+    } catch (err) {
+        return res.status(500).json({ error: 'JWKS not available', message: (err as Error).message });
+    }
+});
+
 app.use('/api/auth', authRouter);
 app.use('/api/admin', adminRouter);
 

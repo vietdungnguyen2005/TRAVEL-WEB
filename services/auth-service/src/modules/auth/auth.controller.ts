@@ -1,10 +1,10 @@
 import bcrypt from 'bcrypt';
-import jwt from 'jsonwebtoken';
-import type { SignOptions } from 'jsonwebtoken';
 import { randomBytes } from 'crypto';
 import { z } from 'zod';
 import type { Request, Response } from 'express';
 import { prisma } from '../../lib/prisma';
+import { signAccessToken, verifyAccessTokenOrThrow } from '../../lib/jwt.rs256';
+import { issueRefreshToken, rotateRefreshToken, revokeAllUserRefreshTokens } from '../../lib/refresh-tokens';
 
 const registerSchema = z.object({
     name: z.string().min(2).max(100).optional(),
@@ -18,21 +18,11 @@ const loginSchema = z.object({
     password: z.string().min(1),
 });
 
-function getJwtSecret() {
-    const secret = process.env.JWT_SECRET;
-    if (!secret) throw new Error('JWT_SECRET is not set');
-    return secret;
+function requireEmailVerification() {
+    return process.env.REQUIRE_EMAIL_VERIFICATION === 'true';
 }
 
-function signAccessToken(payload: { sub: string; email: string; role: string }) {
-    const secret = getJwtSecret();
-    const opts: SignOptions = {
-        expiresIn: (process.env.JWT_EXPIRES_IN as SignOptions['expiresIn']) || '7d',
-    };
-    return jwt.sign(payload, secret, opts);
-}
-
-function authCookieOptions() {
+function authCookieOptions(maxAgeMs?: number) {
     const isProd = process.env.NODE_ENV === 'production';
 
     const envSameSite = (process.env.AUTH_COOKIE_SAMESITE || 'lax').toLowerCase();
@@ -44,14 +34,24 @@ function authCookieOptions() {
         secure: isProd ? true : false,
         sameSite,
         path: '/',
-        // Express expects milliseconds
-        maxAge: 7 * 24 * 60 * 60 * 1000,
+        ...(typeof maxAgeMs === 'number' ? { maxAge: maxAgeMs } : {}),
     };
 }
 
 function setAuthCookie(res: Response, token: string) {
     // Keep backwards compatibility: API returns `token`, but we also set it as httpOnly cookie.
-    res.cookie('access_token', token, authCookieOptions());
+    const accessMaxAgeMs = Number(process.env.ACCESS_COOKIE_MAX_AGE_MS || 15 * 60 * 1000);
+    res.cookie('access_token', token, authCookieOptions(accessMaxAgeMs));
+}
+
+function setRefreshCookie(res: Response, token: string) {
+    const refreshMaxAgeMs = Number(process.env.REFRESH_COOKIE_MAX_AGE_MS || 7 * 24 * 60 * 60 * 1000);
+    res.cookie('refresh_token', token, authCookieOptions(refreshMaxAgeMs));
+}
+
+function clearAuthCookies(res: Response) {
+    res.clearCookie('access_token', { path: '/' });
+    res.clearCookie('refresh_token', { path: '/' });
 }
 
 export async function register(req: Request, res: Response) {
@@ -74,33 +74,44 @@ export async function register(req: Request, res: Response) {
     // Email verification token (for production you'd send it via email)
     const verificationToken = randomBytes(24).toString('hex');
 
+    const mustVerify = requireEmailVerification();
+
     const user = await prisma.user.create({
         data: {
             email,
             password: hashed,
             name: parsed.data.name,
             role: 'CUSTOMER',
-            isVerified: false,
-            verificationToken,
+            isVerified: mustVerify ? false : true,
+            verificationToken: mustVerify ? verificationToken : null,
         },
         select: { id: true, email: true, name: true, role: true, isVerified: true },
     });
 
-    const accessToken = signAccessToken({
-        sub: user.id,
-        email: user.email,
-        role: user.role,
+    // Production default: allow issuing tokens after registration (as requested).
+    // If REQUIRE_EMAIL_VERIFICATION=true, return without tokens.
+    if (mustVerify) {
+        return res.status(201).json({
+            message: 'Đăng ký thành công. Vui lòng xác nhận email để kích hoạt tài khoản.',
+            user,
+            verificationToken,
+        });
+    }
+
+    const accessToken = signAccessToken({ userId: user.id, role: user.role });
+    const refresh = await issueRefreshToken({
+        userId: user.id,
+        ip: req.ip,
+        userAgent: typeof req.headers['user-agent'] === 'string' ? req.headers['user-agent'] : undefined,
     });
 
     setAuthCookie(res, accessToken);
+    setRefreshCookie(res, refresh.token);
 
     return res.status(201).json({
         message: 'Đăng ký thành công',
-        token: accessToken,
+        accessToken,
         user,
-        // For dev/testing we return token so UI can show/copy it.
-        // In production this should be emailed.
-        verificationToken,
     });
 }
 
@@ -123,7 +134,7 @@ export async function login(req: Request, res: Response) {
         return res.status(401).json({ message: 'Email hoặc mật khẩu không đúng' });
     }
 
-    if (!user.isVerified) {
+    if (requireEmailVerification() && !user.isVerified) {
         return res.status(403).json({
             message: 'Tài khoản chưa xác nhận email',
             code: 'EMAIL_NOT_VERIFIED',
@@ -135,19 +146,21 @@ export async function login(req: Request, res: Response) {
         return res.status(401).json({ message: 'Email hoặc mật khẩu không đúng' });
     }
 
-    const accessToken = signAccessToken({
-        sub: user.id,
-        email: user.email,
-        role: user.role,
+    const accessToken = signAccessToken({ userId: user.id, role: user.role });
+    const refresh = await issueRefreshToken({
+        userId: user.id,
+        ip: req.ip,
+        userAgent: typeof req.headers['user-agent'] === 'string' ? req.headers['user-agent'] : undefined,
     });
 
     setAuthCookie(res, accessToken);
+    setRefreshCookie(res, refresh.token);
 
     const { password: _pw, ...safeUser } = user;
 
     return res.status(200).json({
         message: 'Đăng nhập thành công',
-        token: accessToken,
+        accessToken,
         user: safeUser,
     });
 }
@@ -160,9 +173,58 @@ export async function verifyToken(req: Request, res: Response) {
     }
 
     try {
-        const payload = jwt.verify(parsed.data.token, getJwtSecret()) as unknown;
+        const payload = verifyAccessTokenOrThrow(parsed.data.token);
         return res.status(200).json({ verified: true, payload });
     } catch {
         return res.status(401).json({ verified: false });
     }
+}
+
+export async function refresh(req: Request, res: Response) {
+    const bodySchema = z.object({ refreshToken: z.string().min(1).optional() });
+    const parsed = bodySchema.safeParse(req.body ?? {});
+    if (!parsed.success) {
+        return res.status(400).json({ message: 'Dữ liệu không hợp lệ' });
+    }
+
+    const cookieToken = typeof (req as any).cookies?.refresh_token === 'string' ? (req as any).cookies.refresh_token : undefined;
+    const bodyToken = parsed.data.refreshToken;
+    const token = cookieToken ?? bodyToken;
+    if (!token) return res.status(401).json({ message: 'Unauthorized' });
+
+    const rotated = await rotateRefreshToken({
+        refreshToken: token,
+        ip: req.ip,
+        userAgent: typeof req.headers['user-agent'] === 'string' ? req.headers['user-agent'] : undefined,
+    });
+
+    if (!rotated.ok) {
+        clearAuthCookies(res);
+        return res.status(401).json({ message: 'Unauthorized', code: rotated.reason });
+    }
+
+    const user = await prisma.user.findUnique({
+        where: { id: rotated.userId },
+        select: { id: true, email: true, name: true, role: true, isVerified: true },
+    });
+
+    if (!user) {
+        clearAuthCookies(res);
+        return res.status(401).json({ message: 'Unauthorized' });
+    }
+
+    const accessToken = signAccessToken({ userId: user.id, role: user.role });
+    setAuthCookie(res, accessToken);
+    setRefreshCookie(res, rotated.refresh.token);
+
+    return res.status(200).json({ accessToken, user });
+}
+
+export async function logoutAll(req: Request, res: Response) {
+    const userId = typeof (req as any).user?.id === 'string' ? (req as any).user.id : undefined;
+    if (!userId) return res.status(401).json({ message: 'Unauthorized' });
+
+    await revokeAllUserRefreshTokens(userId);
+    clearAuthCookies(res);
+    return res.status(200).json({ success: true });
 }

@@ -1,11 +1,21 @@
 import { Router } from 'express';
 import { createClient } from 'redis';
 import { proxyMiddleware } from '../proxy/proxy.middleware';
+import { requireAuthForPaths } from '../middlewares/auth.middleware';
 import { discoveryConfig } from '../config/discovery.config';
 import { getServiceTarget } from '../discovery/service-resolver';
 import { register as metricsRegister } from '../lib/metrics';
 
 const router = Router();
+
+// JWT protection (verify at gateway, forward user context via x-user-* headers)
+router.use(
+    requireAuthForPaths([
+        '/api/bookings',
+        '/api/payments',
+        '/api/admin',
+    ])
+);
 
 // Proxy routes
 router.use('/api/auth', proxyMiddleware.auth);

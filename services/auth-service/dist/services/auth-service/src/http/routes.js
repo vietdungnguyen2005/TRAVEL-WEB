@@ -15,6 +15,7 @@ exports.authRouter = (0, express_1.Router)();
 exports.authRouter.post('/register', auth_controller_1.register);
 exports.authRouter.post('/login', auth_controller_1.login);
 exports.authRouter.post('/verify', auth_controller_1.verifyToken);
+exports.authRouter.post('/refresh', auth_controller_1.refresh);
 // Password reset (Express handlers)
 exports.authRouter.post('/forgot-password', forgot_password_1.forgotPassword);
 exports.authRouter.post('/reset-password', reset_password_express_1.resetPasswordHandler);
@@ -24,6 +25,7 @@ exports.authRouter.post('/verify-email', verify_email_express_1.verifyEmailHandl
 exports.authRouter.post('/resend-verification', resend_verification_1.resendVerificationEmailHandler);
 // Logout
 exports.authRouter.post('/logout', logout_1.logout);
+exports.authRouter.post('/logout-all', auth_1.requireAuth, auth_controller_1.logoutAll);
 // OAuth (Google)
 exports.authRouter.get('/oauth/google', google_controller_1.googleStart);
 exports.authRouter.get('/oauth/google/callback', google_controller_1.googleCallback);

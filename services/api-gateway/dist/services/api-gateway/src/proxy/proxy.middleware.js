@@ -3,14 +3,11 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.proxyMiddleware = void 0;
 const http_proxy_middleware_1 = require("http-proxy-middleware");
 const service_resolver_1 = require("../discovery/service-resolver");
-function proxyTo(serviceKey, pathPrefix) {
+function proxyTo(serviceKey, _pathPrefix, opts) {
     return (0, http_proxy_middleware_1.createProxyMiddleware)({
-        // Used by http-proxy-middleware for initial setup/logging; real routing happens via router().
         target: (0, service_resolver_1.getServicePlaceholderTarget)(serviceKey),
         changeOrigin: true,
-        // Keep the prefix because upstream services mount their routers under the same prefix
-        // e.g. auth-service mounts under `/api/auth`.
-        pathRewrite: undefined,
+        pathRewrite: opts?.pathRewrite,
         router: async () => {
             return await (0, service_resolver_1.getServiceTarget)(serviceKey);
         },
@@ -21,12 +18,21 @@ function proxyTo(serviceKey, pathPrefix) {
             if (requestId) {
                 proxyReq.setHeader('x-request-id', requestId);
             }
+            const auth = req.auth;
+            if (auth?.userId)
+                proxyReq.setHeader('x-user-id', auth.userId);
+            if (auth?.role)
+                proxyReq.setHeader('x-user-role', auth.role);
         },
     });
 }
 exports.proxyMiddleware = {
     auth: proxyTo('authService', '/api/auth'),
     bookings: proxyTo('bookingService', '/api/bookings'),
+    /** Admin bookings: booking service expects /api/bookings/admin/bookings */
+    bookingsAdmin: proxyTo('bookingService', '/api/bookings', {
+        pathRewrite: { '^/api/admin': '/api/bookings/admin' },
+    }),
     rooms: proxyTo('roomService', '/api/rooms'),
     payments: proxyTo('paymentService', '/api/payments'),
     reviews: proxyTo('reviewService', '/api/reviews'),
