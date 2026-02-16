@@ -12,7 +12,9 @@ const eslintConfig = defineConfig([
   ]),
   // Next.js rules should only apply to the Next app.
   ...nextVitals.map((c) => ({ ...c, files: webFiles })),
-  ...nextTs.map((c) => ({ ...c, files: webFiles })),
+  // TypeScript/JS baseline rules should apply across workspaces.
+  // (nextTs is largely TS + import hygiene; we override Next-only rules below.)
+  ...nextTs,
   // Override default ignores of eslint-config-next.
   globalIgnores([
     // Default ignores of eslint-config-next:
@@ -22,7 +24,13 @@ const eslintConfig = defineConfig([
     "next-env.d.ts",
   ]),
   // Non-Next packages/services don't have a pages directory.
-  // (Next rules are scoped to apps/web above.)
+  // Disable this rule globally because turbo runs lint from many workspaces.
+  {
+    files: ["**/*.{js,jsx,ts,tsx}"],
+    rules: {
+      "@next/next/no-html-link-for-pages": "off",
+    },
+  },
   // Web app is still mid-migration; keep lint signal useful by avoiding noisy rules.
   {
     files: ["apps/web/**/*.{js,jsx,ts,tsx}"],

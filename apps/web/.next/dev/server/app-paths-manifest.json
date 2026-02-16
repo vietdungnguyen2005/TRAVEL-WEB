@@ -1,11 +1,12 @@
 {
-  "/(admin)/admin/analytics/page": "app/(admin)/admin/analytics/page.js",
   "/(admin)/admin/blog/page": "app/(admin)/admin/blog/page.js",
   "/(admin)/admin/bookings/page": "app/(admin)/admin/bookings/page.js",
   "/(admin)/admin/hero-images/page": "app/(admin)/admin/hero-images/page.js",
   "/(admin)/admin/page": "app/(admin)/admin/page.js",
+  "/(admin)/admin/room-types/page": "app/(admin)/admin/room-types/page.js",
   "/(admin)/admin/rooms/page": "app/(admin)/admin/rooms/page.js",
   "/(admin)/admin/users/page": "app/(admin)/admin/users/page.js",
-  "/_not-found/page": "app/_not-found/page.js",
+  "/(customer)/about/page": "app/(customer)/about/page.js",
+  "/(customer)/rooms/page": "app/(customer)/rooms/page.js",
   "/page": "app/page.js"
 }

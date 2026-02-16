@@ -604,14 +604,17 @@ async function gatewayFetch(path, options = {}) {
     const url = gatewayUrl(path);
     const { retries: _retries, ...fetchOpts } = rest;
     const method = (fetchOpts.method ?? 'GET').toUpperCase();
-    const maxRetries = typeof _retries === 'number' ? _retries : method === 'GET' ? 4 : 0;
+    const isServer = ("TURBOPACK compile-time value", "object") === 'undefined';
+    // SSR: fail fast (2s) so pages don't block 12s when gateway is down. Client: retry for better UX.
+    const maxRetries = typeof _retries === 'number' ? _retries : ("TURBOPACK compile-time falsy", 0) ? "TURBOPACK unreachable" : method === 'GET' ? 2 : 0;
+    const timeoutMs = ("TURBOPACK compile-time falsy", 0) ? "TURBOPACK unreachable" : 12000;
     let lastError;
     for(let attempt = 0; attempt <= maxRetries; attempt++){
         let abortController;
         let timeoutId;
         if (!fetchOpts.signal && typeof AbortController !== 'undefined') {
             abortController = new AbortController();
-            timeoutId = setTimeout(()=>abortController?.abort(), 15000);
+            timeoutId = setTimeout(()=>abortController?.abort(), timeoutMs);
         }
         try {
             const response = await fetch(url, {
@@ -627,11 +630,9 @@ async function gatewayFetch(path, options = {}) {
             if (timeoutId) clearTimeout(timeoutId);
             if (attempt < maxRetries && method === 'GET' && isConnectionError(error)) {
                 const delayMs = [
-                    1500,
-                    2500,
-                    3500,
-                    4500
-                ][attempt] ?? 2000;
+                    800,
+                    1600
+                ][attempt] ?? 1000;
                 await new Promise((r)=>setTimeout(r, delayMs));
                 continue;
             }

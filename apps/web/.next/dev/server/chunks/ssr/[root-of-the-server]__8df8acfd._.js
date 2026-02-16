@@ -58,10 +58,19 @@ function gatewayUrl(path) {
     const p = path.startsWith("/") ? path : `/${path}`;
     return `${base}${p}`;
 }
+function getConnectionRefused(err) {
+    if (!err || typeof err !== 'object') return false;
+    const o = err;
+    if (o.code === 'ECONNREFUSED') return true;
+    const cause = o.cause;
+    if (cause && typeof cause === 'object') return getConnectionRefused(cause);
+    const errors = o.errors;
+    if (Array.isArray(errors) && errors.length) return getConnectionRefused(errors[0]);
+    return false;
+}
 const isConnectionError = (err)=>{
     if (err instanceof TypeError && (err.message === 'fetch failed' || err.message?.includes('fetch'))) return true;
-    const cause = err instanceof Error ? err.cause : null;
-    return cause && typeof cause === 'object' && cause.code === 'ECONNREFUSED';
+    return getConnectionRefused(err);
 };
 async function gatewayFetch(path, options = {}) {
     const { attachAccessToken, headers, ...rest } = options;
@@ -79,14 +88,17 @@ async function gatewayFetch(path, options = {}) {
     const url = gatewayUrl(path);
     const { retries: _retries, ...fetchOpts } = rest;
     const method = (fetchOpts.method ?? 'GET').toUpperCase();
-    const maxRetries = typeof _retries === 'number' ? _retries : method === 'GET' ? 2 : 0;
+    const isServer = ("TURBOPACK compile-time value", "undefined") === 'undefined';
+    // SSR: fail fast (2s) so pages don't block 12s when gateway is down. Client: retry for better UX.
+    const maxRetries = typeof _retries === 'number' ? _retries : ("TURBOPACK compile-time truthy", 1) ? 0 : "TURBOPACK unreachable";
+    const timeoutMs = ("TURBOPACK compile-time truthy", 1) ? 2000 : "TURBOPACK unreachable";
     let lastError;
     for(let attempt = 0; attempt <= maxRetries; attempt++){
         let abortController;
         let timeoutId;
         if (!fetchOpts.signal && typeof AbortController !== 'undefined') {
             abortController = new AbortController();
-            timeoutId = setTimeout(()=>abortController?.abort(), 10000);
+            timeoutId = setTimeout(()=>abortController?.abort(), timeoutMs);
         }
         try {
             const response = await fetch(url, {
@@ -101,7 +113,11 @@ async function gatewayFetch(path, options = {}) {
             lastError = error;
             if (timeoutId) clearTimeout(timeoutId);
             if (attempt < maxRetries && method === 'GET' && isConnectionError(error)) {
-                await new Promise((r)=>setTimeout(r, 1000 * (attempt + 1)));
+                const delayMs = [
+                    800,
+                    1600
+                ][attempt] ?? 1000;
+                await new Promise((r)=>setTimeout(r, delayMs));
                 continue;
             }
             if (error instanceof Error) {
