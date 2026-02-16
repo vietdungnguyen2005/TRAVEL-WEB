@@ -1,6 +1,6 @@
 import express from 'express';
 import { consulRegisterService } from '@travel-web/shared';
-import { PrismaClient, RoomStatus } from '../node_modules/.prisma/room-client';
+import { PrismaClient, Prisma, RoomStatus } from '../node_modules/.prisma/room-client';
 import { requireRole, verifyJWT } from '@travel-web/shared';
 import { config as loadEnv } from 'dotenv';
 
@@ -84,8 +84,9 @@ admin.post('/rooms', async (req, res) => {
             roomTypeId: created.roomTypeId,
             roomType: { name: created.roomType.name, pricePerNight: created.roomType.basePrice },
         });
-    } catch (e: any) {
-        return res.status(400).json({ error: e?.message ?? 'Cannot create room' });
+    } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : 'Cannot create room';
+        return res.status(400).json({ error: message });
     }
 });
 
@@ -113,8 +114,9 @@ admin.patch('/rooms/:id', async (req, res) => {
             roomTypeId: updated.roomTypeId,
             roomType: { name: updated.roomType.name, pricePerNight: updated.roomType.basePrice },
         });
-    } catch (e: any) {
-        return res.status(400).json({ error: e?.message ?? 'Cannot update room' });
+    } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : 'Cannot update room';
+        return res.status(400).json({ error: message });
     }
 });
 
@@ -123,8 +125,9 @@ admin.delete('/rooms/:id', async (req, res) => {
     try {
         await prisma.room.delete({ where: { id } });
         return res.status(204).send();
-    } catch (e: any) {
-        return res.status(400).json({ error: e?.message ?? 'Cannot delete room' });
+    } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : 'Cannot delete room';
+        return res.status(400).json({ error: message });
     }
 });
 
@@ -140,13 +143,14 @@ app.get('/api/rooms', async (req, res) => {
     const roomTypes = typeof req.query.roomTypes === 'string' ? req.query.roomTypes : undefined;
     const sortBy = typeof req.query.sortBy === 'string' ? req.query.sortBy : 'price-asc';
 
-    const where: any = { isActive: true };
+    const where: Prisma.RoomTypeWhereInput = { isActive: true };
 
     // basePrice filtering
     if (!Number.isNaN(minPrice as number) || !Number.isNaN(maxPrice as number)) {
-        where.basePrice = {};
-        if (typeof minPrice === 'number' && !Number.isNaN(minPrice)) where.basePrice.gte = minPrice;
-        if (typeof maxPrice === 'number' && !Number.isNaN(maxPrice)) where.basePrice.lte = maxPrice;
+        const basePrice: Prisma.IntFilter = {};
+        if (typeof minPrice === 'number' && !Number.isNaN(minPrice)) basePrice.gte = minPrice;
+        if (typeof maxPrice === 'number' && !Number.isNaN(maxPrice)) basePrice.lte = maxPrice;
+        where.basePrice = basePrice;
     }
 
     // capacity -> maxGuests
@@ -159,7 +163,7 @@ app.get('/api/rooms', async (req, res) => {
         where.name = { in: roomTypes.split(',').map((s) => s.trim()).filter(Boolean) };
     }
 
-    let orderBy: any = { basePrice: 'asc' };
+    let orderBy: Prisma.RoomTypeOrderByWithRelationInput = { basePrice: 'asc' };
     switch (sortBy) {
         case 'price-desc':
             orderBy = { basePrice: 'desc' };

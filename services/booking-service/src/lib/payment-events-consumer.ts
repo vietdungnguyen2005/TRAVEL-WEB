@@ -1,5 +1,8 @@
 import prisma from './prisma';
-import { Logger, rabbitConsume, rabbitPublish } from '@travel-web/shared';
+import { Logger, rabbitConsume, withEventIdempotency } from '@travel-web/shared';
+import type { EventMessage } from '@travel-web/contracts';
+import { validatePaymentCompleted } from './event-validation';
+import { bookingRabbitConsumeDurationSeconds, bookingRabbitConsumeTotal } from './metrics';
 
 const logger = new Logger('PaymentEventsConsumer');
 
@@ -50,9 +53,32 @@ type PaymentEvent =
     | RefundRequestedEvent
     | RefundRejectedEvent;
 
-function isPaymentEvent(payload: unknown): payload is PaymentEvent {
+type PaymentEventEnvelope = EventMessage<
+    PaymentEvent['type'],
+    { bookingId: string; userId?: string; reason?: string; status?: string; paymentMethod?: string }
+>;
+
+function isPaymentEvent(payload: unknown): payload is PaymentEvent | PaymentEventEnvelope {
     if (!payload || typeof payload !== 'object') return false;
     const p = payload as { type?: unknown; bookingId?: unknown };
+
+    // Standard envelope: { type, data: { bookingId } }
+    const maybe = payload as Record<string, unknown>;
+    const maybeType = maybe.type;
+    const maybeData = maybe.data;
+    if (typeof maybeType === 'string' && maybeData && typeof maybeData === 'object') {
+        const bookingId = (maybeData as Record<string, unknown>).bookingId;
+        if (typeof bookingId !== 'string') return false;
+        return (
+            maybeType === 'PaymentCompleted' ||
+            maybeType === 'PaymentConfirmed' ||
+            maybeType === 'PaymentRefunded' ||
+            maybeType === 'RefundRequested' ||
+            maybeType === 'RefundRejected'
+        );
+    }
+
+    // Legacy shape: { type, bookingId }
     if (typeof p.type !== 'string') return false;
     if (typeof p.bookingId !== 'string') return false;
     return (
@@ -65,11 +91,12 @@ function isPaymentEvent(payload: unknown): payload is PaymentEvent {
 }
 
 export async function startPaymentEventsConsumer() {
-    // New simplified flow: payment is not required to confirm.
-    // Admin approval is the source of truth (PENDING -> CONFIRMED).
-    // Keep this file for compatibility, but don't process payment.* events.
-    logger.warn('Payment events consumer disabled: using admin approval flow for booking confirmation');
-    return;
+    // Default behavior in this repo is admin approval flow.
+    // For queue-demo/saga demo, enable explicitly.
+    if (process.env.ENABLE_PAYMENT_EVENTS_CONSUMER !== 'true') {
+        logger.warn('ENABLE_PAYMENT_EVENTS_CONSUMER is not true; skipping payment events consumer');
+        return;
+    }
 
     if (process.env.DISABLE_RABBITMQ === 'true') {
         logger.warn('DISABLE_RABBITMQ=true; skipping payment events consumer');
@@ -83,102 +110,145 @@ export async function startPaymentEventsConsumer() {
     await rabbitConsume(
         {
             queue,
-            bindingKeys: ['payment.*'],
+            bindingKeys: ['payment.*', 'payment.*.*'],
             prefetch: 10,
             consumerTag: 'booking-service/payment-events',
         },
-        async (payload) => {
+        async (payload, raw) => {
+            const routingKey = raw.fields.routingKey;
+            const queueName = queue;
             if (!isPaymentEvent(payload)) return;
             const evt = payload;
+            const eventTypeLabel = typeof evt.type === 'string' ? evt.type : 'Unknown';
+            const endTimer = bookingRabbitConsumeDurationSeconds.startTimer({
+                queue: queueName,
+                routingKey,
+                eventType: eventTypeLabel,
+            });
 
-            if (evt.type === 'PaymentCompleted' || evt.type === 'PaymentConfirmed') {
-                const updated = await prisma.booking.update({
-                    where: { id: evt.bookingId },
-                    data: {
-                        status: 'CONFIRMED',
-                        paymentStatus: 'PAID',
-                    },
+            const messageId = raw.properties.messageId;
+            if (typeof messageId !== 'string' || messageId.length === 0) {
+                logger.warn('Payment event missing messageId; idempotency disabled for this message', {
+                    routingKey: raw.fields.routingKey,
                 });
+            }
 
-                await prisma.outbox.create({
-                    data: {
-                        aggregateType: 'Booking',
-                        aggregateId: updated.id,
-                        eventType: 'BookingConfirmed',
-                        payload: {
-                            id: updated.id,
-                            userId: updated.userId,
-                            roomId: updated.roomId,
-                            status: updated.status,
-                            paymentStatus: updated.paymentStatus,
-                        },
-                    },
-                });
+            if (typeof messageId === 'string' && messageId.length > 0) {
+                try {
+                    const { skipped } = await withEventIdempotency(prisma as unknown as Parameters<typeof withEventIdempotency>[0], {
+                        consumer: 'booking-service/payment-events',
+                        messageId,
+                        eventType: evt.type,
+                        routingKey,
+                    }, async () => {
+                        await handlePaymentEvent(evt);
+                    });
 
-                await rabbitPublish({
-                    routingKey: 'booking.bookingconfirmed',
-                    message: {
-                        type: 'BookingConfirmed',
-                        bookingId: updated.id,
-                        userId: updated.userId,
-                        roomId: updated.roomId,
-                        at: new Date().toISOString(),
-                    },
-                });
-
-                logger.info('Booking confirmed from payment event', { bookingId: updated.id, type: evt.type });
+                    if (skipped) {
+                        logger.info('Skipping already-processed payment event', { messageId, type: evt.type });
+                        bookingRabbitConsumeTotal.inc({ queue: queueName, routingKey, eventType: eventTypeLabel, status: 'skipped' });
+                    } else {
+                        bookingRabbitConsumeTotal.inc({ queue: queueName, routingKey, eventType: eventTypeLabel, status: 'ok' });
+                    }
+                } catch (err) {
+                    bookingRabbitConsumeTotal.inc({ queue: queueName, routingKey, eventType: eventTypeLabel, status: 'error' });
+                    throw err;
+                } finally {
+                    endTimer();
+                }
                 return;
             }
 
-            if (evt.type === 'PaymentRefunded') {
-                const updated = await prisma.booking.update({
-                    where: { id: evt.bookingId },
-                    data: { status: 'CANCELLED', paymentStatus: 'REFUNDED' },
-                });
-
-                await prisma.outbox.create({
-                    data: {
-                        aggregateType: 'Booking',
-                        aggregateId: updated.id,
-                        eventType: 'BookingCancelled',
-                        payload: {
-                            id: updated.id,
-                            status: updated.status,
-                            paymentStatus: updated.paymentStatus,
-                            reason: evt.reason,
-                        },
-                    },
-                });
-
-                await rabbitPublish({
-                    routingKey: 'booking.bookingcancelled',
-                    message: {
-                        type: 'BookingCancelled',
-                        bookingId: updated.id,
-                        userId: updated.userId,
-                        at: new Date().toISOString(),
-                        reason: evt.reason,
-                    },
-                });
-
-                logger.info('Booking cancelled from refund event', { bookingId: updated.id });
-            }
-
-            if (evt.type === 'RefundRequested') {
-                await prisma.booking.update({
-                    where: { id: evt.bookingId },
-                    data: { paymentStatus: 'REFUND_REQUESTED' },
-                });
-                logger.info('Booking marked refund requested', { bookingId: evt.bookingId });
-            }
-
-            if (evt.type === 'RefundRejected') {
-                await prisma.booking.update({
-                    where: { id: evt.bookingId },
-                    data: { paymentStatus: 'REFUND_REJECTED' },
-                });
-                logger.info('Booking marked refund rejected', { bookingId: evt.bookingId });
+            try {
+                await handlePaymentEvent(evt);
+                bookingRabbitConsumeTotal.inc({ queue: queueName, routingKey, eventType: String(evt.type), status: 'ok' });
+                endTimer();
+            } catch (err) {
+                bookingRabbitConsumeTotal.inc({ queue: queueName, routingKey, eventType: String(evt.type), status: 'error' });
+                endTimer();
+                throw err;
             }
         },
     );
+}
+
+async function handlePaymentEvent(evt: PaymentEvent | PaymentEventEnvelope) {
+    const eventType = evt.type;
+    const bookingId = 'data' in evt ? evt.data.bookingId : evt.bookingId;
+    const reason = 'data' in evt ? evt.data.reason : evt.reason;
+
+    if (eventType === 'PaymentCompleted' || eventType === 'PaymentConfirmed') {
+        // JSON Schema validation (example). If invalid, throw to dead-letter.
+        if (eventType === 'PaymentCompleted' && 'data' in evt) {
+            const ok = validatePaymentCompleted(evt);
+            if (!ok) {
+                throw new Error(`Invalid PaymentCompleted schema: ${JSON.stringify(validatePaymentCompleted.errors)}`);
+            }
+        }
+
+        const updated = await prisma.booking.update({
+            where: { id: bookingId },
+            data: {
+                status: 'CONFIRMED',
+                paymentStatus: 'PAID',
+            },
+        });
+
+        await prisma.outbox.create({
+            data: {
+                aggregateType: 'booking',
+                aggregateId: updated.id,
+                eventType: 'confirmed',
+                payload: {
+                    id: updated.id,
+                    userId: updated.userId,
+                    roomId: updated.roomId,
+                    status: updated.status,
+                    paymentStatus: updated.paymentStatus,
+                },
+            },
+        });
+
+        logger.info('Booking confirmed from payment event', { bookingId: updated.id, type: eventType });
+        return;
+    }
+
+    if (eventType === 'PaymentRefunded') {
+        const updated = await prisma.booking.update({
+            where: { id: bookingId },
+            data: { status: 'CANCELLED', paymentStatus: 'REFUNDED' },
+        });
+
+        await prisma.outbox.create({
+            data: {
+                aggregateType: 'booking',
+                aggregateId: updated.id,
+                eventType: 'cancelled',
+                payload: {
+                    id: updated.id,
+                    status: updated.status,
+                    paymentStatus: updated.paymentStatus,
+                    reason,
+                },
+            },
+        });
+
+        logger.info('Booking cancelled from refund event', { bookingId: updated.id });
+    }
+
+    if (eventType === 'RefundRequested') {
+        await prisma.booking.update({
+            where: { id: bookingId },
+            data: { paymentStatus: 'REFUND_REQUESTED' },
+        });
+        logger.info('Booking marked refund requested', { bookingId });
+    }
+
+    if (eventType === 'RefundRejected') {
+        await prisma.booking.update({
+            where: { id: bookingId },
+            data: { paymentStatus: 'REFUND_REJECTED' },
+        });
+        logger.info('Booking marked refund rejected', { bookingId });
+    }
 }

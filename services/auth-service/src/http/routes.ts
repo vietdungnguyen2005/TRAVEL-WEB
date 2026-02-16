@@ -1,11 +1,11 @@
 import { Router } from 'express';
-import { register, login, verifyToken, refresh, logoutAll } from '../modules/auth/auth.controller';
+import { register, login, refresh, logoutAll } from '../interfaces/http/controllers/auth.controller';
+import { verifyToken } from '../interfaces/http/controllers/verify.controller';
 import { googleCallback, googleStart } from '../modules/oauth/google/google.controller';
 import { forgotPassword } from './routes/forgot-password';
 import { resetPasswordHandler } from './routes/reset-password-express';
 import { verifyResetTokenHandler } from './routes/verify-reset-token-express';
-import { verifyEmailHandler } from './routes/verify-email-express';
-import { resendVerificationEmailHandler } from './routes/resend-verification';
+import { verifyEmail, resendVerificationEmail } from '../interfaces/http/controllers/email-verification.controller';
 import { logout } from './routes/logout';
 import { requireAuth, requireRole } from './middlewares/auth';
 
@@ -22,8 +22,9 @@ authRouter.post('/reset-password', resetPasswordHandler);
 authRouter.get('/verify-reset-token', verifyResetTokenHandler);
 
 // Email verification
-authRouter.post('/verify-email', verifyEmailHandler);
-authRouter.post('/resend-verification', resendVerificationEmailHandler);
+authRouter.get('/verify-email', verifyEmail);
+authRouter.post('/verify-email', verifyEmail);
+authRouter.post('/resend-verification', resendVerificationEmail);
 
 // Logout
 authRouter.post('/logout', logout);

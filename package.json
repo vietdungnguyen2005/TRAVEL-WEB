@@ -6,6 +6,7 @@
     "dev": "turbo run dev --concurrency=12",
     "build": "turbo run build",
     "test": "turbo run test",
+    "test:integration": "jest -c tests/integration/jest.config.cjs",
     "lint": "turbo run lint",
     "migrate": "node infra/scripts/migrate-all.js",
     "start": "next start",

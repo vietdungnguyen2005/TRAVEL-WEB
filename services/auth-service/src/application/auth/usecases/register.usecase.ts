@@ -1,6 +1,8 @@
-import { randomBytes } from 'crypto';
+import { createHash, randomBytes } from 'crypto';
 import type { AuthUser, Role } from '../../../domain/auth/auth.types';
 import { AuthError } from '../auth.errors';
+import type { EmailService } from '../ports/email.service';
+import type { EmailVerificationRepository } from '../ports/email-verification.repository';
 import type { JwtService } from '../ports/jwt.service';
 import type { PasswordHasher } from '../ports/password-hasher';
 import type { RefreshTokenRepository } from '../ports/refresh-token.repository';
@@ -20,7 +22,6 @@ export type RegisterOutput =
     | {
           status: 'NEEDS_EMAIL_VERIFICATION';
           user: AuthUser;
-          verificationToken: string;
       }
     | {
           status: 'OK';
@@ -36,6 +37,9 @@ export class RegisterUseCase {
             passwordHasher: PasswordHasher;
             jwt: JwtService;
             refreshTokens: RefreshTokenRepository;
+            emailVerifications: EmailVerificationRepository;
+            email: EmailService;
+            webAppUrl?: string;
         }
     ) {}
 
@@ -45,8 +49,6 @@ export class RegisterUseCase {
         if (existing) throw new AuthError('Email đã được sử dụng', 'EMAIL_IN_USE');
 
         const passwordHash = await this.deps.passwordHasher.hash(input.password);
-
-        const verificationToken = randomBytes(24).toString('hex');
         const mustVerify = input.requireEmailVerification;
 
         const user = await this.deps.users.create({
@@ -55,11 +57,27 @@ export class RegisterUseCase {
             name: input.name,
             role: input.role ?? 'CUSTOMER',
             isVerified: mustVerify ? false : true,
-            verificationToken: mustVerify ? verificationToken : null,
+            verificationToken: null,
         });
 
         if (mustVerify) {
-            return { status: 'NEEDS_EMAIL_VERIFICATION', user, verificationToken };
+            const rawToken = randomBytes(32).toString('hex');
+            const tokenHash = createHash('sha256').update(rawToken).digest('hex');
+
+            const ttlMinutes = Number(process.env.EMAIL_VERIFICATION_TTL_MINUTES || 30);
+            const expiresAt = new Date(Date.now() + ttlMinutes * 60 * 1000);
+
+            await this.deps.emailVerifications.upsertForUser({ userId: user.id, tokenHash, expiresAt });
+
+            const web = this.deps.webAppUrl;
+            if (!web) {
+                throw new AuthError('Không thể gửi email xác thực lúc này', 'VALIDATION_ERROR');
+            }
+
+            const verifyUrl = `${web}/auth/verify-email?token=${encodeURIComponent(rawToken)}`;
+            await this.deps.email.sendVerificationEmail({ to: email, name: user.name ?? undefined, verifyUrl });
+
+            return { status: 'NEEDS_EMAIL_VERIFICATION', user };
         }
 
         const accessToken = this.deps.jwt.signAccessToken({ userId: user.id, role: user.role });

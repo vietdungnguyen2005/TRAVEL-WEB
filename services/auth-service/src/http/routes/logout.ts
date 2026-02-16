@@ -1,8 +1,11 @@
 import type { Request, Response } from 'express';
 import { hashRefreshToken, revokeRefreshTokenByHash } from '../../lib/refresh-tokens';
 
+type RequestWithCookies = Request & { cookies?: Record<string, unknown> };
+
 export async function logout(req: Request, res: Response) {
-    const refresh = typeof (req as any).cookies?.refresh_token === 'string' ? (req as any).cookies.refresh_token : undefined;
+    const cookies = (req as RequestWithCookies).cookies;
+    const refresh = typeof cookies?.refresh_token === 'string' ? cookies.refresh_token : undefined;
     if (refresh) {
         await revokeRefreshTokenByHash(hashRefreshToken(refresh));
     }

@@ -13,4 +13,5 @@ export interface UserRepository {
     findByEmail(email: string): Promise<(AuthUser & { passwordHash: string }) | null>;
     findById(id: string): Promise<AuthUser | null>;
     create(input: CreateUserInput): Promise<AuthUser>;
+    markVerified(userId: string): Promise<void>;
 }

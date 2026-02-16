@@ -1,3 +1,5 @@
+import { prisma } from './prisma';
+import type { Prisma } from '../../node_modules/.prisma/auth-client';
 export type RefreshTokenPair = {
     token: string;
     familyId: string;
@@ -12,7 +14,7 @@ export declare function issueRefreshToken(params: {
     ip?: string;
     userAgent?: string;
     familyId?: string;
-    client?: unknown;
+    client?: Prisma.TransactionClient | typeof prisma;
 }): Promise<RefreshTokenPair>;
 export declare function revokeRefreshTokenByHash(tokenHash: string): Promise<void>;
 export declare function revokeRefreshTokenFamily(familyId: string): Promise<void>;
@@ -47,8 +49,8 @@ export declare function rotateRefreshToken(params: {
     refresh?: undefined;
 } | {
     ok: true;
-    userId: any;
-    familyId: any;
+    userId: string;
+    familyId: string;
     refresh: RefreshTokenPair;
     reason?: undefined;
 }>;

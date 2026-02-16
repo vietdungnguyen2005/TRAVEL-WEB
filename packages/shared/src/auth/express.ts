@@ -1,5 +1,7 @@
 import type { NextFunction, Request, Response } from 'express';
-import { decodeJwtUser, extractAccessTokenFromHeaders, verifyJwtToken } from './jwt';
+import { decodeJwtUser, extractAccessTokenFromHeaders, verifyJwtToken, type JwtUser } from './jwt';
+
+type AuthedRequest = Request & { user?: JwtUser };
 
 export function verifyJWT(req: Request, res: Response, next: NextFunction) {
     const token = extractAccessTokenFromHeaders({ authorization: req.headers.authorization, cookie: req.headers.cookie });
@@ -7,7 +9,7 @@ export function verifyJWT(req: Request, res: Response, next: NextFunction) {
 
     try {
         const payload = verifyJwtToken(token);
-        (req as any).user = decodeJwtUser(payload);
+        (req as AuthedRequest).user = decodeJwtUser(payload);
         return next();
     } catch (err) {
         if (err instanceof Error && err.message.includes('is not set')) {
@@ -19,7 +21,7 @@ export function verifyJWT(req: Request, res: Response, next: NextFunction) {
 
 export function requireRole(role: string) {
     return function (req: Request, res: Response, next: NextFunction) {
-        const user = (req as any).user as { role?: string } | undefined;
+        const user = (req as AuthedRequest).user;
         if (!user) return res.status(401).json({ error: 'Unauthorized' });
         if (user.role !== role) return res.status(403).json({ error: 'Forbidden' });
         return next();

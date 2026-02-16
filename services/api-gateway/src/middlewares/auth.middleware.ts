@@ -11,7 +11,12 @@ export type AuthContext = {
 
 export type RequestWithAuth = Request & { auth?: AuthContext };
 
-type Jwks = { keys: Array<Record<string, any>> };
+type Jwks = { keys: Array<Record<string, unknown>> };
+
+function getStringClaim(payload: JwtPayload, key: string): string | undefined {
+    const value = (payload as Record<string, unknown>)[key];
+    return typeof value === 'string' ? value : undefined;
+}
 
 const jwksCache: {
     fetchedAtMs: number;
@@ -124,8 +129,8 @@ export function requireAuthForPaths(paths: string[]) {
             if (typeof verified === 'string') return res.status(401).json({ error: 'Unauthorized' });
 
             const userId = typeof verified.sub === 'string' ? verified.sub : undefined;
-            const role = typeof (verified as any).role === 'string' ? (verified as any).role : undefined;
-            const typ = typeof (verified as any).typ === 'string' ? (verified as any).typ : undefined;
+            const role = getStringClaim(verified, 'role');
+            const typ = getStringClaim(verified, 'typ');
 
             if (!userId || !role) return res.status(401).json({ error: 'Unauthorized' });
             if (typ && typ !== 'access') return res.status(401).json({ error: 'Unauthorized' });

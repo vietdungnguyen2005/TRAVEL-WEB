@@ -1,5 +1,6 @@
 import { createHash, randomBytes, randomUUID } from 'crypto';
 import { prisma } from './prisma';
+import type { Prisma } from '../../node_modules/.prisma/auth-client';
 
 export type RefreshTokenPair = {
     token: string;
@@ -36,9 +37,9 @@ export async function issueRefreshToken(params: {
     ip?: string;
     userAgent?: string;
     familyId?: string;
-    client?: unknown;
+    client?: Prisma.TransactionClient | typeof prisma;
 }) {
-    const client = (params.client ?? prisma) as any;
+    const client = params.client ?? prisma;
     const token = generateOpaqueRefreshToken();
     const tokenHash = hashRefreshToken(token);
     const familyId = params.familyId ?? randomUUID();
@@ -67,21 +68,21 @@ export async function issueRefreshToken(params: {
 }
 
 export async function revokeRefreshTokenByHash(tokenHash: string) {
-    await (prisma as any).refreshToken.updateMany({
+    await prisma.refreshToken.updateMany({
         where: { tokenHash, revokedAt: null },
         data: { revokedAt: new Date() },
     });
 }
 
 export async function revokeRefreshTokenFamily(familyId: string) {
-    await (prisma as any).refreshToken.updateMany({
+    await prisma.refreshToken.updateMany({
         where: { familyId, revokedAt: null },
         data: { revokedAt: new Date() },
     });
 }
 
 export async function revokeAllUserRefreshTokens(userId: string) {
-    await (prisma as any).refreshToken.updateMany({
+    await prisma.refreshToken.updateMany({
         where: { userId, revokedAt: null },
         data: { revokedAt: new Date() },
     });
@@ -94,7 +95,7 @@ export async function rotateRefreshToken(params: {
 }) {
     const tokenHash = hashRefreshToken(params.refreshToken);
 
-    const existing = await (prisma as any).refreshToken.findUnique({
+    const existing = await prisma.refreshToken.findUnique({
         where: { tokenHash },
         select: {
             id: true,
@@ -136,7 +137,7 @@ export async function rotateRefreshToken(params: {
             client: tx,
         });
 
-        await (tx as any).refreshToken.update({
+        await tx.refreshToken.update({
             where: { id: existing.id },
             data: {
                 revokedAt: new Date(),

@@ -187,7 +187,8 @@ export async function refresh(req: Request, res: Response) {
         return res.status(400).json({ message: 'Dữ liệu không hợp lệ' });
     }
 
-    const cookieToken = typeof (req as any).cookies?.refresh_token === 'string' ? (req as any).cookies.refresh_token : undefined;
+    const cookies = (req as Request & { cookies?: Record<string, unknown> }).cookies;
+    const cookieToken = typeof cookies?.refresh_token === 'string' ? cookies.refresh_token : undefined;
     const bodyToken = parsed.data.refreshToken;
     const token = cookieToken ?? bodyToken;
     if (!token) return res.status(401).json({ message: 'Unauthorized' });
@@ -221,7 +222,8 @@ export async function refresh(req: Request, res: Response) {
 }
 
 export async function logoutAll(req: Request, res: Response) {
-    const userId = typeof (req as any).user?.id === 'string' ? (req as any).user.id : undefined;
+    const user = (req as Request & { user?: Record<string, unknown> }).user;
+    const userId = typeof user?.id === 'string' ? user.id : undefined;
     if (!userId) return res.status(401).json({ message: 'Unauthorized' });
 
     await revokeAllUserRefreshTokens(userId);

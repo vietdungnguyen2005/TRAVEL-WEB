@@ -5,6 +5,14 @@ const express_1 = require("express");
 const auth_1 = require("../middlewares/auth");
 const prisma_1 = require("../../lib/prisma");
 exports.adminRouter = (0, express_1.Router)();
+function tryGetPrismaErrorCode(err) {
+    if (typeof err !== 'object' || err === null)
+        return undefined;
+    if (!('code' in err))
+        return undefined;
+    const code = err.code;
+    return typeof code === 'string' ? code : undefined;
+}
 exports.adminRouter.use(auth_1.requireAuth, (0, auth_1.requireRole)('ADMIN'));
 // GET /api/admin/users - list users (gateway forwards /api/admin/users here)
 exports.adminRouter.get('/users', async (_req, res) => {
@@ -43,7 +51,7 @@ exports.adminRouter.patch('/users/:userId/role', async (req, res) => {
         res.json(user);
     }
     catch (err) {
-        if (err?.code === 'P2025')
+        if (tryGetPrismaErrorCode(err) === 'P2025')
             return res.status(404).json({ message: 'User not found' });
         res.status(500).json({ error: 'Failed to update role' });
     }

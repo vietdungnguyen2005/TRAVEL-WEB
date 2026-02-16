@@ -33,6 +33,12 @@ export default function LoginPage() {
 
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
+        if (res.status === 403 && data?.code === "EMAIL_NOT_VERIFIED") {
+          toast.error("Chưa xác thực email", {
+            description: data?.message || "Vui lòng xác thực email để đăng nhập",
+          });
+          return;
+        }
         toast.error("Đăng nhập thất bại", {
           description: data?.message || "Email hoặc mật khẩu không đúng",
         });

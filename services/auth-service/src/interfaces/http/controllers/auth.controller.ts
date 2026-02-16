@@ -9,6 +9,8 @@ import { PrismaUserRepository } from '../../../infrastructure/prisma/user.prisma
 import { PrismaRefreshTokenRepository } from '../../../infrastructure/prisma/refresh-token.prisma.repository';
 import { Rs256JwtService } from '../../../infrastructure/jwt/rs256.jwt.service';
 import { BcryptPasswordHasher } from '../../../infrastructure/crypto/bcrypt.password-hasher';
+import { PrismaEmailVerificationRepository } from '../../../infrastructure/prisma/email-verification.prisma.repository';
+import { NodemailerEmailService } from '../../../infrastructure/email/nodemailer.email.service';
 
 function requireEmailVerification() {
     return process.env.REQUIRE_EMAIL_VERIFICATION === 'true';
@@ -62,7 +64,7 @@ function mapAuthError(err: unknown, res: Response) {
     }
 
     if (err instanceof Error) {
-        return res.status(500).json({ message: 'Internal server error', error: err.message });
+        return res.status(500).json({ message: 'Internal server error' });
     }
 
     return res.status(500).json({ message: 'Internal server error' });
@@ -73,6 +75,9 @@ const deps = {
     refreshTokens: new PrismaRefreshTokenRepository(),
     jwt: new Rs256JwtService(),
     passwordHasher: new BcryptPasswordHasher(Number(process.env.BCRYPT_SALT_ROUNDS || 10)),
+    emailVerifications: new PrismaEmailVerificationRepository(),
+    email: new NodemailerEmailService(),
+    webAppUrl: (process.env.WEB_APP_URL || '').replace(/\/+$/, '') || undefined,
 };
 
 const registerSchema = z.object({
@@ -108,7 +113,7 @@ export async function register(req: Request, res: Response) {
             return res.status(201).json({
                 message: 'Đăng ký thành công. Vui lòng xác nhận email để kích hoạt tài khoản.',
                 user: result.user,
-                verificationToken: result.verificationToken,
+                needsEmailVerification: true,
             });
         }
 
@@ -153,7 +158,8 @@ export async function refresh(req: Request, res: Response) {
         return res.status(400).json({ message: 'Dữ liệu không hợp lệ' });
     }
 
-    const cookieToken = typeof (req as any).cookies?.refresh_token === 'string' ? (req as any).cookies.refresh_token : undefined;
+    const cookies = (req as Request & { cookies?: Record<string, unknown> }).cookies;
+    const cookieToken = typeof cookies?.refresh_token === 'string' ? cookies.refresh_token : undefined;
     const token = cookieToken ?? parsed.data.refreshToken;
     if (!token) return res.status(401).json({ message: 'Unauthorized' });
 
@@ -172,7 +178,8 @@ export async function refresh(req: Request, res: Response) {
 }
 
 export async function logoutAll(req: Request, res: Response) {
-    const userId = typeof (req as any).user?.id === 'string' ? (req as any).user.id : undefined;
+    const user = (req as Request & { user?: Record<string, unknown> }).user;
+    const userId = typeof user?.id === 'string' ? user.id : undefined;
     if (!userId) return res.status(401).json({ message: 'Unauthorized' });
 
     try {

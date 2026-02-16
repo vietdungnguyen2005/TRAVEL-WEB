@@ -62,6 +62,16 @@ export default function RegisterPage() {
         );
       }
 
+      if (payload?.needsEmailVerification) {
+        toast.success("Đăng ký thành công!", {
+          description: "Vui lòng kiểm tra email để xác nhận tài khoản.",
+        });
+        setTimeout(() => {
+          router.push("/auth/login");
+        }, 600);
+        return;
+      }
+
       const token = (payload?.token || payload?.accessToken) as string | undefined;
       if (token) {
         document.cookie = `access_token=${encodeURIComponent(token)}; Path=/; SameSite=Lax`;

@@ -4,6 +4,13 @@ import { prisma } from '../../lib/prisma';
 
 export const adminRouter = Router();
 
+function tryGetPrismaErrorCode(err: unknown): string | undefined {
+    if (typeof err !== 'object' || err === null) return undefined;
+    if (!('code' in err)) return undefined;
+    const code = (err as { code?: unknown }).code;
+    return typeof code === 'string' ? code : undefined;
+}
+
 adminRouter.use(requireAuth, requireRole('ADMIN'));
 
 // GET /api/admin/users - list users (gateway forwards /api/admin/users here)
@@ -41,8 +48,8 @@ adminRouter.patch('/users/:userId/role', async (req: Request, res: Response) => 
             select: { id: true, email: true, role: true },
         });
         res.json(user);
-    } catch (err: any) {
-        if (err?.code === 'P2025') return res.status(404).json({ message: 'User not found' });
+    } catch (err: unknown) {
+        if (tryGetPrismaErrorCode(err) === 'P2025') return res.status(404).json({ message: 'User not found' });
         res.status(500).json({ error: 'Failed to update role' });
     }
 });

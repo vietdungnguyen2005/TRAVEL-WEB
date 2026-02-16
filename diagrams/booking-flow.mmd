@@ -1,0 +1,78 @@
+%% Queue Architecture - Travel Web Microservices
+
+%% 1) Full booking flow: create booking → outbox → publish → payment → confirm → notification
+sequenceDiagram
+  autonumber
+  participant Client as Client/Web
+  participant BookingAPI as booking-service (HTTP)
+  participant BookingDB as booking-db (Postgres)
+  participant Outbox as outbox table
+  participant Publisher as outbox-publisher
+  participant RMQ as RabbitMQ (topic exchange: events)
+  participant PaymentSvc as payment-service (consumer)
+  participant PaymentDB as payment-db
+  participant NotifSvc as notification-service (consumer)
+  participant NotifDB as notification-db
+
+  Client->>BookingAPI: POST /api/bookings
+  BookingAPI->>BookingDB: BEGIN TX
+  BookingAPI->>BookingDB: INSERT booking(status=PENDING)
+  BookingAPI->>Outbox: INSERT outbox(event=booking.created)
+  BookingAPI->>BookingDB: COMMIT
+  BookingAPI-->>Client: 201 Created (booking)
+
+  loop Poll outbox
+    Publisher->>Outbox: SELECT published=false (batch)
+    Publisher->>RMQ: publish booking.created (messageId=outbox.id)
+    Publisher->>Outbox: UPDATE published=true
+  end
+
+  RMQ-->>PaymentSvc: deliver booking.created
+  PaymentSvc->>PaymentDB: upsert payment(status=COMPLETED)
+  PaymentSvc->>RMQ: publish payment.completed
+
+  RMQ-->>BookingAPI: deliver payment.completed
+  BookingAPI->>BookingDB: UPDATE booking(status=CONFIRMED)
+  BookingAPI->>Outbox: INSERT outbox(event=booking.confirmed)
+
+  RMQ-->>NotifSvc: deliver booking.* / payment.*
+  NotifSvc->>NotifDB: INSERT notifications(status=PENDING)
+
+%% 2) Outbox publisher polling flow
+flowchart TD
+  A[Start publisher] --> B{ENABLE_OUTBOX_PUBLISHER?}
+  B -- No --> Z[Exit]
+  B -- Yes --> C[Connect RabbitMQ + assert exchange]
+  C --> D[Loop]
+  D --> E[Fetch N outbox rows\npublished=false order by createdAt]
+  E -->|0 rows| F[Sleep idle interval]
+  F --> D
+  E -->|rows| G[For each row]
+  G --> H[Publish message\nmessageId=outbox.id\npersistent=true]
+  H --> I[Mark published=true\npublishedAt=now]
+  I --> J{More rows?}
+  J -- Yes --> G
+  J -- No --> K[Sleep base interval]
+  K --> D
+
+%% 3) Saga orchestration (success + compensation)
+sequenceDiagram
+  autonumber
+  participant Booking as booking-service (Saga coordinator)
+  participant RMQ as RabbitMQ
+  participant Payment as payment-service
+  participant Notif as notification-service
+
+  Booking->>RMQ: Event BookingCreated
+  RMQ-->>Payment: BookingCreated
+  Payment->>RMQ: Event PaymentCompleted
+  RMQ-->>Booking: PaymentCompleted
+  Booking->>RMQ: Event BookingConfirmed
+  RMQ-->>Notif: BookingConfirmed
+
+  Note over Booking,Payment: Compensation path (example)
+  Booking->>RMQ: Command PaymentRefund (optional)
+  RMQ-->>Payment: PaymentRefund
+  Payment->>RMQ: Event PaymentRefunded
+  RMQ-->>Booking: PaymentRefunded
+  Booking->>RMQ: Event BookingCancelled

@@ -49,3 +49,17 @@ model Notification {
   @@map("notifications")
   @@schema("notify")
 }
+
+model ProcessedEvent {
+  id          String   @id @default(uuid())
+  consumer    String
+  messageId   String
+  eventType   String?
+  routingKey  String?
+  processedAt DateTime @default(now())
+
+  @@unique([consumer, messageId])
+  @@index([consumer, processedAt])
+  @@map("processed_events")
+  @@schema("notify")
+}

@@ -1,23 +1,23 @@
 import express from 'express';
 import Stripe from 'stripe';
 import prisma from './lib/prisma';
+import { PaymentStatus } from '../node_modules/.prisma/payment-client';
 import amqp from 'amqplib';
 import { consulRegisterService, rabbitPublish } from '@travel-web/shared';
+import { startBookingEventsConsumer } from './lib/booking-events-consumer';
+import metricsRegister from './lib/metrics';
 import { loadEnvProfile } from '../../../infra/scripts/load-env-profile';
 import { requireRole, verifyJWT } from '@travel-web/shared';
-// NOTE: Prisma client enum types won't include new enum variants until after `prisma generate`.
-// We keep runtime values as strings here; CI/build should run after regeneration/migrate.
-type PaymentStatusString =
-    | 'PENDING'
-    | 'COMPLETED'
-    | 'FAILED'
-    | 'REFUND_REQUESTED'
-    | 'REFUND_APPROVED'
-    | 'REFUND_REJECTED'
-    | 'REFUNDED';
 
 const app = express();
 const PORT = process.env.PORT || 3004;
+
+function tryGetPrismaErrorCode(err: unknown): string | undefined {
+    if (!err || typeof err !== 'object') return undefined;
+    if (!('code' in err)) return undefined;
+    const code = (err as { code?: unknown }).code;
+    return typeof code === 'string' ? code : undefined;
+}
 
 function getIdempotencyKey(req: express.Request) {
     const key = req.header('idempotency-key') || req.header('x-idempotency-key');
@@ -26,28 +26,28 @@ function getIdempotencyKey(req: express.Request) {
 
 async function beginIdempotent(scope: string, key: string, bookingId?: string) {
     try {
-        await (prisma as any).idempotencyKey.create({
+        await prisma.idempotencyKey.create({
             data: { scope, key, bookingId: bookingId || null },
         });
         return { ok: true as const };
     } catch (err) {
         // Unique violation -> already seen
-        const code = (err as any)?.code;
+        const code = tryGetPrismaErrorCode(err);
         if (code === 'P2002') return { ok: false as const, conflict: true as const };
         throw err;
     }
 }
 
 async function getIdempotentResponse(scope: string, key: string) {
-    const row = await (prisma as any).idempotencyKey.findUnique({
+    const row = await prisma.idempotencyKey.findUnique({
         where: { scope_key: { scope, key } },
     });
     if (!row || !row.response || !row.statusCode) return null;
-    return { statusCode: row.statusCode as number, body: row.response as any };
+    return { statusCode: row.statusCode as number, body: row.response as unknown };
 }
 
 async function saveIdempotentResponse(scope: string, key: string, statusCode: number, body: unknown) {
-    await (prisma as any).idempotencyKey.update({
+    await prisma.idempotencyKey.update({
         where: { scope_key: { scope, key } },
         data: { statusCode, response: body },
     });
@@ -108,6 +108,11 @@ app.use(express.json());
 
 app.get('/health', (_req, res) => {
     res.status(200).json({ ok: true, service: 'payment-service' });
+});
+
+app.get('/metrics', async (_req, res) => {
+    res.setHeader('Content-Type', metricsRegister.contentType);
+    res.end(await metricsRegister.metrics());
 });
 
 // Liveness: DB connectivity (Compose healthcheck can use this or /ready)
@@ -273,18 +278,18 @@ app.post('/api/payments/refund-request', async (req, res) => {
     const payment = await prisma.payment.findUnique({ where: { bookingId } });
     if (!payment) return res.status(404).json({ error: 'Payment not found' });
 
-    if (payment.status === ('REFUND_REQUESTED' as PaymentStatusString)) {
+    if (payment.status === PaymentStatus.REFUND_REQUESTED) {
         return res.json({ success: true, bookingId, status: payment.status });
     }
 
-    if (payment.status === ('REFUNDED' as PaymentStatusString)) {
+    if (payment.status === PaymentStatus.REFUNDED) {
         return res.status(400).json({ error: 'Payment already refunded' });
     }
 
     const updated = await prisma.payment.update({
         where: { bookingId },
         data: {
-            status: 'REFUND_REQUESTED' as any,
+            status: PaymentStatus.REFUND_REQUESTED,
             metadata: {
                 ...(typeof payment.metadata === 'object' && payment.metadata
                     ? (payment.metadata as Record<string, unknown>)
@@ -334,10 +339,10 @@ app.post('/api/payments/refund-approve', verifyJWT, requireRole('ADMIN'), async 
     const updated = await prisma.payment.updateMany({
         where: {
             bookingId,
-            status: { in: ['REFUND_REQUESTED', 'REFUND_APPROVED'] as any },
-        } as any,
+            status: { in: [PaymentStatus.REFUND_REQUESTED, PaymentStatus.REFUND_APPROVED] },
+        },
         data: {
-            status: 'REFUNDED' as any,
+            status: PaymentStatus.REFUNDED,
             metadata: {
                 ...(typeof payment.metadata === 'object' && payment.metadata
                     ? (payment.metadata as Record<string, unknown>)
@@ -346,12 +351,12 @@ app.post('/api/payments/refund-approve', verifyJWT, requireRole('ADMIN'), async 
                 refundAdminNote: adminNote || null,
                 refundExecutedAt: new Date().toISOString(),
             },
-        } as any,
-    } as any);
+        },
+    });
 
     const body = updated.count > 0
         ? { success: true, bookingId }
-        : { success: true, bookingId, alreadyRefunded: payment.status === ('REFUNDED' as PaymentStatusString) };
+        : { success: true, bookingId, alreadyRefunded: payment.status === PaymentStatus.REFUNDED };
 
     if (updated.count > 0) {
         await rabbitPublish({
@@ -394,10 +399,10 @@ app.post('/api/payments/refund-reject', verifyJWT, requireRole('ADMIN'), async (
     const updated = await prisma.payment.updateMany({
         where: {
             bookingId,
-            status: 'REFUND_REQUESTED' as any,
-        } as any,
+            status: PaymentStatus.REFUND_REQUESTED,
+        },
         data: {
-            status: 'REFUND_REJECTED' as any,
+            status: PaymentStatus.REFUND_REJECTED,
             metadata: {
                 ...(typeof payment.metadata === 'object' && payment.metadata
                     ? (payment.metadata as Record<string, unknown>)
@@ -405,8 +410,8 @@ app.post('/api/payments/refund-reject', verifyJWT, requireRole('ADMIN'), async (
                 refundRejectedAt: new Date().toISOString(),
                 refundAdminNote: adminNote || null,
             },
-        } as any,
-    } as any);
+        },
+    });
 
     const body = updated.count > 0
         ? { success: true, bookingId, status: 'REFUND_REJECTED' }
@@ -452,10 +457,10 @@ app.post('/api/payments/refund', verifyJWT, requireRole('ADMIN'), async (req, re
     const updated = await prisma.payment.updateMany({
         where: {
             bookingId,
-            status: { not: 'REFUNDED' as any },
-        } as any,
+            status: { not: PaymentStatus.REFUNDED },
+        },
         data: {
-            status: 'REFUNDED' as any,
+            status: PaymentStatus.REFUNDED,
             metadata: {
                 ...(typeof payment.metadata === 'object' && payment.metadata
                     ? (payment.metadata as Record<string, unknown>)
@@ -463,8 +468,8 @@ app.post('/api/payments/refund', verifyJWT, requireRole('ADMIN'), async (req, re
                 refundReason: reason || 'requested',
                 refundExecutedAt: new Date().toISOString(),
             },
-        } as any,
-    } as any);
+        },
+    });
 
     const body = updated.count > 0
         ? { success: true, bookingId }
@@ -532,6 +537,8 @@ app.post('/api/payments/webhook', express.raw({ type: 'application/json' }), asy
 
 app.listen(PORT, () => {
     console.log(`Payment Service running on port ${PORT}`);
+
+    startBookingEventsConsumer().catch((err) => console.error('Booking events consumer failed to start', err));
 
     if (process.env.SERVICE_DISCOVERY_MODE === 'consul') {
         consulRegisterService({

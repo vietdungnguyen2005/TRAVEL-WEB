@@ -2,6 +2,7 @@ export * from './booking';
 export * from './rooms';
 export * from './payments';
 export * from './reviews';
+export * from './events';
 
 // Added exports for auth-related DTOs
 export type LoginRequest = {

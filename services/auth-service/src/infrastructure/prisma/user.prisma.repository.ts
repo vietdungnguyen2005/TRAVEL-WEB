@@ -15,7 +15,7 @@ export class PrismaUserRepository implements UserRepository {
             id: row.id,
             email: row.email,
             name: row.name,
-            role: row.role as any,
+            role: row.role,
             isVerified: row.isVerified,
             passwordHash: row.password,
         };
@@ -33,7 +33,7 @@ export class PrismaUserRepository implements UserRepository {
             id: row.id,
             email: row.email,
             name: row.name,
-            role: row.role as any,
+            role: row.role,
             isVerified: row.isVerified,
         };
     }
@@ -42,7 +42,7 @@ export class PrismaUserRepository implements UserRepository {
         email: string;
         passwordHash: string;
         name?: string | null;
-        role: any;
+        role: AuthUser['role'];
         isVerified: boolean;
         verificationToken?: string | null;
     }): Promise<AuthUser> {
@@ -62,8 +62,12 @@ export class PrismaUserRepository implements UserRepository {
             id: row.id,
             email: row.email,
             name: row.name,
-            role: row.role as any,
+            role: row.role,
             isVerified: row.isVerified,
         };
+    }
+
+    async markVerified(userId: string): Promise<void> {
+        await prisma.user.update({ where: { id: userId }, data: { isVerified: true } });
     }
 }

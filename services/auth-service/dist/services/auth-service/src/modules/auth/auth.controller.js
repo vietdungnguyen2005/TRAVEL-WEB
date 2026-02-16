@@ -165,7 +165,8 @@ async function refresh(req, res) {
     if (!parsed.success) {
         return res.status(400).json({ message: 'Dữ liệu không hợp lệ' });
     }
-    const cookieToken = typeof req.cookies?.refresh_token === 'string' ? req.cookies.refresh_token : undefined;
+    const cookies = req.cookies;
+    const cookieToken = typeof cookies?.refresh_token === 'string' ? cookies.refresh_token : undefined;
     const bodyToken = parsed.data.refreshToken;
     const token = cookieToken ?? bodyToken;
     if (!token)
@@ -193,7 +194,8 @@ async function refresh(req, res) {
     return res.status(200).json({ accessToken, user });
 }
 async function logoutAll(req, res) {
-    const userId = typeof req.user?.id === 'string' ? req.user.id : undefined;
+    const user = req.user;
+    const userId = typeof user?.id === 'string' ? user.id : undefined;
     if (!userId)
         return res.status(401).json({ message: 'Unauthorized' });
     await (0, refresh_tokens_1.revokeAllUserRefreshTokens)(userId);

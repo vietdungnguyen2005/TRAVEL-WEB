@@ -3,6 +3,13 @@ import { prisma } from '../../lib/prisma';
 
 export const adminHeroImagesRouter = Router();
 
+function tryGetPrismaErrorCode(err: unknown): string | undefined {
+    if (typeof err !== 'object' || err === null) return undefined;
+    if (!('code' in err)) return undefined;
+    const code = (err as { code?: unknown }).code;
+    return typeof code === 'string' ? code : undefined;
+}
+
 // GET /api/admin/hero-images - list all (admin)
 adminHeroImagesRouter.get('/hero-images', async (_req: Request, res: Response) => {
     try {
@@ -57,8 +64,8 @@ adminHeroImagesRouter.put('/hero-images/:id', async (req: Request, res: Response
             },
         });
         res.json(updated);
-    } catch (err: any) {
-        if (err?.code === 'P2025') return res.status(404).json({ error: 'Not found' });
+    } catch (err: unknown) {
+        if (tryGetPrismaErrorCode(err) === 'P2025') return res.status(404).json({ error: 'Not found' });
         res.status(500).json({ error: 'Failed to update hero image' });
     }
 });
@@ -80,8 +87,8 @@ adminHeroImagesRouter.patch('/hero-images/:id', async (req: Request, res: Respon
             },
         });
         res.json(updated);
-    } catch (err: any) {
-        if (err?.code === 'P2025') return res.status(404).json({ error: 'Not found' });
+    } catch (err: unknown) {
+        if (tryGetPrismaErrorCode(err) === 'P2025') return res.status(404).json({ error: 'Not found' });
         res.status(500).json({ error: 'Failed to update hero image' });
     }
 });
@@ -92,8 +99,8 @@ adminHeroImagesRouter.delete('/hero-images/:id', async (req: Request, res: Respo
     try {
         await prisma.heroImage.delete({ where: { id } });
         res.status(204).send();
-    } catch (err: any) {
-        if (err?.code === 'P2025') return res.status(404).json({ error: 'Not found' });
+    } catch (err: unknown) {
+        if (tryGetPrismaErrorCode(err) === 'P2025') return res.status(404).json({ error: 'Not found' });
         res.status(500).json({ error: 'Failed to delete hero image' });
     }
 });

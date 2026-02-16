@@ -66,10 +66,15 @@ export function extractAccessTokenFromHeaders(headers: { authorization?: unknown
 }
 
 export function decodeJwtUser(payload: jwt.JwtPayload): JwtUser {
+    const getStringClaim = (key: string) => {
+        const value = (payload as unknown as Record<string, unknown>)[key];
+        return typeof value === 'string' ? value : undefined;
+    };
+
     return {
         id: typeof payload.sub === 'string' ? payload.sub : undefined,
-        role: typeof (payload as any).role === 'string' ? (payload as any).role : undefined,
-        email: typeof (payload as any).email === 'string' ? (payload as any).email : undefined,
+        role: getStringClaim('role'),
+        email: getStringClaim('email'),
     };
 }
 

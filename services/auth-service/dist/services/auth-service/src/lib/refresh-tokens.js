@@ -30,7 +30,7 @@ function generateOpaqueRefreshToken() {
     return base64UrlFromBytes((0, crypto_1.randomBytes)(48));
 }
 async function issueRefreshToken(params) {
-    const client = (params.client ?? prisma_1.prisma);
+    const client = params.client ?? prisma_1.prisma;
     const token = generateOpaqueRefreshToken();
     const tokenHash = hashRefreshToken(token);
     const familyId = params.familyId ?? (0, crypto_1.randomUUID)();

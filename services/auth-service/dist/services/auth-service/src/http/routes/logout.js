@@ -3,7 +3,8 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.logout = logout;
 const refresh_tokens_1 = require("../../lib/refresh-tokens");
 async function logout(req, res) {
-    const refresh = typeof req.cookies?.refresh_token === 'string' ? req.cookies.refresh_token : undefined;
+    const cookies = req.cookies;
+    const refresh = typeof cookies?.refresh_token === 'string' ? cookies.refresh_token : undefined;
     if (refresh) {
         await (0, refresh_tokens_1.revokeRefreshTokenByHash)((0, refresh_tokens_1.hashRefreshToken)(refresh));
     }

@@ -2,6 +2,7 @@ import { AuthError } from '../auth.errors';
 import type { JwtService } from '../ports/jwt.service';
 import type { RefreshTokenRepository } from '../ports/refresh-token.repository';
 import type { UserRepository } from '../ports/user.repository';
+import type { Role } from '../../../domain/auth/auth.types';
 
 export type RefreshInput = {
     refreshToken: string;
@@ -12,7 +13,7 @@ export type RefreshInput = {
 export type RefreshOutput = {
     accessToken: string;
     refreshToken: string;
-    user: { id: string; email: string; name?: string | null; role: any; isVerified: boolean };
+    user: { id: string; email: string; name?: string | null; role: Role; isVerified: boolean };
 };
 
 export class RefreshUseCase {

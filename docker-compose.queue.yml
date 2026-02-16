@@ -1,0 +1,123 @@
+services:
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: tw-queue-rabbitmq
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-guest}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-guest}
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    container_name: tw-queue-redis
+    ports:
+      - "6379:6379"
+
+  postgres:
+    image: postgres:15
+    container_name: tw-queue-postgres
+    ports:
+      - "55432:5432"
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: postgres
+    volumes:
+      - tw-queue-pg-data:/var/lib/postgresql/data
+      - ./infra/docker/postgres/init-queue.sql:/docker-entrypoint-initdb.d/init-queue.sql:ro
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  booking-service:
+    build:
+      context: .
+      dockerfile: infra/docker/queue-service.Dockerfile
+      args:
+        SERVICE_PATH: services/booking-service
+    container_name: tw-queue-booking-service
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    ports:
+      - "3002:3002"
+    environment:
+      PORT: 3002
+      SERVICE_DISCOVERY_MODE: "off"
+      DISABLE_RABBITMQ: "false"
+      ENABLE_OUTBOX_PUBLISHER: "true"
+      ENABLE_PAYMENT_EVENTS_CONSUMER: "true"
+      RABBITMQ_URL: amqp://${RABBITMQ_USER:-guest}:${RABBITMQ_PASSWORD:-guest}@rabbitmq:5672
+      RABBITMQ_EXCHANGE: events
+      RABBITMQ_DLX_EXCHANGE: dlx
+      BOOKING_DATABASE_URL: postgresql://postgres:${POSTGRES_PASSWORD:-postgres}@postgres:5432/booking_db
+    command: ["sh", "-c", "npm run prisma:migrate:deploy && node dist/main.js"]
+
+  payment-service:
+    profiles: ["full"]
+    build:
+      context: .
+      dockerfile: infra/docker/queue-service.Dockerfile
+      args:
+        SERVICE_PATH: services/payment-service
+    container_name: tw-queue-payment-service
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    ports:
+      - "3004:3004"
+    environment:
+      PORT: 3004
+      SERVICE_DISCOVERY_MODE: "off"
+      DISABLE_RABBITMQ: "false"
+      ENABLE_BOOKING_EVENTS_CONSUMER: "true"
+      RABBITMQ_URL: amqp://${RABBITMQ_USER:-guest}:${RABBITMQ_PASSWORD:-guest}@rabbitmq:5672
+      RABBITMQ_EXCHANGE: events
+      RABBITMQ_DLX_EXCHANGE: dlx
+      PAYMENT_DATABASE_URL: postgresql://postgres:${POSTGRES_PASSWORD:-postgres}@postgres:5432/payment_db
+      # Stripe is optional for queue demo
+      STRIPE_SECRET_KEY: ""
+      STRIPE_WEBHOOK_SECRET: ""
+    command: ["sh", "-c", "npm run prisma:migrate:deploy && node dist/main.js"]
+
+  notification-service:
+    profiles: ["full"]
+    build:
+      context: .
+      dockerfile: infra/docker/queue-service.Dockerfile
+      args:
+        SERVICE_PATH: services/notification-service
+    container_name: tw-queue-notification-service
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    ports:
+      - "3006:3006"
+    environment:
+      PORT: 3006
+      SERVICE_DISCOVERY_MODE: "off"
+      DISABLE_RABBITMQ: "false"
+      RABBITMQ_URL: amqp://${RABBITMQ_USER:-guest}:${RABBITMQ_PASSWORD:-guest}@rabbitmq:5672
+      RABBITMQ_EXCHANGE: events
+      RABBITMQ_DLX_EXCHANGE: dlx
+      NOTIFICATION_DATABASE_URL: postgresql://postgres:${POSTGRES_PASSWORD:-postgres}@postgres:5432/notification_db
+      NOTIFICATION_FALLBACK_EMAIL: demo@example.com
+    command: ["sh", "-c", "npm run prisma:migrate:deploy && node dist/main.js"]
+
+volumes:
+  tw-queue-pg-data:

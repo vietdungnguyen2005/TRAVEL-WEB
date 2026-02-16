@@ -2,6 +2,9 @@ import express from 'express';
 import prisma from '../lib/prisma';
 import { bookingCreateCounter } from '../lib/metrics';
 import { requireRole, tryGetUserFromRequest, verifyJWT } from '@travel-web/shared';
+import type { EventMessage } from '@travel-web/contracts';
+import crypto from 'crypto';
+import { BookingStatus as BookingStatusEnum, type BookingStatus } from '../../node_modules/.prisma/booking-client';
 
 export const bookingRouter = express.Router();
 
@@ -52,9 +55,12 @@ bookingRouter.get('/', async (req, res, next) => {
 // Admin list bookings (supports ?status=PENDING)
 bookingRouter.get('/admin/bookings', verifyJWT, requireRole('ADMIN'), async (req, res, next) => {
     try {
-        const status = typeof req.query.status === 'string' ? req.query.status : undefined;
+        const statusRaw = typeof req.query.status === 'string' ? req.query.status.toUpperCase() : undefined;
+        const status = statusRaw && Object.values(BookingStatusEnum).includes(statusRaw as BookingStatus)
+            ? (statusRaw as BookingStatus)
+            : undefined;
         const bookings = await prisma.booking.findMany({
-            where: status ? { status: status as any } : undefined,
+            where: status ? { status } : undefined,
             orderBy: { createdAt: 'desc' },
         });
         res.json(bookings);
@@ -75,43 +81,67 @@ bookingRouter.patch('/admin/bookings/:id/status', verifyJWT, requireRole('ADMIN'
             return res.status(400).json({ message: 'invalid status' });
         }
 
+        const statusValue = status as BookingStatus;
+
         const updated = await prisma.booking.update({
             where: { id },
             data: {
-                status: status as any,
+                status: statusValue,
                 ...(status === 'CONFIRMED' ? { paymentStatus: 'PENDING' } : null),
             },
         });
 
+        const now = new Date().toISOString();
+        const statusUpdatedOutboxId = crypto.randomUUID();
+
         await prisma.outbox.create({
             data: {
-                aggregateType: 'Booking',
+                id: statusUpdatedOutboxId,
+                aggregateType: 'booking',
                 aggregateId: updated.id,
-                eventType: 'BookingStatusUpdated',
+                eventType: 'status.updated',
                 payload: {
-                    id: updated.id,
-                    userId: updated.userId,
-                    roomId: updated.roomId,
-                    status: updated.status,
-                    paymentStatus: updated.paymentStatus,
-                },
-            },
-        });
-
-        // If admin approved, emit the same event name other services might already listen for.
-        if (status === 'CONFIRMED') {
-            await prisma.outbox.create({
-                data: {
-                    aggregateType: 'Booking',
-                    aggregateId: updated.id,
-                    eventType: 'BookingConfirmed',
-                    payload: {
-                        id: updated.id,
+                    id: statusUpdatedOutboxId,
+                    type: 'BookingStatusUpdated',
+                    source: 'booking-service',
+                    occurredAt: now,
+                    version: 1,
+                    correlationId: updated.id,
+                    data: {
+                        bookingId: updated.id,
                         userId: updated.userId,
                         roomId: updated.roomId,
                         status: updated.status,
                         paymentStatus: updated.paymentStatus,
                     },
+                } satisfies EventMessage<'BookingStatusUpdated'>,
+            },
+        });
+
+        // If admin approved, emit the same event name other services might already listen for.
+        if (status === 'CONFIRMED') {
+            const confirmedOutboxId = crypto.randomUUID();
+            await prisma.outbox.create({
+                data: {
+                    id: confirmedOutboxId,
+                    aggregateType: 'booking',
+                    aggregateId: updated.id,
+                    eventType: 'confirmed',
+                    payload: {
+                        id: confirmedOutboxId,
+                        type: 'BookingConfirmed',
+                        source: 'booking-service',
+                        occurredAt: now,
+                        version: 1,
+                        correlationId: updated.id,
+                        data: {
+                            bookingId: updated.id,
+                            userId: updated.userId,
+                            roomId: updated.roomId,
+                            status: updated.status,
+                            paymentStatus: updated.paymentStatus,
+                        },
+                    } satisfies EventMessage<'BookingConfirmed'>,
                 },
             });
         }
@@ -140,20 +170,30 @@ bookingRouter.post('/', async (req, res, next) => {
                 }
             });
 
+            const outboxId = crypto.randomUUID();
             await typedTx.outbox.create({
                 data: {
-                    aggregateType: 'Booking',
+                    id: outboxId,
+                    aggregateType: 'booking',
                     aggregateId: booking.id,
-                    eventType: 'BookingCreated',
+                    eventType: 'created',
                     payload: {
-                        id: booking.id,
-                        userId: booking.userId,
-                        roomId: booking.roomId,
-                        checkIn: booking.checkIn,
-                        checkOut: booking.checkOut,
-                        totalPrice: booking.totalPrice,
-                        status: booking.status
-                    }
+                        id: outboxId,
+                        type: 'BookingCreated',
+                        source: 'booking-service',
+                        occurredAt: new Date().toISOString(),
+                        version: 1,
+                        correlationId: booking.id,
+                        data: {
+                            bookingId: booking.id,
+                            userId: booking.userId,
+                            roomId: booking.roomId,
+                            checkIn: booking.checkIn,
+                            checkOut: booking.checkOut,
+                            totalPrice: booking.totalPrice,
+                            status: booking.status,
+                        },
+                    } satisfies EventMessage<'BookingCreated'>,
                 }
             });
 
@@ -199,21 +239,31 @@ bookingRouter.post('/hold', async (req, res, next) => {
                 }
             });
 
+            const outboxId = crypto.randomUUID();
             await typedTx.outbox.create({
                 data: {
-                    aggregateType: 'Booking',
+                    id: outboxId,
+                    aggregateType: 'booking',
                     aggregateId: booking.id,
-                    eventType: 'BookingHeld',
+                    eventType: 'held',
                     payload: {
-                        id: booking.id,
-                        userId: booking.userId,
-                        roomId: booking.roomId,
-                        checkIn: booking.checkIn,
-                        checkOut: booking.checkOut,
-                        totalPrice: booking.totalPrice,
-                        status: booking.status,
-                        holdExpiresAt: booking.holdExpiresAt,
-                    }
+                        id: outboxId,
+                        type: 'BookingHeld',
+                        source: 'booking-service',
+                        occurredAt: new Date().toISOString(),
+                        version: 1,
+                        correlationId: booking.id,
+                        data: {
+                            bookingId: booking.id,
+                            userId: booking.userId,
+                            roomId: booking.roomId,
+                            checkIn: booking.checkIn,
+                            checkOut: booking.checkOut,
+                            totalPrice: booking.totalPrice,
+                            status: booking.status,
+                            holdExpiresAt: booking.holdExpiresAt,
+                        },
+                    } satisfies EventMessage<'BookingHeld'>,
                 }
             });
 
@@ -260,18 +310,30 @@ bookingRouter.post('/:id/cancel', async (req, res, next) => {
             data: { status: 'CANCELLED' },
         });
 
+        const outboxId = crypto.randomUUID();
         await prisma.outbox.create({
             data: {
-                aggregateType: 'Booking',
+                id: outboxId,
+                aggregateType: 'booking',
                 aggregateId: updated.id,
-                eventType: 'BookingCancelled',
+                eventType: 'cancelled',
                 payload: {
-                    id: updated.id,
-                    status: updated.status,
-                },
+                    id: outboxId,
+                    type: 'BookingCancelled',
+                    source: 'booking-service',
+                    occurredAt: new Date().toISOString(),
+                    version: 1,
+                    correlationId: updated.id,
+                    data: {
+                        bookingId: updated.id,
+                        userId: updated.userId,
+                        roomId: updated.roomId,
+                        status: updated.status,
+                        paymentStatus: updated.paymentStatus,
+                    },
+                } satisfies EventMessage<'BookingCancelled'>,
             },
         });
-
         res.json({ success: true, booking: updated });
     } catch (err) {
         next(err);
