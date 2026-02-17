@@ -1,6 +1,6 @@
 import Ajv from 'ajv';
 
-const ajv = new Ajv({ allErrors: true, strict: false });
+const ajv = new Ajv({ allErrors: true, strict: false } as unknown as ConstructorParameters<typeof Ajv>[0]);
 
 export const paymentCompletedSchema = {
     type: 'object',

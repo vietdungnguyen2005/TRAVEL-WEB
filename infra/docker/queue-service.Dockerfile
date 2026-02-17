@@ -4,6 +4,7 @@
 ARG SERVICE_PATH=services/booking-service
 
 FROM node:20-alpine AS deps
+ARG SERVICE_PATH
 WORKDIR /repo
 
 # Prisma engines require OpenSSL at build/runtime on Alpine.
@@ -11,7 +12,7 @@ RUN apk add --no-cache openssl libc6-compat
 
 COPY package.json package-lock.json ./
 
-# Copy workspace manifests to let npm resolve workspaces efficiently
+# Copy the minimum workspace manifests required for the service image.
 COPY packages/shared/package.json packages/shared/package.json
 COPY packages/contracts/package.json packages/contracts/package.json
 COPY ${SERVICE_PATH}/package.json ${SERVICE_PATH}/package.json
@@ -23,6 +24,7 @@ ARG SERVICE_PATH
 WORKDIR /repo
 
 COPY tsconfig.base.json tsconfig.json turbo.json ./
+COPY infra/scripts infra/scripts
 COPY packages/shared packages/shared
 COPY packages/contracts packages/contracts
 COPY ${SERVICE_PATH} ${SERVICE_PATH}
@@ -53,6 +55,7 @@ COPY --from=build /repo/node_modules /repo/node_modules
 # Copy built artifacts
 COPY --from=build /repo/packages/shared /repo/packages/shared
 COPY --from=build /repo/packages/contracts /repo/packages/contracts
+COPY --from=build /repo/infra/scripts /repo/infra/scripts
 COPY --from=build /repo/${SERVICE_PATH} /repo/${SERVICE_PATH}
 
 WORKDIR /repo/${SERVICE_PATH}

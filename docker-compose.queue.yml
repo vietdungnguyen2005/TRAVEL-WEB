@@ -62,7 +62,7 @@ services:
       RABBITMQ_EXCHANGE: events
       RABBITMQ_DLX_EXCHANGE: dlx
       BOOKING_DATABASE_URL: postgresql://postgres:${POSTGRES_PASSWORD:-postgres}@postgres:5432/booking_db
-    command: ["sh", "-c", "npm run prisma:migrate:deploy && node dist/main.js"]
+    command: ["sh", "-c", "npm run prisma:migrate:deploy && node dist/services/booking-service/src/main.js"]
 
   payment-service:
     profiles: ["full"]
@@ -91,7 +91,7 @@ services:
       # Stripe is optional for queue demo
       STRIPE_SECRET_KEY: ""
       STRIPE_WEBHOOK_SECRET: ""
-    command: ["sh", "-c", "npm run prisma:migrate:deploy && node dist/main.js"]
+    command: ["sh", "-c", "npm run prisma:migrate:deploy && node dist/services/payment-service/src/main.js"]
 
   notification-service:
     profiles: ["full"]
@@ -117,7 +117,7 @@ services:
       RABBITMQ_DLX_EXCHANGE: dlx
       NOTIFICATION_DATABASE_URL: postgresql://postgres:${POSTGRES_PASSWORD:-postgres}@postgres:5432/notification_db
       NOTIFICATION_FALLBACK_EMAIL: demo@example.com
-    command: ["sh", "-c", "npm run prisma:migrate:deploy && node dist/main.js"]
+    command: ["sh", "-c", "npm run prisma:migrate:deploy && node dist/services/notification-service/src/main.js"]
 
 volumes:
   tw-queue-pg-data:

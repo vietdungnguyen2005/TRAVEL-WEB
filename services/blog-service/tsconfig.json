@@ -9,7 +9,6 @@
         "strict": true
     },
     "include": [
-        "src/**/*.ts",
-        "../../infra/scripts/load-env-profile.ts"
+        "src/**/*.ts"
     ]
 }

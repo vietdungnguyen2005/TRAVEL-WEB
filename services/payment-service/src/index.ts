@@ -1,16 +1,26 @@
 import express from 'express';
 import Stripe from 'stripe';
 import prisma from './lib/prisma';
-import { PaymentStatus, Prisma } from '../node_modules/.prisma/payment-client';
 import amqp from 'amqplib';
-import { consulRegisterService, rabbitPublish } from '@travel-web/shared';
+import { consulRegisterService, rabbitPublish, loadEnvProfile } from '@travel-web/shared';
 import { startBookingEventsConsumer } from './lib/booking-events-consumer';
 import metricsRegister from './lib/metrics';
-import { loadEnvProfile } from '../../../infra/scripts/load-env-profile';
 import { requireRole, verifyJWT } from '@travel-web/shared';
+
+const PaymentStatus = {
+    PENDING: 'PENDING',
+    COMPLETED: 'COMPLETED',
+    FAILED: 'FAILED',
+    REFUND_REQUESTED: 'REFUND_REQUESTED',
+    REFUND_APPROVED: 'REFUND_APPROVED',
+    REFUND_REJECTED: 'REFUND_REJECTED',
+    REFUNDED: 'REFUNDED',
+} as const;
 
 const app = express();
 const PORT = process.env.PORT || 3004;
+
+type JsonValue = string | number | boolean | null | { [key: string]: JsonValue } | JsonValue[];
 
 function tryGetPrismaErrorCode(err: unknown): string | undefined {
     if (!err || typeof err !== 'object') return undefined;
@@ -49,7 +59,7 @@ async function getIdempotentResponse(scope: string, key: string) {
 async function saveIdempotentResponse(scope: string, key: string, statusCode: number, body: unknown) {
     await prisma.idempotencyKey.update({
         where: { scope_key: { scope, key } },
-        data: { statusCode, response: body as Prisma.InputJsonValue },
+        data: { statusCode, response: body as unknown as JsonValue },
     });
 }
 

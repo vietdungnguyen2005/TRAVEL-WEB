@@ -1,7 +1,6 @@
 import prisma from './prisma';
 import { Logger, rabbitConsume, rabbitPublish, withEventIdempotency } from '@travel-web/shared';
 import type { EventMessage } from '@travel-web/contracts';
-import { PaymentStatus } from '../../node_modules/.prisma/payment-client';
 import {
     paymentRabbitConsumeDurationSeconds,
     paymentRabbitConsumeTotal,
@@ -10,6 +9,16 @@ import {
 } from './metrics';
 
 const logger = new Logger('BookingEventsConsumer');
+
+const PaymentStatus = {
+    PENDING: 'PENDING',
+    COMPLETED: 'COMPLETED',
+    FAILED: 'FAILED',
+    REFUND_REQUESTED: 'REFUND_REQUESTED',
+    REFUND_APPROVED: 'REFUND_APPROVED',
+    REFUND_REJECTED: 'REFUND_REJECTED',
+    REFUNDED: 'REFUNDED',
+} as const;
 
 type BookingCreatedData = {
     bookingId: string;

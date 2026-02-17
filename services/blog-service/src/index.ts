@@ -2,7 +2,7 @@ import express from 'express';
 import cors from 'cors';
 import prisma from './lib/prisma';
 import { requireRole, verifyJWT } from '@travel-web/shared';
-import { loadEnvProfile } from '../../../infra/scripts/load-env-profile';
+import { loadEnvProfile } from '@travel-web/shared';
 
 // Load root env + selected profile env (.env.docker/.env.supabase)
 // In docker-compose, env can also be injected by the container; this won't override existing vars.

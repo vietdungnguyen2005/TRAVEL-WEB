@@ -4,7 +4,7 @@ import { authRouter } from './http/routes';
 import { adminRouter } from './http/routes/admin';
 import { errorHandler } from './http/middlewares/error-handler';
 import cookieParser from 'cookie-parser';
-import { loadEnvProfile } from '../../../infra/scripts/load-env-profile';
+import { loadEnvProfile } from '@travel-web/shared';
 import { getJwks } from './lib/jwt.rs256';
 
 // Load root env + selected profile env (.env.docker/.env.supabase)

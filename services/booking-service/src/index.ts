@@ -1,13 +1,11 @@
 import express from 'express';
-import { consulRegisterService, Logger } from '@travel-web/shared';
+import { consulRegisterService, Logger, loadEnvProfile } from '@travel-web/shared';
 import { bookingRouter } from './http/routes';
 import { errorHandler } from './http/middlewares/error-handler';
 import publishOutbox from './lib/outbox-publisher';
 import { startPaymentEventsConsumer } from './lib/payment-events-consumer';
 import metricsRegister, { bookingCreateCounter } from './lib/metrics';
 import { healthHandler, readyHandler } from './lib/health';
-import { loadEnvProfile } from '../../../infra/scripts/load-env-profile';
-
 const logger = new Logger('BookingService');
 const app = express();
 const PORT = process.env.PORT || 3002;

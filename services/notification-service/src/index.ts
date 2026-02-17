@@ -1,12 +1,11 @@
 import express from 'express';
-import { consulRegisterService, Logger, rabbitConsume, withEventIdempotency } from '@travel-web/shared';
+import { consulRegisterService, Logger, rabbitConsume, withEventIdempotency, loadEnvProfile } from '@travel-web/shared';
 import prisma from './lib/prisma';
 import metricsRegister, {
     notificationPersistTotal,
     notificationRabbitConsumeDurationSeconds,
     notificationRabbitConsumeTotal,
 } from './lib/metrics';
-import { loadEnvProfile } from '../../../infra/scripts/load-env-profile';
 
 const app = express();
 const PORT = process.env.PORT || 3006;

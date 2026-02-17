@@ -4,7 +4,9 @@ import { bookingCreateCounter } from '../lib/metrics';
 import { requireRole, tryGetUserFromRequest, verifyJWT } from '@travel-web/shared';
 import type { EventMessage } from '@travel-web/contracts';
 import crypto from 'crypto';
-import { BookingStatus as BookingStatusEnum, type BookingStatus } from '../../node_modules/.prisma/booking-client';
+
+const BOOKING_STATUSES = ['PENDING', 'CONFIRMED', 'CANCELLED', 'COMPLETED', 'ON_HOLD'] as const;
+type BookingStatus = (typeof BOOKING_STATUSES)[number];
 
 export const bookingRouter = express.Router();
 
@@ -56,7 +58,7 @@ bookingRouter.get('/', async (req, res, next) => {
 bookingRouter.get('/admin/bookings', verifyJWT, requireRole('ADMIN'), async (req, res, next) => {
     try {
         const statusRaw = typeof req.query.status === 'string' ? req.query.status.toUpperCase() : undefined;
-        const status = statusRaw && Object.values(BookingStatusEnum).includes(statusRaw as BookingStatus)
+        const status = statusRaw && BOOKING_STATUSES.includes(statusRaw as BookingStatus)
             ? (statusRaw as BookingStatus)
             : undefined;
         const bookings = await prisma.booking.findMany({
