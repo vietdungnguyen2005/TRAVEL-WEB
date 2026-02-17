@@ -6,6 +6,9 @@ ARG SERVICE_PATH=services/booking-service
 FROM node:20-alpine AS deps
 WORKDIR /repo
 
+# Prisma engines require OpenSSL at build/runtime on Alpine.
+RUN apk add --no-cache openssl libc6-compat
+
 COPY package.json package-lock.json ./
 
 # Copy workspace manifests to let npm resolve workspaces efficiently
@@ -38,6 +41,9 @@ FROM node:20-alpine AS runner
 ARG SERVICE_PATH
 WORKDIR /repo
 ENV NODE_ENV=production
+
+# Prisma runtime (migrate + query engine) needs OpenSSL on Alpine.
+RUN apk add --no-cache openssl libc6-compat
 
 # Keep root manifests so we can run workspace scripts in containers (migrate, etc.)
 COPY --from=build /repo/package.json /repo/package.json

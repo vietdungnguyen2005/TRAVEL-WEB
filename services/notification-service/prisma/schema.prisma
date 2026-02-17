@@ -2,11 +2,11 @@ generator client {
   provider = "prisma-client-js"
   output   = "../node_modules/.prisma/notification-client"
   previewFeatures = ["multiSchema"]
+  binaryTargets = ["native", "windows"]
 }
 
 datasource db {
   provider = "postgresql"
-  binaryTargets = ["native", "windows"]
   url      = env("NOTIFICATION_DATABASE_URL")
   schemas  = ["notify"]
 }
