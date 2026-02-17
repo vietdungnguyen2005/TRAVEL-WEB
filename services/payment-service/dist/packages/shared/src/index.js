@@ -22,4 +22,5 @@ __exportStar(require("./service-discovery/consul-register"), exports);
 __exportStar(require("./http/axios-client"), exports);
 __exportStar(require("./auth/jwt"), exports);
 __exportStar(require("./auth/express"), exports);
+__exportStar(require("./env/load-env-profile"), exports);
 //# sourceMappingURL=index.js.map

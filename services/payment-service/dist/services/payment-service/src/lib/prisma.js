@@ -1,8 +1,15 @@
 "use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", { value: true });
-// Use the payment-service specific generated Prisma client.
-// The custom Prisma generator outputs a client under node_modules/.prisma/payment-client.
-const payment_client_1 = require("../../node_modules/.prisma/payment-client");
-const prisma = new payment_client_1.PrismaClient();
+exports.Prisma = void 0;
+const path_1 = __importDefault(require("path"));
+const module_1 = require("module");
+const generatedClientPath = path_1.default.join(process.cwd(), 'node_modules', '.prisma', 'payment-client');
+const requireFromHere = (0, module_1.createRequire)(__filename);
+const { PrismaClient, Prisma } = requireFromHere(generatedClientPath);
+exports.Prisma = Prisma;
+const prisma = new PrismaClient();
 exports.default = prisma;
 //# sourceMappingURL=prisma.js.map

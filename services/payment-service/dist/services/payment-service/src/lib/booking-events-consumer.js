@@ -6,9 +6,17 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.startBookingEventsConsumer = startBookingEventsConsumer;
 const prisma_1 = __importDefault(require("./prisma"));
 const shared_1 = require("@travel-web/shared");
-const payment_client_1 = require("../../node_modules/.prisma/payment-client");
 const metrics_1 = require("./metrics");
 const logger = new shared_1.Logger('BookingEventsConsumer');
+const PaymentStatus = {
+    PENDING: 'PENDING',
+    COMPLETED: 'COMPLETED',
+    FAILED: 'FAILED',
+    REFUND_REQUESTED: 'REFUND_REQUESTED',
+    REFUND_APPROVED: 'REFUND_APPROVED',
+    REFUND_REJECTED: 'REFUND_REJECTED',
+    REFUNDED: 'REFUNDED',
+};
 function isBookingCreatedEvent(payload) {
     if (!payload || typeof payload !== 'object')
         return false;
@@ -62,11 +70,11 @@ async function startBookingEventsConsumer() {
                     userId: payload.data.userId,
                     amount: 0,
                     currency: 'vnd',
-                    status: payment_client_1.PaymentStatus.COMPLETED,
+                    status: PaymentStatus.COMPLETED,
                     metadata: { source: 'queue-demo', roomId: payload.data.roomId },
                 },
                 update: {
-                    status: payment_client_1.PaymentStatus.COMPLETED,
+                    status: PaymentStatus.COMPLETED,
                     metadata: { source: 'queue-demo', roomId: payload.data.roomId },
                 },
             });

@@ -1,11 +1,11 @@
 import express from 'express';
 import Stripe from 'stripe';
-import prisma from './lib/prisma';
 import amqp from 'amqplib';
 import { consulRegisterService, rabbitPublish, loadEnvProfile } from '@travel-web/shared';
 import { startBookingEventsConsumer } from './lib/booking-events-consumer';
 import metricsRegister from './lib/metrics';
 import { requireRole, verifyJWT } from '@travel-web/shared';
+import prisma, { Prisma } from './lib/prisma';
 
 const PaymentStatus = {
     PENDING: 'PENDING',
@@ -19,8 +19,6 @@ const PaymentStatus = {
 
 const app = express();
 const PORT = process.env.PORT || 3004;
-
-type JsonValue = string | number | boolean | null | { [key: string]: JsonValue } | JsonValue[];
 
 function tryGetPrismaErrorCode(err: unknown): string | undefined {
     if (!err || typeof err !== 'object') return undefined;
@@ -57,9 +55,12 @@ async function getIdempotentResponse(scope: string, key: string) {
 }
 
 async function saveIdempotentResponse(scope: string, key: string, statusCode: number, body: unknown) {
+    type ResponseInput = Parameters<typeof prisma.idempotencyKey.update>[0]['data']['response'];
+    const response: ResponseInput = body === null ? (Prisma.JsonNull as ResponseInput) : (body as ResponseInput);
+
     await prisma.idempotencyKey.update({
         where: { scope_key: { scope, key } },
-        data: { statusCode, response: body as unknown as JsonValue },
+        data: { statusCode, response },
     });
 }
 

@@ -1,18 +1,58 @@
 "use strict";
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
 var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = __importDefault(require("express"));
 const stripe_1 = __importDefault(require("stripe"));
-const prisma_1 = __importDefault(require("./lib/prisma"));
-const payment_client_1 = require("../node_modules/.prisma/payment-client");
 const amqplib_1 = __importDefault(require("amqplib"));
 const shared_1 = require("@travel-web/shared");
 const booking_events_consumer_1 = require("./lib/booking-events-consumer");
 const metrics_1 = __importDefault(require("./lib/metrics"));
-const load_env_profile_1 = require("../../../infra/scripts/load-env-profile");
 const shared_2 = require("@travel-web/shared");
+const prisma_1 = __importStar(require("./lib/prisma"));
+const PaymentStatus = {
+    PENDING: 'PENDING',
+    COMPLETED: 'COMPLETED',
+    FAILED: 'FAILED',
+    REFUND_REQUESTED: 'REFUND_REQUESTED',
+    REFUND_APPROVED: 'REFUND_APPROVED',
+    REFUND_REJECTED: 'REFUND_REJECTED',
+    REFUNDED: 'REFUNDED',
+};
 const app = (0, express_1.default)();
 const PORT = process.env.PORT || 3004;
 function tryGetPrismaErrorCode(err) {
@@ -51,9 +91,10 @@ async function getIdempotentResponse(scope, key) {
     return { statusCode: row.statusCode, body: row.response };
 }
 async function saveIdempotentResponse(scope, key, statusCode, body) {
+    const response = body === null ? prisma_1.Prisma.JsonNull : body;
     await prisma_1.default.idempotencyKey.update({
         where: { scope_key: { scope, key } },
-        data: { statusCode, response: body },
+        data: { statusCode, response },
     });
 }
 function getTimeoutMs() {
@@ -92,7 +133,7 @@ async function checkRabbitMq() {
 }
 // Load root env + selected profile env (.env.docker/.env.supabase)
 // In docker-compose, env can also be injected by the container; this won't override existing vars.
-(0, load_env_profile_1.loadEnvProfile)({ cwd: process.cwd().split('/services/')[0] });
+(0, shared_1.loadEnvProfile)({ cwd: process.cwd().split('/services/')[0] });
 const STRIPE_SECRET_KEY = process.env.STRIPE_SECRET_KEY;
 const STRIPE_WEBHOOK_SECRET = process.env.STRIPE_WEBHOOK_SECRET;
 const stripe = STRIPE_SECRET_KEY
@@ -263,16 +304,16 @@ app.post('/api/payments/refund-request', async (req, res) => {
     const payment = await prisma_1.default.payment.findUnique({ where: { bookingId } });
     if (!payment)
         return res.status(404).json({ error: 'Payment not found' });
-    if (payment.status === payment_client_1.PaymentStatus.REFUND_REQUESTED) {
+    if (payment.status === PaymentStatus.REFUND_REQUESTED) {
         return res.json({ success: true, bookingId, status: payment.status });
     }
-    if (payment.status === payment_client_1.PaymentStatus.REFUNDED) {
+    if (payment.status === PaymentStatus.REFUNDED) {
         return res.status(400).json({ error: 'Payment already refunded' });
     }
     const updated = await prisma_1.default.payment.update({
         where: { bookingId },
         data: {
-            status: payment_client_1.PaymentStatus.REFUND_REQUESTED,
+            status: PaymentStatus.REFUND_REQUESTED,
             metadata: {
                 ...(typeof payment.metadata === 'object' && payment.metadata
                     ? payment.metadata
@@ -319,10 +360,10 @@ app.post('/api/payments/refund-approve', shared_2.verifyJWT, (0, shared_2.requir
     const updated = await prisma_1.default.payment.updateMany({
         where: {
             bookingId,
-            status: { in: [payment_client_1.PaymentStatus.REFUND_REQUESTED, payment_client_1.PaymentStatus.REFUND_APPROVED] },
+            status: { in: [PaymentStatus.REFUND_REQUESTED, PaymentStatus.REFUND_APPROVED] },
         },
         data: {
-            status: payment_client_1.PaymentStatus.REFUNDED,
+            status: PaymentStatus.REFUNDED,
             metadata: {
                 ...(typeof payment.metadata === 'object' && payment.metadata
                     ? payment.metadata
@@ -335,7 +376,7 @@ app.post('/api/payments/refund-approve', shared_2.verifyJWT, (0, shared_2.requir
     });
     const body = updated.count > 0
         ? { success: true, bookingId }
-        : { success: true, bookingId, alreadyRefunded: payment.status === payment_client_1.PaymentStatus.REFUNDED };
+        : { success: true, bookingId, alreadyRefunded: payment.status === PaymentStatus.REFUNDED };
     if (updated.count > 0) {
         await (0, shared_1.rabbitPublish)({
             routingKey: 'payment.paymentrefunded',
@@ -375,10 +416,10 @@ app.post('/api/payments/refund-reject', shared_2.verifyJWT, (0, shared_2.require
     const updated = await prisma_1.default.payment.updateMany({
         where: {
             bookingId,
-            status: payment_client_1.PaymentStatus.REFUND_REQUESTED,
+            status: PaymentStatus.REFUND_REQUESTED,
         },
         data: {
-            status: payment_client_1.PaymentStatus.REFUND_REJECTED,
+            status: PaymentStatus.REFUND_REJECTED,
             metadata: {
                 ...(typeof payment.metadata === 'object' && payment.metadata
                     ? payment.metadata
@@ -429,10 +470,10 @@ app.post('/api/payments/refund', shared_2.verifyJWT, (0, shared_2.requireRole)('
     const updated = await prisma_1.default.payment.updateMany({
         where: {
             bookingId,
-            status: { not: payment_client_1.PaymentStatus.REFUNDED },
+            status: { not: PaymentStatus.REFUNDED },
         },
         data: {
-            status: payment_client_1.PaymentStatus.REFUNDED,
+            status: PaymentStatus.REFUNDED,
             metadata: {
                 ...(typeof payment.metadata === 'object' && payment.metadata
                     ? payment.metadata
