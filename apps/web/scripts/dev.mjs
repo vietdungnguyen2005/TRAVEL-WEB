@@ -47,6 +47,7 @@ const nextBin = require.resolve("next/dist/bin/next");
 
 // Bind 0.0.0.0 so the dev server is reachable via the LAN IP.
 const child = spawn(process.execPath, [nextBin, "dev", "-H", "0.0.0.0", "-p", String(port), ...passThrough], {
+  env: { ...process.env, PORT: String(port) },
   stdio: ["inherit", "pipe", "pipe"],
   shell: false,
 });

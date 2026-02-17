@@ -1,4 +1,24 @@
 import type { NextConfig } from "next";
+import os from "node:os";
+
+function getDevAllowedOrigins(port: number) {
+  const origins = new Set<string>([
+    `http://localhost:${port}`,
+    `http://127.0.0.1:${port}`,
+  ]);
+
+  const nets = os.networkInterfaces();
+  for (const name of Object.keys(nets)) {
+    for (const net of nets[name] ?? []) {
+      if (!net || net.family !== "IPv4" || net.internal) continue;
+      origins.add(`http://${net.address}:${port}`);
+    }
+  }
+
+  return Array.from(origins);
+}
+
+const devPort = Number(process.env.PORT ?? 3000);
 
 const nextConfig: NextConfig = {
   // On Windows, filesystem cache can cause "Persisting failed" / compaction lock errors.
@@ -8,14 +28,9 @@ const nextConfig: NextConfig = {
   },
   // Allow dev assets to be loaded when you open the site via LAN IP.
   // Next's dev server can consider these cross-origin for /_next/*.
-  // Note: wildcards ("*") are NOT supported here. List explicit origins.
-  // If your LAN IP changes, update the entry below.
+  // Note: wildcards ("*") are NOT supported here.
   // Requires a full `next dev` restart (not just hot reload).
-  allowedDevOrigins: [
-    "http://localhost:3000",
-    "http://127.0.0.1:3000",
-    "http://192.168.1.43:3000",
-  ],
+  allowedDevOrigins: getDevAllowedOrigins(devPort),
   images: {
     remotePatterns: [
       {
