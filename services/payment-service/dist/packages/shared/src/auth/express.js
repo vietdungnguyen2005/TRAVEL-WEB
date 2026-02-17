@@ -9,13 +9,12 @@ function verifyJWT(req, res, next) {
     if (!token)
         return res.status(401).json({ error: 'Unauthorized' });
     try {
-        const secret = (0, jwt_1.getJwtSecretOrThrow)();
-        const payload = (0, jwt_1.verifyJwtToken)(token, secret);
+        const payload = (0, jwt_1.verifyJwtToken)(token);
         req.user = (0, jwt_1.decodeJwtUser)(payload);
         return next();
     }
     catch (err) {
-        if (err instanceof Error && err.message === 'JWT_SECRET is not set') {
+        if (err instanceof Error && err.message.includes('is not set')) {
             return res.status(500).json({ error: 'Server misconfigured' });
         }
         return res.status(401).json({ error: 'Unauthorized' });
@@ -37,8 +36,7 @@ function tryGetUserFromRequest(req) {
     if (!token)
         return null;
     try {
-        const secret = (0, jwt_1.getJwtSecretOrThrow)();
-        const payload = (0, jwt_1.verifyJwtToken)(token, secret);
+        const payload = (0, jwt_1.verifyJwtToken)(token);
         return (0, jwt_1.decodeJwtUser)(payload);
     }
     catch {

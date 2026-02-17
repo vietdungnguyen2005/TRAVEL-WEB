@@ -29,7 +29,8 @@ async function startConsumers() {
         return;
     }
     if (!process.env.RABBITMQ_URL) {
-        throw new Error('RABBITMQ_URL is not set');
+        logger.warn('RABBITMQ_URL is not set; skipping RabbitMQ consumers');
+        return;
     }
     const queue = process.env.RABBITMQ_QUEUE_NOTIFICATIONS || 'notification-service.events';
     await rabbitConsume(

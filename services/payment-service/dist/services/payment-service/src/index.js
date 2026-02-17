@@ -6,12 +6,23 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = __importDefault(require("express"));
 const stripe_1 = __importDefault(require("stripe"));
 const prisma_1 = __importDefault(require("./lib/prisma"));
+const payment_client_1 = require("../node_modules/.prisma/payment-client");
 const amqplib_1 = __importDefault(require("amqplib"));
 const shared_1 = require("@travel-web/shared");
+const booking_events_consumer_1 = require("./lib/booking-events-consumer");
+const metrics_1 = __importDefault(require("./lib/metrics"));
 const load_env_profile_1 = require("../../../infra/scripts/load-env-profile");
 const shared_2 = require("@travel-web/shared");
 const app = (0, express_1.default)();
 const PORT = process.env.PORT || 3004;
+function tryGetPrismaErrorCode(err) {
+    if (!err || typeof err !== 'object')
+        return undefined;
+    if (!('code' in err))
+        return undefined;
+    const code = err.code;
+    return typeof code === 'string' ? code : undefined;
+}
 function getIdempotencyKey(req) {
     const key = req.header('idempotency-key') || req.header('x-idempotency-key');
     return typeof key === 'string' && key.trim().length > 0 ? key.trim() : null;
@@ -25,7 +36,7 @@ async function beginIdempotent(scope, key, bookingId) {
     }
     catch (err) {
         // Unique violation -> already seen
-        const code = err?.code;
+        const code = tryGetPrismaErrorCode(err);
         if (code === 'P2002')
             return { ok: false, conflict: true };
         throw err;
@@ -94,6 +105,10 @@ const stripe = STRIPE_SECRET_KEY
 app.use(express_1.default.json());
 app.get('/health', (_req, res) => {
     res.status(200).json({ ok: true, service: 'payment-service' });
+});
+app.get('/metrics', async (_req, res) => {
+    res.setHeader('Content-Type', metrics_1.default.contentType);
+    res.end(await metrics_1.default.metrics());
 });
 // Liveness: DB connectivity (Compose healthcheck can use this or /ready)
 app.get('/healthz', async (_req, res) => {
@@ -248,16 +263,16 @@ app.post('/api/payments/refund-request', async (req, res) => {
     const payment = await prisma_1.default.payment.findUnique({ where: { bookingId } });
     if (!payment)
         return res.status(404).json({ error: 'Payment not found' });
-    if (payment.status === 'REFUND_REQUESTED') {
+    if (payment.status === payment_client_1.PaymentStatus.REFUND_REQUESTED) {
         return res.json({ success: true, bookingId, status: payment.status });
     }
-    if (payment.status === 'REFUNDED') {
+    if (payment.status === payment_client_1.PaymentStatus.REFUNDED) {
         return res.status(400).json({ error: 'Payment already refunded' });
     }
     const updated = await prisma_1.default.payment.update({
         where: { bookingId },
         data: {
-            status: 'REFUND_REQUESTED',
+            status: payment_client_1.PaymentStatus.REFUND_REQUESTED,
             metadata: {
                 ...(typeof payment.metadata === 'object' && payment.metadata
                     ? payment.metadata
@@ -304,10 +319,10 @@ app.post('/api/payments/refund-approve', shared_2.verifyJWT, (0, shared_2.requir
     const updated = await prisma_1.default.payment.updateMany({
         where: {
             bookingId,
-            status: { in: ['REFUND_REQUESTED', 'REFUND_APPROVED'] },
+            status: { in: [payment_client_1.PaymentStatus.REFUND_REQUESTED, payment_client_1.PaymentStatus.REFUND_APPROVED] },
         },
         data: {
-            status: 'REFUNDED',
+            status: payment_client_1.PaymentStatus.REFUNDED,
             metadata: {
                 ...(typeof payment.metadata === 'object' && payment.metadata
                     ? payment.metadata
@@ -320,7 +335,7 @@ app.post('/api/payments/refund-approve', shared_2.verifyJWT, (0, shared_2.requir
     });
     const body = updated.count > 0
         ? { success: true, bookingId }
-        : { success: true, bookingId, alreadyRefunded: payment.status === 'REFUNDED' };
+        : { success: true, bookingId, alreadyRefunded: payment.status === payment_client_1.PaymentStatus.REFUNDED };
     if (updated.count > 0) {
         await (0, shared_1.rabbitPublish)({
             routingKey: 'payment.paymentrefunded',
@@ -360,10 +375,10 @@ app.post('/api/payments/refund-reject', shared_2.verifyJWT, (0, shared_2.require
     const updated = await prisma_1.default.payment.updateMany({
         where: {
             bookingId,
-            status: 'REFUND_REQUESTED',
+            status: payment_client_1.PaymentStatus.REFUND_REQUESTED,
         },
         data: {
-            status: 'REFUND_REJECTED',
+            status: payment_client_1.PaymentStatus.REFUND_REJECTED,
             metadata: {
                 ...(typeof payment.metadata === 'object' && payment.metadata
                     ? payment.metadata
@@ -414,10 +429,10 @@ app.post('/api/payments/refund', shared_2.verifyJWT, (0, shared_2.requireRole)('
     const updated = await prisma_1.default.payment.updateMany({
         where: {
             bookingId,
-            status: { not: 'REFUNDED' },
+            status: { not: payment_client_1.PaymentStatus.REFUNDED },
         },
         data: {
-            status: 'REFUNDED',
+            status: payment_client_1.PaymentStatus.REFUNDED,
             metadata: {
                 ...(typeof payment.metadata === 'object' && payment.metadata
                     ? payment.metadata
@@ -487,6 +502,7 @@ app.post('/api/payments/webhook', express_1.default.raw({ type: 'application/jso
 });
 app.listen(PORT, () => {
     console.log(`Payment Service running on port ${PORT}`);
+    (0, booking_events_consumer_1.startBookingEventsConsumer)().catch((err) => console.error('Booking events consumer failed to start', err));
     if (process.env.SERVICE_DISCOVERY_MODE === 'consul') {
         (0, shared_1.consulRegisterService)({
             serviceName: 'paymentService',

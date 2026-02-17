@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { gatewayFetch } from "@/lib/gateway-client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -59,6 +58,7 @@ function statusBadge(status: PostStatus) {
 export default function AdminBlogPage() {
     const [posts, setPosts] = useState<BlogPost[]>([]);
     const [loading, setLoading] = useState(true);
+    const [loadError, setLoadError] = useState<string | null>(null);
     const [open, setOpen] = useState(false);
     const [editing, setEditing] = useState<BlogPost | null>(null);
     const [form, setForm] = useState<PostForm>(EMPTY_FORM);
@@ -72,17 +72,23 @@ export default function AdminBlogPage() {
     async function fetchPosts() {
         try {
             setLoading(true);
-            const res = await gatewayFetch("/api/admin/blog/posts", {
+            setLoadError(null);
+            const res = await fetch("/api/admin/blog/posts", {
                 method: "GET",
-                attachAccessToken: true,
+                credentials: "include",
                 cache: "no-store",
             });
-            if (!res.ok) throw new Error("Failed to fetch posts");
+            if (!res.ok) {
+                const text = await res.text();
+                setPosts([]);
+                setLoadError(text || `Failed to fetch posts (${res.status})`);
+                return;
+            }
             const data = await res.json();
             setPosts(Array.isArray(data) ? data : []);
         } catch (e) {
-            console.error(e);
             setPosts([]);
+            setLoadError(e instanceof Error ? e.message : "Failed to fetch posts");
         } finally {
             setLoading(false);
         }
@@ -121,9 +127,12 @@ export default function AdminBlogPage() {
                 : "/api/admin/blog/posts";
             const method = editing ? "PATCH" : "POST";
 
-            const res = await gatewayFetch(url, {
+            const res = await fetch(url, {
                 method,
-                attachAccessToken: true,
+                credentials: "include",
+                headers: {
+                    "Content-Type": "application/json",
+                },
                 body: JSON.stringify({
                     ...form,
                     excerpt: form.excerpt || null,
@@ -150,9 +159,9 @@ export default function AdminBlogPage() {
         if (!ok) return;
 
         try {
-            const res = await gatewayFetch(`/api/admin/blog/posts/${id}`, {
+            const res = await fetch(`/api/admin/blog/posts/${id}`, {
                 method: "DELETE",
-                attachAccessToken: true,
+                credentials: "include",
             });
             if (!res.ok) {
                 const text = await res.text();
@@ -200,6 +209,12 @@ export default function AdminBlogPage() {
                     <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto" />
                     <p className="text-gray-500 mt-4">Đang tải dữ liệu...</p>
                 </div>
+            ) : loadError ? (
+                <Card>
+                    <CardContent className="py-12 text-center">
+                        <p className="text-gray-500">Chưa có bài viết nào</p>
+                    </CardContent>
+                </Card>
             ) : filtered.length === 0 ? (
                 <Card>
                     <CardContent className="py-12 text-center">

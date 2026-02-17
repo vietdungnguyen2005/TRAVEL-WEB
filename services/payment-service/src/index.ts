@@ -1,7 +1,7 @@
 import express from 'express';
 import Stripe from 'stripe';
 import prisma from './lib/prisma';
-import { PaymentStatus } from '../node_modules/.prisma/payment-client';
+import { PaymentStatus, Prisma } from '../node_modules/.prisma/payment-client';
 import amqp from 'amqplib';
 import { consulRegisterService, rabbitPublish } from '@travel-web/shared';
 import { startBookingEventsConsumer } from './lib/booking-events-consumer';
@@ -49,7 +49,7 @@ async function getIdempotentResponse(scope: string, key: string) {
 async function saveIdempotentResponse(scope: string, key: string, statusCode: number, body: unknown) {
     await prisma.idempotencyKey.update({
         where: { scope_key: { scope, key } },
-        data: { statusCode, response: body },
+        data: { statusCode, response: body as Prisma.InputJsonValue },
     });
 }
 

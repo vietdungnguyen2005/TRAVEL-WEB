@@ -3,12 +3,13 @@
     "version": "1.0.0",
     "main": "dist/main.js",
     "scripts": {
-        "dev": "ts-node-dev --respawn src/main.ts",
+        "dev": "npm run prisma:generate && ts-node-dev --respawn src/main.ts",
         "prisma:generate": "prisma generate --schema=prisma/schema.prisma",
+        "prisma:ensure": "node scripts/ensure-prisma-client.js",
         "prisma:migrate": "prisma migrate deploy --schema=prisma/schema.prisma",
         "prisma:migrate:dev": "prisma migrate dev --schema=prisma/schema.prisma",
         "prisma:migrate:deploy": "prisma migrate deploy --schema=prisma/schema.prisma",
-        "build": "tsc",
+        "build": "npm run prisma:ensure && tsc",
         "start": "node dist/main.js",
         "lint": "eslint ."
     },

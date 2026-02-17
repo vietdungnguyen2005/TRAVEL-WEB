@@ -17,6 +17,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 __exportStar(require("./logger"), exports);
 __exportStar(require("./errors"), exports);
 __exportStar(require("./event-bus/rabbitmq"), exports);
+__exportStar(require("./event-bus/idempotency"), exports);
 __exportStar(require("./service-discovery/consul-register"), exports);
 __exportStar(require("./http/axios-client"), exports);
 __exportStar(require("./auth/jwt"), exports);

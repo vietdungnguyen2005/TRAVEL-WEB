@@ -59,6 +59,20 @@ export function getPrivateKeyPemOrThrow() {
     return pem;
 }
 
+function getJwtSecretOrThrow() {
+    const secret = process.env.JWT_SECRET?.trim();
+    if (!secret) throw new Error('JWT_SECRET is not set');
+    return secret;
+}
+
+function tryGetPrivateKeyPem() {
+    return readPemOrBase64(process.env.JWT_PRIVATE_KEY, process.env.JWT_PRIVATE_KEY_BASE64);
+}
+
+function tryGetPublicKeyPem() {
+    return readPemOrBase64(process.env.JWT_PUBLIC_KEY, process.env.JWT_PUBLIC_KEY_BASE64);
+}
+
 export function getPublicKeyPemOrThrow() {
     const pem = readPemOrBase64(process.env.JWT_PUBLIC_KEY, process.env.JWT_PUBLIC_KEY_BASE64);
     if (!pem) throw new Error('JWT_PUBLIC_KEY (or JWT_PUBLIC_KEY_BASE64) is not set');
@@ -66,7 +80,6 @@ export function getPublicKeyPemOrThrow() {
 }
 
 export function signAccessToken(claims: { userId: string; role: string }) {
-    const privateKey = getPrivateKeyPemOrThrow();
     const issuer = getJwtIssuer();
     const audience = getJwtAudience();
 
@@ -76,24 +89,38 @@ export function signAccessToken(claims: { userId: string; role: string }) {
         typ: 'access',
     };
 
+    const privateKey = tryGetPrivateKeyPem();
+    if (privateKey) {
+        const opts: SignOptions = {
+            algorithm: 'RS256',
+            expiresIn: getAccessTokenTtl(),
+            issuer,
+            audience,
+            keyid: getJwtKeyId(),
+        };
+
+        return jwt.sign(payload, privateKey, opts);
+    }
+
+    // Dev/backward-compat mode: sign HS256 when RSA keys are not configured.
+    const secret = getJwtSecretOrThrow();
     const opts: SignOptions = {
-        algorithm: 'RS256',
+        algorithm: 'HS256',
         expiresIn: getAccessTokenTtl(),
         issuer,
         audience,
-        keyid: getJwtKeyId(),
     };
 
-    return jwt.sign(payload, privateKey, opts);
+    return jwt.sign(payload, secret, opts);
 }
 
 export function verifyAccessTokenOrThrow(token: string): VerifiedAccessToken {
-    const publicKey = getPublicKeyPemOrThrow();
     const issuer = getJwtIssuer();
     const audience = getJwtAudience();
 
-    const verified = jwt.verify(token, publicKey, {
-        algorithms: ['RS256'],
+    const publicKey = tryGetPublicKeyPem();
+    const verified = jwt.verify(token, publicKey || getJwtSecretOrThrow(), {
+        algorithms: [publicKey ? 'RS256' : 'HS256'],
         issuer,
         audience,
     }) as JwtPayload | string;

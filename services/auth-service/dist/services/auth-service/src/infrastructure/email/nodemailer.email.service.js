@@ -5,12 +5,6 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.NodemailerEmailService = void 0;
 const nodemailer_1 = __importDefault(require("nodemailer"));
-function getWebAppUrl() {
-    const raw = process.env.WEB_APP_URL;
-    if (!raw)
-        return undefined;
-    return raw.endsWith('/') ? raw.slice(0, -1) : raw;
-}
 function buildVerifyEmailHtml(input) {
     const safeName = input.name ? String(input.name) : 'bạn';
     return `

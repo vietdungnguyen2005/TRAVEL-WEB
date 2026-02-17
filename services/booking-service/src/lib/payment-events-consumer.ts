@@ -175,7 +175,7 @@ export async function startPaymentEventsConsumer() {
 async function handlePaymentEvent(evt: PaymentEvent | PaymentEventEnvelope) {
     const eventType = evt.type;
     const bookingId = 'data' in evt ? evt.data.bookingId : evt.bookingId;
-    const reason = 'data' in evt ? evt.data.reason : evt.reason;
+    const reason = 'data' in evt ? evt.data.reason : ('reason' in evt ? evt.reason : undefined);
 
     if (eventType === 'PaymentCompleted' || eventType === 'PaymentConfirmed') {
         // JSON Schema validation (example). If invalid, throw to dead-letter.

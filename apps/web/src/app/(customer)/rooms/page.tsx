@@ -3,7 +3,10 @@ import { gatewayFetch } from "@/lib/gateway-client";
 import { MainLayout } from "@/components/layout/main-layout";
 import { RoomCard } from "@/components/customer/room-card";
 import { RoomFiltersClient } from "@/components/customer/room-filters-client";
+import { RoomsSortBar } from "@/components/customer/rooms-sort-bar";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Card } from "@/components/ui/card";
+import { CalendarDays, Users } from "lucide-react";
 
 interface PageProps {
   searchParams: {
@@ -90,13 +93,25 @@ async function getRooms(searchParams: PageProps["searchParams"]) {
 
 function RoomListSkeleton() {
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+    <div className="space-y-4">
       {[...Array(6)].map((_, i) => (
-        <div key={i} className="space-y-4">
-          <Skeleton className="h-64 w-full" />
-          <Skeleton className="h-8 w-3/4" />
-          <Skeleton className="h-4 w-full" />
-          <Skeleton className="h-4 w-2/3" />
+        <div key={i} className="flex gap-4">
+          <Skeleton className="h-36 w-56 shrink-0 rounded-lg" />
+          <div className="flex-1 space-y-3 py-1">
+            <Skeleton className="h-6 w-2/3" />
+            <Skeleton className="h-4 w-full" />
+            <Skeleton className="h-4 w-5/6" />
+            <div className="flex gap-2">
+              <Skeleton className="h-6 w-24 rounded-full" />
+              <Skeleton className="h-6 w-24 rounded-full" />
+              <Skeleton className="h-6 w-24 rounded-full" />
+            </div>
+          </div>
+          <div className="w-56 space-y-3 py-1">
+            <Skeleton className="h-6 w-28 ml-auto" />
+            <Skeleton className="h-4 w-20 ml-auto" />
+            <Skeleton className="h-10 w-full rounded-lg" />
+          </div>
         </div>
       ))}
     </div>
@@ -108,61 +123,64 @@ async function RoomList({ searchParams }: { searchParams: PageProps["searchParam
   const params = await searchParams;
   const { checkIn, checkOut, guests } = params;
 
+  const checkInText = checkIn ? new Date(checkIn).toLocaleDateString("vi-VN") : "Select dates";
+  const checkOutText = checkOut ? new Date(checkOut).toLocaleDateString("vi-VN") : "Select dates";
+  const guestsText = guests ? `${guests} guest${Number(guests) === 1 ? "" : "s"}` : "Guests";
+
   return (
     <>
-      {(checkIn || checkOut || guests) && (
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
-          <p className="text-sm text-blue-900">
-            <span className="font-semibold">Your search:</span>
-            {checkIn && (
-              <span className="ml-2">
-                Check-in: <strong>{new Date(checkIn).toLocaleDateString("vi-VN")}</strong>
-              </span>
-            )}
-            {checkOut && (
-              <span className="ml-2">
-                Check-out: <strong>{new Date(checkOut).toLocaleDateString("vi-VN")}</strong>
-              </span>
-            )}
-            {guests && (
-              <span className="ml-2">
-                Guests: <strong>{guests} people</strong>
-              </span>
-            )}
-          </p>
-        </div>
-      )}
+      <Card className="mb-6 p-3 md:p-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          <div className="flex items-center gap-3 rounded-lg border bg-background px-3 py-2">
+            <CalendarDays className="h-4 w-4 text-muted-foreground" />
+            <div className="text-sm">
+              <div className="text-muted-foreground">Check-in & Check-out</div>
+              <div className="font-medium">{checkInText} - {checkOutText}</div>
+            </div>
+          </div>
 
-      <div className="mb-6">
-        <h2 className="text-2xl font-bold">
-          {rooms.length > 0 ? (
-            <>
-              Found <span className="text-primary">{rooms.length}</span> rooms
-            </>
-          ) : (
-            "No rooms found"
-          )}
+          <div className="flex items-center gap-3 rounded-lg border bg-background px-3 py-2">
+            <Users className="h-4 w-4 text-muted-foreground" />
+            <div className="text-sm">
+              <div className="text-muted-foreground">Guests</div>
+              <div className="font-medium">{guestsText}</div>
+            </div>
+          </div>
+
+          <div className="flex items-center justify-between rounded-lg border bg-background px-3 py-2">
+            <div className="text-sm">
+              <div className="text-muted-foreground">Results</div>
+              <div className="font-medium">{rooms.length} room{rooms.length === 1 ? "" : "s"}</div>
+            </div>
+            <RoomsSortBar />
+          </div>
+        </div>
+      </Card>
+
+      <div className="mb-4">
+        <h2 className="text-xl md:text-2xl font-bold">
+          {rooms.length > 0 ? "Popular Rooms" : "No rooms found"}
         </h2>
-        <p className="text-gray-600 mt-1">
-          Select a room that suits your needs
+        <p className="text-muted-foreground mt-1">
+          {rooms.length > 0
+            ? "Compare prices and choose your stay"
+            : "Try adjusting filters or searching with different criteria."}
         </p>
       </div>
 
       {rooms.length > 0 ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="space-y-4">
           {rooms.map((room) => (
             <RoomCard key={room.id} room={{
               ...room,
               pricePerNight: Number(room.pricePerNight)
-            }} />
+            }} variant="list" />
           ))}
         </div>
       ) : (
-        <div className="text-center py-12">
-          <p className="text-lg text-gray-600">
-            No rooms match your search criteria.
-          </p>
-          <p className="text-sm text-gray-500 mt-2">
+        <div className="rounded-lg border bg-background p-10 text-center">
+          <p className="text-lg font-semibold">No rooms match your search criteria.</p>
+          <p className="text-sm text-muted-foreground mt-2">
             Try adjusting your filters or search with different criteria.
           </p>
         </div>
@@ -176,15 +194,17 @@ export default async function RoomsPage({ searchParams }: PageProps) {
   return (
     <MainLayout>
       <div className="container mx-auto px-4 py-8">
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
-          <aside className="lg:col-span-1">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+          <aside className="lg:col-span-3">
             <div className="sticky top-20">
-              <h2 className="text-xl font-bold mb-4">Filters</h2>
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-xl font-bold">Filters</h2>
+              </div>
               <RoomFiltersClient initialParams={params} />
             </div>
           </aside>
 
-          <main className="lg:col-span-3">
+          <main className="lg:col-span-9">
             <Suspense fallback={<RoomListSkeleton />}>
               <RoomList searchParams={searchParams} />
             </Suspense>

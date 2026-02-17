@@ -4,10 +4,14 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.rabbitConnect = rabbitConnect;
+exports.rabbitAssertTopology = rabbitAssertTopology;
 exports.rabbitPublish = rabbitPublish;
+exports.rabbitRpc = rabbitRpc;
 exports.rabbitConsume = rabbitConsume;
+exports.rabbitConsumeWithRetry = rabbitConsumeWithRetry;
 const amqplib_1 = __importDefault(require("amqplib"));
 const logger_1 = require("../logger");
+const node_crypto_1 = require("node:crypto");
 const logger = new logger_1.Logger('RabbitMQ');
 let connection = null;
 let channel = null;
@@ -37,6 +41,41 @@ async function rabbitConnect(config) {
     logger.info('RabbitMQ connected', { url, exchange, dlxExchange });
     return { connection, channel, url, exchange };
 }
+async function rabbitAssertTopology(topology) {
+    const { channel: ch } = await rabbitConnect({ exchange: topology.exchange.name });
+    if (!ch)
+        throw new Error('RabbitMQ channel not initialized');
+    const exchangeType = topology.exchange.type || 'topic';
+    await ch.assertExchange(topology.exchange.name, exchangeType, { durable: true, ...(topology.exchange.options || {}) });
+    if (topology.dlx) {
+        const dlxType = topology.dlx.exchange.type || 'topic';
+        await ch.assertExchange(topology.dlx.exchange.name, dlxType, { durable: true, ...(topology.dlx.exchange.options || {}) });
+    }
+    if (topology.retry) {
+        const retryType = topology.retry.exchange.type || 'topic';
+        await ch.assertExchange(topology.retry.exchange.name, retryType, { durable: true, ...(topology.retry.exchange.options || {}) });
+        for (const q of topology.retry.queues) {
+            await ch.assertQueue(q.name, {
+                durable: true,
+                arguments: {
+                    'x-message-ttl': q.ttlMs,
+                    'x-dead-letter-exchange': q.deadLetterExchange,
+                    'x-dead-letter-routing-key': q.deadLetterRoutingKey,
+                },
+                ...(q.options || {}),
+            });
+            for (const b of q.bindings) {
+                await ch.bindQueue(q.name, b.exchange, b.routingKey);
+            }
+        }
+    }
+    for (const q of topology.queues) {
+        await ch.assertQueue(q.name, { durable: true, ...(q.options || {}) });
+        for (const b of q.bindings) {
+            await ch.bindQueue(q.name, b.exchange, b.routingKey);
+        }
+    }
+}
 function safePreview(value, maxChars = 2000) {
     try {
         const s = typeof value === 'string' ? value : JSON.stringify(value);
@@ -54,6 +93,49 @@ async function rabbitPublish({ routingKey, message, options }) {
         throw new Error('RabbitMQ channel not initialized');
     const content = Buffer.from(JSON.stringify(message));
     ch.publish(exchange, routingKey, content, { persistent: true, contentType: 'application/json', ...options });
+}
+async function rabbitRpc({ routingKey, message, timeoutMs = 5000, options }) {
+    const { channel: ch, exchange } = await rabbitConnect();
+    if (!ch)
+        throw new Error('RabbitMQ channel not initialized');
+    const { queue: replyQueue } = await ch.assertQueue('', { exclusive: true, autoDelete: true });
+    const correlationId = typeof options?.correlationId === 'string' && options.correlationId.length > 0
+        ? options.correlationId
+        : (0, node_crypto_1.randomUUID)();
+    return await new Promise((resolve, reject) => {
+        let timeout = null;
+        ch.consume(replyQueue, (msg) => {
+            if (!msg)
+                return;
+            if (msg.properties.correlationId !== correlationId) {
+                ch.ack(msg);
+                return;
+            }
+            try {
+                const body = msg.content.toString('utf-8');
+                const payload = body ? JSON.parse(body) : null;
+                ch.ack(msg);
+                if (timeout)
+                    clearTimeout(timeout);
+                resolve(payload);
+            }
+            catch (err) {
+                ch.ack(msg);
+                if (timeout)
+                    clearTimeout(timeout);
+                reject(err);
+            }
+        }, { noAck: false }).catch(reject);
+        timeout = setTimeout(() => reject(new Error(`RPC timeout after ${timeoutMs}ms`)), timeoutMs);
+        const content = Buffer.from(JSON.stringify(message));
+        ch.publish(exchange, routingKey, content, {
+            persistent: true,
+            contentType: 'application/json',
+            correlationId,
+            replyTo: replyQueue,
+            ...options,
+        });
+    });
 }
 async function rabbitConsume(opts, handler) {
     const { channel: ch, exchange } = await rabbitConnect();
@@ -121,5 +203,55 @@ async function rabbitConsume(opts, handler) {
             ch.nack(msg, false, false);
         }
     }, { consumerTag: opts.consumerTag });
+}
+function getRetryCount(msg) {
+    const headers = msg.properties.headers;
+    const raw = headers?.['x-retry-count'];
+    const n = typeof raw === 'number' ? raw : typeof raw === 'string' ? Number(raw) : 0;
+    return Number.isFinite(n) && n >= 0 ? n : 0;
+}
+async function rabbitConsumeWithRetry(opts, handler) {
+    const enableRetry = opts.enableRetry !== false;
+    const maxRetries = typeof opts.maxRetries === 'number' && opts.maxRetries >= 0 ? opts.maxRetries : 3;
+    const retryDelaysMs = (opts.retryDelaysMs && opts.retryDelaysMs.length > 0 ? opts.retryDelaysMs : [1000, 10000, 60000])
+        .filter((n) => Number.isFinite(n) && n > 0);
+    const retryExchange = opts.retryExchange || process.env.RABBITMQ_RETRY_EXCHANGE || 'retry';
+    const { channel: ch, exchange } = await rabbitConnect();
+    if (!ch)
+        throw new Error('RabbitMQ channel not initialized');
+    if (enableRetry) {
+        await ch.assertExchange(retryExchange, 'topic', { durable: true });
+    }
+    await rabbitConsume(opts, async (payload, raw) => {
+        try {
+            await handler(payload, raw);
+        }
+        catch (err) {
+            const currentRetry = getRetryCount(raw);
+            if (!enableRetry || currentRetry >= Math.min(maxRetries, retryDelaysMs.length)) {
+                throw err;
+            }
+            const nextRetry = currentRetry + 1;
+            const delayMs = retryDelaysMs[nextRetry - 1];
+            // Publish into a retry queue (expected to have TTL + DLX back to main exchange).
+            const retryRoutingKey = `${opts.queue}.retry.${delayMs}`;
+            const content = raw.content;
+            ch.publish(retryExchange, retryRoutingKey, content, {
+                persistent: true,
+                contentType: raw.properties.contentType || 'application/json',
+                messageId: raw.properties.messageId,
+                correlationId: raw.properties.correlationId,
+                headers: {
+                    ...(raw.properties.headers || {}),
+                    'x-retry-count': nextRetry,
+                    'x-original-exchange': exchange,
+                    'x-original-routing-key': raw.fields.routingKey,
+                },
+            });
+            // Ack original so it doesn't go to DLQ yet.
+            ch.ack(raw);
+            return;
+        }
+    });
 }
 //# sourceMappingURL=rabbitmq.js.map

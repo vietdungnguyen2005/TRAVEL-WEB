@@ -1503,8 +1503,7 @@ function RoomFilters({ onFilterChange, initialFilters }) {
             10000000
         ],
         capacity: null,
-        roomTypes: [],
-        sortBy: "price-asc"
+        roomTypes: []
     });
     const handlePriceChange = (value)=>{
         const newFilters = {
@@ -1537,14 +1536,6 @@ function RoomFilters({ onFilterChange, initialFilters }) {
         setFilters(newFilters);
         onFilterChange(newFilters);
     };
-    const handleSortChange = (value)=>{
-        const newFilters = {
-            ...filters,
-            sortBy: value
-        };
-        setFilters(newFilters);
-        onFilterChange(newFilters);
-    };
     const handleReset = ()=>{
         const defaultFilters = {
             priceRange: [
@@ -1552,8 +1543,7 @@ function RoomFilters({ onFilterChange, initialFilters }) {
                 10000000
             ],
             capacity: null,
-            roomTypes: [],
-            sortBy: "price-asc"
+            roomTypes: []
         };
         setFilters(defaultFilters);
         onFilterChange(defaultFilters);
@@ -1565,105 +1555,15 @@ function RoomFilters({ onFilterChange, initialFilters }) {
                 children: [
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$apps$2f$web$2f$src$2f$components$2f$ui$2f$card$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["CardHeader"], {
                         children: /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$apps$2f$web$2f$src$2f$components$2f$ui$2f$card$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["CardTitle"], {
-                            children: "Sort By"
-                        }, void 0, false, {
-                            fileName: "[project]/apps/web/src/components/customer/room-filters.tsx",
-                            lineNumber: 81,
-                            columnNumber: 11
-                        }, this)
-                    }, void 0, false, {
-                        fileName: "[project]/apps/web/src/components/customer/room-filters.tsx",
-                        lineNumber: 80,
-                        columnNumber: 9
-                    }, this),
-                    /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$apps$2f$web$2f$src$2f$components$2f$ui$2f$card$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["CardContent"], {
-                        children: /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$apps$2f$web$2f$src$2f$components$2f$ui$2f$select$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["Select"], {
-                            value: filters.sortBy,
-                            onValueChange: handleSortChange,
-                            children: [
-                                /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$apps$2f$web$2f$src$2f$components$2f$ui$2f$select$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["SelectTrigger"], {
-                                    children: /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$apps$2f$web$2f$src$2f$components$2f$ui$2f$select$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["SelectValue"], {
-                                        placeholder: "Select sorting"
-                                    }, void 0, false, {
-                                        fileName: "[project]/apps/web/src/components/customer/room-filters.tsx",
-                                        lineNumber: 86,
-                                        columnNumber: 15
-                                    }, this)
-                                }, void 0, false, {
-                                    fileName: "[project]/apps/web/src/components/customer/room-filters.tsx",
-                                    lineNumber: 85,
-                                    columnNumber: 13
-                                }, this),
-                                /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$apps$2f$web$2f$src$2f$components$2f$ui$2f$select$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["SelectContent"], {
-                                    children: [
-                                        /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$apps$2f$web$2f$src$2f$components$2f$ui$2f$select$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["SelectItem"], {
-                                            value: "price-asc",
-                                            children: "Price: Low to High"
-                                        }, void 0, false, {
-                                            fileName: "[project]/apps/web/src/components/customer/room-filters.tsx",
-                                            lineNumber: 89,
-                                            columnNumber: 15
-                                        }, this),
-                                        /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$apps$2f$web$2f$src$2f$components$2f$ui$2f$select$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["SelectItem"], {
-                                            value: "price-desc",
-                                            children: "Price: High to Low"
-                                        }, void 0, false, {
-                                            fileName: "[project]/apps/web/src/components/customer/room-filters.tsx",
-                                            lineNumber: 90,
-                                            columnNumber: 15
-                                        }, this),
-                                        /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$apps$2f$web$2f$src$2f$components$2f$ui$2f$select$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["SelectItem"], {
-                                            value: "capacity",
-                                            children: "Capacity"
-                                        }, void 0, false, {
-                                            fileName: "[project]/apps/web/src/components/customer/room-filters.tsx",
-                                            lineNumber: 91,
-                                            columnNumber: 15
-                                        }, this),
-                                        /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$apps$2f$web$2f$src$2f$components$2f$ui$2f$select$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["SelectItem"], {
-                                            value: "name",
-                                            children: "Room Name"
-                                        }, void 0, false, {
-                                            fileName: "[project]/apps/web/src/components/customer/room-filters.tsx",
-                                            lineNumber: 92,
-                                            columnNumber: 15
-                                        }, this)
-                                    ]
-                                }, void 0, true, {
-                                    fileName: "[project]/apps/web/src/components/customer/room-filters.tsx",
-                                    lineNumber: 88,
-                                    columnNumber: 13
-                                }, this)
-                            ]
-                        }, void 0, true, {
-                            fileName: "[project]/apps/web/src/components/customer/room-filters.tsx",
-                            lineNumber: 84,
-                            columnNumber: 11
-                        }, this)
-                    }, void 0, false, {
-                        fileName: "[project]/apps/web/src/components/customer/room-filters.tsx",
-                        lineNumber: 83,
-                        columnNumber: 9
-                    }, this)
-                ]
-            }, void 0, true, {
-                fileName: "[project]/apps/web/src/components/customer/room-filters.tsx",
-                lineNumber: 79,
-                columnNumber: 7
-            }, this),
-            /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$apps$2f$web$2f$src$2f$components$2f$ui$2f$card$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["Card"], {
-                children: [
-                    /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$apps$2f$web$2f$src$2f$components$2f$ui$2f$card$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["CardHeader"], {
-                        children: /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$apps$2f$web$2f$src$2f$components$2f$ui$2f$card$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["CardTitle"], {
                             children: "Price Range"
                         }, void 0, false, {
                             fileName: "[project]/apps/web/src/components/customer/room-filters.tsx",
-                            lineNumber: 100,
+                            lineNumber: 66,
                             columnNumber: 11
                         }, this)
                     }, void 0, false, {
                         fileName: "[project]/apps/web/src/components/customer/room-filters.tsx",
-                        lineNumber: 99,
+                        lineNumber: 65,
                         columnNumber: 9
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$apps$2f$web$2f$src$2f$components$2f$ui$2f$card$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["CardContent"], {
@@ -1681,7 +1581,7 @@ function RoomFilters({ onFilterChange, initialFilters }) {
                                 className: "w-full"
                             }, void 0, false, {
                                 fileName: "[project]/apps/web/src/components/customer/room-filters.tsx",
-                                lineNumber: 103,
+                                lineNumber: 69,
                                 columnNumber: 11
                             }, this),
                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -1692,7 +1592,7 @@ function RoomFilters({ onFilterChange, initialFilters }) {
                                         children: filters.priceRange[0].toLocaleString("vi-VN")
                                     }, void 0, false, {
                                         fileName: "[project]/apps/web/src/components/customer/room-filters.tsx",
-                                        lineNumber: 112,
+                                        lineNumber: 78,
                                         columnNumber: 13
                                     }, this),
                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
@@ -1700,7 +1600,7 @@ function RoomFilters({ onFilterChange, initialFilters }) {
                                         children: "to"
                                     }, void 0, false, {
                                         fileName: "[project]/apps/web/src/components/customer/room-filters.tsx",
-                                        lineNumber: 115,
+                                        lineNumber: 81,
                                         columnNumber: 13
                                     }, this),
                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
@@ -1708,25 +1608,25 @@ function RoomFilters({ onFilterChange, initialFilters }) {
                                         children: filters.priceRange[1].toLocaleString("vi-VN")
                                     }, void 0, false, {
                                         fileName: "[project]/apps/web/src/components/customer/room-filters.tsx",
-                                        lineNumber: 116,
+                                        lineNumber: 82,
                                         columnNumber: 13
                                     }, this)
                                 ]
                             }, void 0, true, {
                                 fileName: "[project]/apps/web/src/components/customer/room-filters.tsx",
-                                lineNumber: 111,
+                                lineNumber: 77,
                                 columnNumber: 11
                             }, this)
                         ]
                     }, void 0, true, {
                         fileName: "[project]/apps/web/src/components/customer/room-filters.tsx",
-                        lineNumber: 102,
+                        lineNumber: 68,
                         columnNumber: 9
                     }, this)
                 ]
             }, void 0, true, {
                 fileName: "[project]/apps/web/src/components/customer/room-filters.tsx",
-                lineNumber: 98,
+                lineNumber: 64,
                 columnNumber: 7
             }, this),
             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$apps$2f$web$2f$src$2f$components$2f$ui$2f$card$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["Card"], {
@@ -1736,12 +1636,12 @@ function RoomFilters({ onFilterChange, initialFilters }) {
                             children: "Number of Guests"
                         }, void 0, false, {
                             fileName: "[project]/apps/web/src/components/customer/room-filters.tsx",
-                            lineNumber: 125,
+                            lineNumber: 91,
                             columnNumber: 11
                         }, this)
                     }, void 0, false, {
                         fileName: "[project]/apps/web/src/components/customer/room-filters.tsx",
-                        lineNumber: 124,
+                        lineNumber: 90,
                         columnNumber: 9
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$apps$2f$web$2f$src$2f$components$2f$ui$2f$card$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["CardContent"], {
@@ -1754,12 +1654,12 @@ function RoomFilters({ onFilterChange, initialFilters }) {
                                         placeholder: "All"
                                     }, void 0, false, {
                                         fileName: "[project]/apps/web/src/components/customer/room-filters.tsx",
-                                        lineNumber: 133,
+                                        lineNumber: 99,
                                         columnNumber: 15
                                     }, this)
                                 }, void 0, false, {
                                     fileName: "[project]/apps/web/src/components/customer/room-filters.tsx",
-                                    lineNumber: 132,
+                                    lineNumber: 98,
                                     columnNumber: 13
                                 }, this),
                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$apps$2f$web$2f$src$2f$components$2f$ui$2f$select$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["SelectContent"], {
@@ -1769,7 +1669,7 @@ function RoomFilters({ onFilterChange, initialFilters }) {
                                             children: "All"
                                         }, void 0, false, {
                                             fileName: "[project]/apps/web/src/components/customer/room-filters.tsx",
-                                            lineNumber: 136,
+                                            lineNumber: 102,
                                             columnNumber: 15
                                         }, this),
                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$apps$2f$web$2f$src$2f$components$2f$ui$2f$select$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["SelectItem"], {
@@ -1777,7 +1677,7 @@ function RoomFilters({ onFilterChange, initialFilters }) {
                                             children: "1 guest"
                                         }, void 0, false, {
                                             fileName: "[project]/apps/web/src/components/customer/room-filters.tsx",
-                                            lineNumber: 137,
+                                            lineNumber: 103,
                                             columnNumber: 15
                                         }, this),
                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$apps$2f$web$2f$src$2f$components$2f$ui$2f$select$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["SelectItem"], {
@@ -1785,7 +1685,7 @@ function RoomFilters({ onFilterChange, initialFilters }) {
                                             children: "2 guests"
                                         }, void 0, false, {
                                             fileName: "[project]/apps/web/src/components/customer/room-filters.tsx",
-                                            lineNumber: 138,
+                                            lineNumber: 104,
                                             columnNumber: 15
                                         }, this),
                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$apps$2f$web$2f$src$2f$components$2f$ui$2f$select$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["SelectItem"], {
@@ -1793,7 +1693,7 @@ function RoomFilters({ onFilterChange, initialFilters }) {
                                             children: "3 guests"
                                         }, void 0, false, {
                                             fileName: "[project]/apps/web/src/components/customer/room-filters.tsx",
-                                            lineNumber: 139,
+                                            lineNumber: 105,
                                             columnNumber: 15
                                         }, this),
                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$apps$2f$web$2f$src$2f$components$2f$ui$2f$select$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["SelectItem"], {
@@ -1801,30 +1701,30 @@ function RoomFilters({ onFilterChange, initialFilters }) {
                                             children: "4+ guests"
                                         }, void 0, false, {
                                             fileName: "[project]/apps/web/src/components/customer/room-filters.tsx",
-                                            lineNumber: 140,
+                                            lineNumber: 106,
                                             columnNumber: 15
                                         }, this)
                                     ]
                                 }, void 0, true, {
                                     fileName: "[project]/apps/web/src/components/customer/room-filters.tsx",
-                                    lineNumber: 135,
+                                    lineNumber: 101,
                                     columnNumber: 13
                                 }, this)
                             ]
                         }, void 0, true, {
                             fileName: "[project]/apps/web/src/components/customer/room-filters.tsx",
-                            lineNumber: 128,
+                            lineNumber: 94,
                             columnNumber: 11
                         }, this)
                     }, void 0, false, {
                         fileName: "[project]/apps/web/src/components/customer/room-filters.tsx",
-                        lineNumber: 127,
+                        lineNumber: 93,
                         columnNumber: 9
                     }, this)
                 ]
             }, void 0, true, {
                 fileName: "[project]/apps/web/src/components/customer/room-filters.tsx",
-                lineNumber: 123,
+                lineNumber: 89,
                 columnNumber: 7
             }, this),
             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$apps$2f$web$2f$src$2f$components$2f$ui$2f$card$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["Card"], {
@@ -1834,12 +1734,12 @@ function RoomFilters({ onFilterChange, initialFilters }) {
                             children: "Room Types"
                         }, void 0, false, {
                             fileName: "[project]/apps/web/src/components/customer/room-filters.tsx",
-                            lineNumber: 148,
+                            lineNumber: 114,
                             columnNumber: 11
                         }, this)
                     }, void 0, false, {
                         fileName: "[project]/apps/web/src/components/customer/room-filters.tsx",
-                        lineNumber: 147,
+                        lineNumber: 113,
                         columnNumber: 9
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$apps$2f$web$2f$src$2f$components$2f$ui$2f$card$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["CardContent"], {
@@ -1857,7 +1757,7 @@ function RoomFilters({ onFilterChange, initialFilters }) {
                                         onCheckedChange: (checked)=>handleRoomTypeChange(type, checked)
                                     }, void 0, false, {
                                         fileName: "[project]/apps/web/src/components/customer/room-filters.tsx",
-                                        lineNumber: 153,
+                                        lineNumber: 119,
                                         columnNumber: 15
                                     }, this),
                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$apps$2f$web$2f$src$2f$components$2f$ui$2f$label$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["Label"], {
@@ -1866,24 +1766,24 @@ function RoomFilters({ onFilterChange, initialFilters }) {
                                         children: type
                                     }, void 0, false, {
                                         fileName: "[project]/apps/web/src/components/customer/room-filters.tsx",
-                                        lineNumber: 160,
+                                        lineNumber: 126,
                                         columnNumber: 15
                                     }, this)
                                 ]
                             }, type, true, {
                                 fileName: "[project]/apps/web/src/components/customer/room-filters.tsx",
-                                lineNumber: 152,
+                                lineNumber: 118,
                                 columnNumber: 13
                             }, this))
                     }, void 0, false, {
                         fileName: "[project]/apps/web/src/components/customer/room-filters.tsx",
-                        lineNumber: 150,
+                        lineNumber: 116,
                         columnNumber: 9
                     }, this)
                 ]
             }, void 0, true, {
                 fileName: "[project]/apps/web/src/components/customer/room-filters.tsx",
-                lineNumber: 146,
+                lineNumber: 112,
                 columnNumber: 7
             }, this),
             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$apps$2f$web$2f$src$2f$components$2f$ui$2f$button$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["Button"], {
@@ -1893,17 +1793,17 @@ function RoomFilters({ onFilterChange, initialFilters }) {
                 children: "Reset Filters"
             }, void 0, false, {
                 fileName: "[project]/apps/web/src/components/customer/room-filters.tsx",
-                lineNumber: 171,
+                lineNumber: 137,
                 columnNumber: 7
             }, this)
         ]
     }, void 0, true, {
         fileName: "[project]/apps/web/src/components/customer/room-filters.tsx",
-        lineNumber: 78,
+        lineNumber: 63,
         columnNumber: 5
     }, this);
 }
-_s(RoomFilters, "ncFF+4zzhRQRUhDsUKH75AVVEJk=");
+_s(RoomFilters, "uG7KBXu5zyGlHjcqaumE/e8cSRE=");
 _c = RoomFilters;
 var _c;
 __turbopack_context__.k.register(_c, "RoomFilters");
@@ -1937,8 +1837,7 @@ function RoomFiltersClient({ initialParams }) {
             parseInt(initialParams.maxPrice || "10000000")
         ],
         capacity: initialParams.capacity ? parseInt(initialParams.capacity) : null,
-        roomTypes: initialParams.roomTypes ? initialParams.roomTypes.split(",") : [],
-        sortBy: initialParams.sortBy || "price-asc"
+        roomTypes: initialParams.roomTypes ? initialParams.roomTypes.split(",") : []
     };
     const handleFilterChange = (filters)=>{
         const params = new URLSearchParams(searchParams.toString());
@@ -1957,8 +1856,6 @@ function RoomFiltersClient({ initialParams }) {
         } else {
             params.delete("roomTypes");
         }
-        // Update sort
-        params.set("sortBy", filters.sortBy);
         // Preserve search params from homepage
         if (initialParams.checkIn) params.set("checkIn", initialParams.checkIn);
         if (initialParams.checkOut) params.set("checkOut", initialParams.checkOut);
@@ -1970,7 +1867,7 @@ function RoomFiltersClient({ initialParams }) {
         initialFilters: initialFilters
     }, void 0, false, {
         fileName: "[project]/apps/web/src/components/customer/room-filters-client.tsx",
-        lineNumber: 57,
+        lineNumber: 53,
         columnNumber: 10
     }, this);
 }
