@@ -1,6 +1,7 @@
 import amqp, { Channel, ChannelModel, ConsumeMessage, Options } from 'amqplib';
 import { Logger } from '../logger';
 import { randomUUID } from 'node:crypto';
+import { ensureCorrelationId, runWithCorrelationId } from '../observability/correlation';
 
 const logger = new Logger('RabbitMQ');
 
@@ -79,6 +80,17 @@ export type ConsumeWithRetryOptions = ConsumeOptions & {
     retryExchange?: string;
     // If true, re-publishes to retry exchange on failure. If false, nack -> DLQ.
     enableRetry?: boolean;
+
+    // Optional hook for observability (e.g., Prometheus counters) when a retry is scheduled.
+    onRetryScheduled?: (info: {
+        queue: string;
+        routingKey: string;
+        messageId?: string;
+        correlationId?: string;
+        currentRetry: number;
+        nextRetry: number;
+        delayMs: number;
+    }) => void;
 };
 
 export type ConsumeHandler = (payload: unknown, raw: ConsumeMessage) => Promise<void> | void;
@@ -172,7 +184,14 @@ export async function rabbitPublish({ routingKey, message, options }: PublishOpt
     const { channel: ch, exchange } = await rabbitConnect();
     if (!ch) throw new Error('RabbitMQ channel not initialized');
     const content = Buffer.from(JSON.stringify(message));
-    ch.publish(exchange, routingKey, content, { persistent: true, contentType: 'application/json', ...options });
+
+    const correlationId = ensureCorrelationId(options?.correlationId);
+    ch.publish(exchange, routingKey, content, {
+        persistent: true,
+        contentType: 'application/json',
+        ...options,
+        correlationId,
+    });
 }
 
 export async function rabbitRpc<TResponse = unknown>({ routingKey, message, timeoutMs = 5000, options }: RpcRequestOptions): Promise<TResponse> {
@@ -260,37 +279,45 @@ export async function rabbitConsume(opts: ConsumeOptions, handler: ConsumeHandle
         opts.queue,
         async (msg) => {
             if (!msg) return;
-            try {
-                const body = msg.content.toString('utf-8');
-                const payload = body ? JSON.parse(body) : null;
-                await handler(payload, msg);
-                ch.ack(msg);
-            } catch (err) {
-                const error = err as Error;
-                const body = msg.content.toString('utf-8');
-                logger.error('RabbitMQ handler failed', error);
-                logger.warn('RabbitMQ message dead-lettering', {
-                    queue: opts.queue,
-                    dlxExchange: enableDlq ? dlxExchange : undefined,
-                    dlqQueue: enableDlq ? dlqQueue : undefined,
-                    dlqRoutingKey: enableDlq ? dlqRoutingKey : undefined,
-                    routingKey: msg.fields.routingKey,
-                    deliveryTag: msg.fields.deliveryTag,
-                    redelivered: msg.fields.redelivered,
-                    properties: {
-                        messageId: msg.properties.messageId,
-                        correlationId: msg.properties.correlationId,
-                        timestamp: msg.properties.timestamp,
-                        headers: msg.properties.headers,
-                    },
-                    payloadPreview: safePreview(body),
-                    errorMessage: error.message,
-                });
+            const correlationId = ensureCorrelationId(
+                (typeof msg.properties.correlationId === 'string' && msg.properties.correlationId.trim())
+                    ? msg.properties.correlationId
+                    : ((msg.properties.headers as Record<string, unknown> | undefined)?.['x-correlation-id'] as string | undefined),
+            );
 
-                // Requeue=false to avoid poison message infinite loops.
-                // If DLQ is enabled on the queue, this rejection will dead-letter the message.
-                ch.nack(msg, false, false);
-            }
+            await runWithCorrelationId(correlationId, async () => {
+                try {
+                    const body = msg.content.toString('utf-8');
+                    const payload = body ? JSON.parse(body) : null;
+                    await handler(payload, msg);
+                    ch.ack(msg);
+                } catch (err) {
+                    const error = err as Error;
+                    const body = msg.content.toString('utf-8');
+                    logger.error('RabbitMQ handler failed', error);
+                    logger.warn('RabbitMQ message dead-lettering', {
+                        queue: opts.queue,
+                        dlxExchange: enableDlq ? dlxExchange : undefined,
+                        dlqQueue: enableDlq ? dlqQueue : undefined,
+                        dlqRoutingKey: enableDlq ? dlqRoutingKey : undefined,
+                        routingKey: msg.fields.routingKey,
+                        deliveryTag: msg.fields.deliveryTag,
+                        redelivered: msg.fields.redelivered,
+                        properties: {
+                            messageId: msg.properties.messageId,
+                            correlationId: msg.properties.correlationId,
+                            timestamp: msg.properties.timestamp,
+                            headers: msg.properties.headers,
+                        },
+                        payloadPreview: safePreview(body),
+                        errorMessage: error.message,
+                    });
+
+                    // Requeue=false to avoid poison message infinite loops.
+                    // If DLQ is enabled on the queue, this rejection will dead-letter the message.
+                    ch.nack(msg, false, false);
+                }
+            });
         },
         { consumerTag: opts.consumerTag },
     );
@@ -331,9 +358,35 @@ export async function rabbitConsumeWithRetry(opts: ConsumeWithRetryOptions, hand
                 const nextRetry = currentRetry + 1;
                 const delayMs = retryDelaysMs[nextRetry - 1];
 
+                const error = err as Error;
+                logger.warn('RabbitMQ handler failed; scheduling retry', {
+                    queue: opts.queue,
+                    routingKey: raw.fields.routingKey,
+                    messageId: raw.properties.messageId,
+                    currentRetry,
+                    nextRetry,
+                    delayMs,
+                    reason: error?.message,
+                });
+
                 // Publish into a retry queue (expected to have TTL + DLX back to main exchange).
                 const retryRoutingKey = `${opts.queue}.retry.${delayMs}`;
                 const content = raw.content;
+
+                try {
+                    opts.onRetryScheduled?.({
+                        queue: opts.queue,
+                        routingKey: raw.fields.routingKey,
+                        messageId: typeof raw.properties.messageId === 'string' ? raw.properties.messageId : undefined,
+                        correlationId: typeof raw.properties.correlationId === 'string' ? raw.properties.correlationId : undefined,
+                        currentRetry,
+                        nextRetry,
+                        delayMs,
+                    });
+                } catch {
+                    // never block message handling on metrics
+                }
+
                 ch.publish(retryExchange, retryRoutingKey, content, {
                     persistent: true,
                     contentType: raw.properties.contentType || 'application/json',
@@ -342,6 +395,8 @@ export async function rabbitConsumeWithRetry(opts: ConsumeWithRetryOptions, hand
                     headers: {
                         ...(raw.properties.headers || {}),
                         'x-retry-count': nextRetry,
+                        'x-retry-delay-ms': delayMs,
+                        'x-retry-reason': error?.message,
                         'x-original-exchange': exchange,
                         'x-original-routing-key': raw.fields.routingKey,
                     },

@@ -1,0 +1,41 @@
+%% Cancellation + refund compensation flow (saga)
+sequenceDiagram
+  autonumber
+  participant Client as Client/Web
+  participant BookingAPI as booking-service (HTTP)
+  participant BookingDB as booking-db
+  participant Outbox as outbox table
+  participant Publisher as outbox-publisher
+  participant RMQ as RabbitMQ (exchange: events)
+  participant PaymentSvc as payment-service (consumer)
+  participant PaymentDB as payment-db
+  participant NotifSvc as notification-service (consumer)
+  participant NotifDB as notification-db
+
+  Note over Client,BookingAPI: correlationId = bookingId
+
+  Client->>BookingAPI: POST /api/bookings/:id/cancel
+  BookingAPI->>BookingDB: UPDATE booking(status=CANCELLED)
+  BookingAPI->>Outbox: INSERT outbox(event=booking.cancelled)
+  BookingAPI-->>Client: 200 OK
+
+  loop Poll outbox
+    Publisher->>Outbox: SELECT published=false
+    Publisher->>RMQ: publish booking.cancelled\n(messageId=outbox.id, correlationId=bookingId)
+    Publisher->>Outbox: UPDATE published=true
+  end
+
+  RMQ-->>PaymentSvc: deliver booking.cancelled
+  PaymentSvc->>PaymentDB: find payment by bookingId
+  alt can refund
+    PaymentSvc->>PaymentDB: update payment(status=REFUNDED)
+    PaymentSvc->>RMQ: publish payment.paymentrefunded\n(correlationId=bookingId)
+  else refund fails
+    PaymentSvc->>RMQ: publish payment.refund.failed\n(correlationId=bookingId)
+  end
+
+  RMQ-->>BookingAPI: deliver payment.* (refund events)
+  BookingAPI->>BookingDB: UPDATE booking.paymentStatus (REFUNDED/REFUND_FAILED)
+
+  RMQ-->>NotifSvc: deliver booking.cancelled / payment.*
+  NotifSvc->>NotifDB: INSERT notification(status=PENDING)

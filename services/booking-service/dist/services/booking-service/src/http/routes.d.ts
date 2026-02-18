@@ -1,2 +1,2 @@
-export declare const bookingRouter: import("express-serve-static-core").Router;
+export { bookingRouter } from '../interfaces/http/booking.routes';
 //# sourceMappingURL=routes.d.ts.map

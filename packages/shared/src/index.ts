@@ -7,3 +7,5 @@ export * from './http/axios-client';
 export * from './auth/jwt';
 export * from './auth/express';
 export * from './env/load-env-profile';
+export * from './observability/correlation';
+export * from './cache/redis';

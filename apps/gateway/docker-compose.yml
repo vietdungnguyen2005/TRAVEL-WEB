@@ -217,11 +217,13 @@ services:
     depends_on:
       - booking-db
       - rabbitmq
+      - redis
     environment:
       - PORT=3002
       - JWT_SECRET=${JWT_SECRET}
       - BOOKING_DATABASE_URL=postgresql://postgres:${POSTGRES_PASSWORD}@booking-db:5432/booking_db
       - RABBITMQ_URL=amqp://${RABBITMQ_USER}:${RABBITMQ_PASSWORD}@rabbitmq:5672
+      - REDIS_URL=redis://redis:6379
     networks:
       - backend-network
 
@@ -312,6 +314,20 @@ services:
       SERVICE_DISCOVERY_MODE: ${SERVICE_DISCOVERY_MODE:-static}
       CONSUL_URL: http://consul:8500
       DISCOVERY_REFRESH_MS: 10000
+    networks:
+      - backend-network
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+    container_name: web
+    ports:
+      - "3000:3000"
+    depends_on:
+      - api-gateway
+    environment:
+      - NEXT_PUBLIC_API_GATEWAY_URL=http://localhost:4000
     networks:
       - backend-network
 

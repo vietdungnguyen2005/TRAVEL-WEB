@@ -18,8 +18,18 @@ node_modules/
 /.next/
 /out/
 
+# next.js (monorepo)
+**/.next/
+**/out/
+
 # production
 /build
+
+# production (monorepo)
+**/build/
+
+# compiled output (monorepo)
+**/dist/
 
 # misc
 .DS_Store

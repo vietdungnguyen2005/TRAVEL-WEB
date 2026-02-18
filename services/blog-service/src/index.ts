@@ -1,7 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import prisma from './lib/prisma';
-import { requireRole, verifyJWT } from '@travel-web/shared';
+import { createCorrelationIdMiddleware, requireRole, verifyJWT } from '@travel-web/shared';
 import { loadEnvProfile } from '@travel-web/shared';
 
 // Load root env + selected profile env (.env.docker/.env.supabase)
@@ -9,6 +9,7 @@ import { loadEnvProfile } from '@travel-web/shared';
 loadEnvProfile({ cwd: process.cwd().split('/services/')[0] });
 
 const app = express();
+app.use(createCorrelationIdMiddleware());
 app.use(express.json());
 app.use(
     cors({

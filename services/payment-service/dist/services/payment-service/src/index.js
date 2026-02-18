@@ -37,13 +37,14 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = __importDefault(require("express"));
-const stripe_1 = __importDefault(require("stripe"));
 const amqplib_1 = __importDefault(require("amqplib"));
 const shared_1 = require("@travel-web/shared");
 const booking_events_consumer_1 = require("./lib/booking-events-consumer");
+const booking_cancelled_consumer_1 = require("./lib/booking-cancelled-consumer");
 const metrics_1 = __importDefault(require("./lib/metrics"));
 const shared_2 = require("@travel-web/shared");
 const prisma_1 = __importStar(require("./lib/prisma"));
+const stripe_client_1 = require("./lib/stripe-client");
 const PaymentStatus = {
     PENDING: 'PENDING',
     COMPLETED: 'COMPLETED',
@@ -134,14 +135,8 @@ async function checkRabbitMq() {
 // Load root env + selected profile env (.env.docker/.env.supabase)
 // In docker-compose, env can also be injected by the container; this won't override existing vars.
 (0, shared_1.loadEnvProfile)({ cwd: process.cwd().split('/services/')[0] });
-const STRIPE_SECRET_KEY = process.env.STRIPE_SECRET_KEY;
 const STRIPE_WEBHOOK_SECRET = process.env.STRIPE_WEBHOOK_SECRET;
-const stripe = STRIPE_SECRET_KEY
-    ? new stripe_1.default(STRIPE_SECRET_KEY, {
-        // Keep this pinned to the API version configured in Stripe.
-        apiVersion: '2025-12-15.clover',
-    })
-    : null;
+const stripe = (0, stripe_client_1.getStripeClient)();
 // JSON routes
 app.use(express_1.default.json());
 app.get('/health', (_req, res) => {
@@ -243,14 +238,25 @@ app.post('/api/payments/verify', async (req, res) => {
             },
         });
         // emit event for other services (booking status update, notifications, analytics)
-        await (0, shared_1.rabbitPublish)({
-            routingKey: 'payment.paymentcompleted',
-            message: {
-                type: 'PaymentCompleted',
+        const event = {
+            id: `payment.completed:${bookingId}:${String(session.payment_intent || '')}`,
+            type: 'PaymentCompleted',
+            source: 'payment-service',
+            occurredAt: new Date().toISOString(),
+            version: 1,
+            correlationId: bookingId,
+            data: {
                 bookingId,
-                userId: session.metadata?.userId,
-                stripePaymentIntentId: session.payment_intent,
-                at: new Date().toISOString(),
+                userId: typeof session.metadata?.userId === 'string' ? session.metadata?.userId : undefined,
+                stripePaymentIntentId: typeof session.payment_intent === 'string' ? session.payment_intent : undefined,
+            },
+        };
+        await (0, shared_1.rabbitPublish)({
+            routingKey: 'payment.completed',
+            message: event,
+            options: {
+                messageId: event.id,
+                correlationId: bookingId,
             },
         });
         return res.json({ success: true, bookingId, paymentIntentId: session.payment_intent });
@@ -281,16 +287,28 @@ app.post('/api/payments/confirm', async (req, res) => {
             metadata: { paymentMethod },
         },
     });
+    // Standardize: emit PaymentCompleted on success (single routing key: payment.completed)
     if (payment.status === 'COMPLETED' || paymentMethod === 'CASH') {
-        await (0, shared_1.rabbitPublish)({
-            routingKey: 'payment.paymentconfirmed',
-            message: {
-                type: 'PaymentConfirmed',
+        const event = {
+            id: `payment.completed:${bookingId}:${payment.id}`,
+            type: 'PaymentCompleted',
+            source: 'payment-service',
+            occurredAt: new Date().toISOString(),
+            version: 1,
+            correlationId: bookingId,
+            data: {
                 bookingId,
                 userId: resolvedUserId,
                 paymentMethod,
                 status: payment.status,
-                at: new Date().toISOString(),
+            },
+        };
+        await (0, shared_1.rabbitPublish)({
+            routingKey: 'payment.completed',
+            message: event,
+            options: {
+                messageId: event.id,
+                correlationId: bookingId,
             },
         });
     }
@@ -527,14 +545,25 @@ app.post('/api/payments/webhook', express_1.default.raw({ type: 'application/jso
                     stripePaymentIntentId: session.payment_intent || undefined,
                 },
             });
-            await (0, shared_1.rabbitPublish)({
-                routingKey: 'payment.paymentcompleted',
-                message: {
-                    type: 'PaymentCompleted',
+            const out = {
+                id: `payment.completed:${bookingId}:${String(session.payment_intent || '')}`,
+                type: 'PaymentCompleted',
+                source: 'payment-service',
+                occurredAt: new Date().toISOString(),
+                version: 1,
+                correlationId: bookingId,
+                data: {
                     bookingId,
-                    userId: session.metadata?.userId,
-                    stripePaymentIntentId: session.payment_intent,
-                    at: new Date().toISOString(),
+                    userId: typeof session.metadata?.userId === 'string' ? session.metadata?.userId : undefined,
+                    stripePaymentIntentId: typeof session.payment_intent === 'string' ? session.payment_intent : undefined,
+                },
+            };
+            await (0, shared_1.rabbitPublish)({
+                routingKey: 'payment.completed',
+                message: out,
+                options: {
+                    messageId: out.id,
+                    correlationId: bookingId,
                 },
             });
         }
@@ -544,6 +573,7 @@ app.post('/api/payments/webhook', express_1.default.raw({ type: 'application/jso
 app.listen(PORT, () => {
     console.log(`Payment Service running on port ${PORT}`);
     (0, booking_events_consumer_1.startBookingEventsConsumer)().catch((err) => console.error('Booking events consumer failed to start', err));
+    (0, booking_cancelled_consumer_1.startBookingCancelledConsumer)().catch((err) => console.error('Booking cancelled consumer failed to start', err));
     if (process.env.SERVICE_DISCOVERY_MODE === 'consul') {
         (0, shared_1.consulRegisterService)({
             serviceName: 'paymentService',

@@ -44,11 +44,50 @@ async function startBookingEventsConsumer() {
         throw new Error('RABBITMQ_URL is not set');
     }
     const queue = process.env.RABBITMQ_QUEUE_BOOKING_EVENTS || 'payment-service.booking-events';
-    await (0, shared_1.rabbitConsume)({
+    await (0, shared_1.rabbitAssertTopology)({
+        exchange: { name: process.env.RABBITMQ_EXCHANGE || 'events', type: 'topic' },
+        dlx: { exchange: { name: process.env.RABBITMQ_DLX_EXCHANGE || 'dlx', type: 'topic' } },
+        queues: [
+            {
+                name: queue,
+                bindings: [{ exchange: process.env.RABBITMQ_EXCHANGE || 'events', routingKey: 'booking.created' }],
+            },
+        ],
+        retry: {
+            exchange: { name: process.env.RABBITMQ_RETRY_EXCHANGE || 'retry', type: 'topic' },
+            queues: [
+                {
+                    name: `${queue}.retry.5000`,
+                    ttlMs: 5000,
+                    deadLetterExchange: process.env.RABBITMQ_EXCHANGE || 'events',
+                    deadLetterRoutingKey: 'booking.created',
+                    bindings: [{ exchange: process.env.RABBITMQ_RETRY_EXCHANGE || 'retry', routingKey: `${queue}.retry.5000` }],
+                },
+                {
+                    name: `${queue}.retry.30000`,
+                    ttlMs: 30000,
+                    deadLetterExchange: process.env.RABBITMQ_EXCHANGE || 'events',
+                    deadLetterRoutingKey: 'booking.created',
+                    bindings: [{ exchange: process.env.RABBITMQ_RETRY_EXCHANGE || 'retry', routingKey: `${queue}.retry.30000` }],
+                },
+                {
+                    name: `${queue}.retry.300000`,
+                    ttlMs: 300000,
+                    deadLetterExchange: process.env.RABBITMQ_EXCHANGE || 'events',
+                    deadLetterRoutingKey: 'booking.created',
+                    bindings: [{ exchange: process.env.RABBITMQ_RETRY_EXCHANGE || 'retry', routingKey: `${queue}.retry.300000` }],
+                },
+            ],
+        },
+    });
+    await (0, shared_1.rabbitConsumeWithRetry)({
         queue,
         bindingKeys: ['booking.created'],
         prefetch: 20,
         consumerTag: 'payment-service/booking-events',
+        enableRetry: true,
+        maxRetries: 3,
+        retryDelaysMs: [5000, 30000, 300000],
     }, async (payload, raw) => {
         if (!isBookingCreatedEvent(payload))
             return;

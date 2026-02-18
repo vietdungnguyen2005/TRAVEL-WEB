@@ -1,9 +1,10 @@
 import express from 'express';
-import { consulRegisterService } from '@travel-web/shared';
+import { consulRegisterService, createCorrelationIdMiddleware } from '@travel-web/shared';
 
 const app = express();
 const PORT = process.env.PORT || 3005;
 
+app.use(createCorrelationIdMiddleware());
 app.get('/health', (req, res) => res.send('Review service healthy'));
 
 app.listen(PORT, () => {

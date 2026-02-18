@@ -1,5 +1,5 @@
 import express from 'express';
-import { consulRegisterService } from '@travel-web/shared';
+import { consulRegisterService, createCorrelationIdMiddleware } from '@travel-web/shared';
 import { PrismaClient, Prisma, RoomStatus } from '../node_modules/.prisma/room-client';
 import { requireRole, verifyJWT } from '@travel-web/shared';
 import { config as loadEnv } from 'dotenv';
@@ -12,6 +12,7 @@ const PORT = process.env.PORT || 3003;
 
 const prisma = new PrismaClient();
 
+app.use(createCorrelationIdMiddleware());
 app.use(express.json());
 
 app.get('/health', (req, res) => res.send('Room service healthy'));

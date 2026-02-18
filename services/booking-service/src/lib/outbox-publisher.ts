@@ -2,6 +2,7 @@ import prisma from './prisma';
 import { Logger, rabbitConnect } from '@travel-web/shared';
 import {
     bookingOutboxBatchSize,
+    bookingOutboxPending,
     bookingOutboxPublishDurationSeconds,
     bookingOutboxPublishErrorsTotal,
     bookingOutboxPublishedTotal,
@@ -64,6 +65,8 @@ async function publishOutbox() {
     const basePollMs = getNumberEnv('OUTBOX_POLL_INTERVAL_MS', 500);
     const idlePollMs = getNumberEnv('OUTBOX_IDLE_POLL_INTERVAL_MS', 1500);
     const maxBackoffMs = getNumberEnv('OUTBOX_MAX_BACKOFF_MS', 15000);
+    const lockTtlMs = getNumberEnv('OUTBOX_LOCK_TTL_MS', 60_000);
+    const publisherId = process.env.OUTBOX_PUBLISHER_ID || process.env.HOSTNAME || `publisher-${Math.random().toString(16).slice(2)}`;
 
     let backoffMs = basePollMs;
 
@@ -72,13 +75,47 @@ async function publishOutbox() {
     // - increase batch size and use confirm channels
     while (true) {
         try {
-            const outboxes = await prisma.outbox.findMany({
-                where: { published: false },
-                take: batchSize,
-                orderBy: { createdAt: 'asc' },
+            // Claim rows using SKIP LOCKED so multiple publishers won't double-publish.
+            // We keep the DB transaction short: claim -> return rows; publish happens outside.
+            const outboxes = await prisma.$transaction(async (tx) => {
+                const rows = await (tx as typeof prisma).$queryRaw<Array<{
+                    id: string;
+                    aggregateType: string;
+                    aggregateId: string;
+                    eventType: string;
+                    payload: unknown;
+                    createdAt: Date;
+                }>>`
+                    WITH cte AS (
+                        SELECT "id"
+                        FROM "booking"."outbox"
+                        WHERE "published" = false
+                          AND ("lockExpiresAt" IS NULL OR "lockExpiresAt" < NOW())
+                        ORDER BY "createdAt" ASC
+                        LIMIT ${batchSize}
+                        FOR UPDATE SKIP LOCKED
+                    )
+                    UPDATE "booking"."outbox" o
+                    SET "lockedAt" = NOW(),
+                        "lockExpiresAt" = NOW() + (${lockTtlMs} * INTERVAL '1 millisecond'),
+                        "lockedBy" = ${publisherId},
+                        "publishAttempts" = COALESCE("publishAttempts", 0) + 1,
+                        "lastError" = NULL
+                    FROM cte
+                    WHERE o."id" = cte."id"
+                    RETURNING o."id", o."aggregateType", o."aggregateId", o."eventType", o."payload", o."createdAt";
+                `;
+                return rows;
             });
 
             bookingOutboxBatchSize.observe(outboxes.length);
+
+            try {
+                const pendingCount = await prisma.outbox.count({ where: { published: false } });
+                bookingOutboxPending.set(pendingCount);
+            } catch {
+                // ignore metric count errors
+            }
 
             if (outboxes.length === 0) {
                 backoffMs = basePollMs;
@@ -91,21 +128,50 @@ async function publishOutbox() {
                 const routingKey = toRoutingKey(o.aggregateType, o.eventType);
                 const payload = Buffer.from(JSON.stringify(o.payload));
 
+                const correlationId = (() => {
+                    const v = (o.payload as { correlationId?: unknown } | null | undefined)?.correlationId;
+                    return typeof v === 'string' && v.trim().length > 0 ? v : undefined;
+                })();
+
                 // Use outbox id as messageId so consumers can do idempotency.
                 ch.publish(exchange, routingKey, payload, {
                     persistent: true,
                     contentType: 'application/json',
                     messageId: o.id,
+                    correlationId,
+                    headers: correlationId ? { 'x-correlation-id': correlationId } : undefined,
                     timestamp: Math.floor(Date.now() / 1000),
                 });
 
-                await prisma.outbox.update({
-                    where: { id: o.id },
-                    data: { published: true, publishedAt: new Date() },
-                });
-                bookingOutboxPublishedTotal.inc({ routingKey });
-                endTimer({ routingKey });
-                logger.info('Published outbox', { id: o.id, routingKey });
+                try {
+                    await prisma.outbox.update({
+                        where: { id: o.id },
+                        data: { published: true, publishedAt: new Date() },
+                    });
+                    bookingOutboxPublishedTotal.inc({ routingKey });
+                    endTimer({ routingKey });
+                    logger.info('Published outbox', { id: o.id, routingKey });
+                } catch (err) {
+                    // If DB update fails after publish, this can cause duplicates on restart.
+                    // Record the error for visibility and let idempotent consumers handle duplicates.
+                    const error = err as Error;
+                    bookingOutboxPublishErrorsTotal.inc();
+                    try {
+                        await prisma.outbox.update({
+                            where: { id: o.id },
+                            data: {
+                                published: false,
+                                lastError: error.message,
+                                // shorten the lock so another publisher can pick it soon
+                                lockExpiresAt: new Date(Date.now() + Math.min(15_000, lockTtlMs)),
+                            },
+                        });
+                    } catch {
+                        // ignore
+                    }
+                    endTimer({ routingKey });
+                    throw err;
+                }
             }
 
             backoffMs = basePollMs;

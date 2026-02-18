@@ -1,3 +1,5 @@
+import { getCorrelationId } from './observability/correlation';
+
 type LogLevel = 'info' | 'warn' | 'error';
 
 function toErrorPayload(error: unknown) {
@@ -16,12 +18,15 @@ export class Logger {
   constructor(private context: string) { }
 
   private write(level: LogLevel, message: string, meta?: unknown, error?: unknown) {
+    const correlationId = getCorrelationId();
     const payload: Record<string, unknown> = {
       ts: new Date().toISOString(),
       level,
       context: this.context,
       msg: message,
     };
+
+    if (correlationId) payload.correlationId = correlationId;
 
     if (typeof meta !== 'undefined') payload.meta = meta;
     const err = toErrorPayload(error);
@@ -45,7 +50,15 @@ export class Logger {
     this.write('warn', message, meta);
   }
 
-  error(message: string, error?: Error) {
-    this.write('error', message, undefined, error);
+  error(message: string, error?: Error): void;
+  error(message: string, meta?: unknown, error?: Error): void;
+  error(message: string, metaOrError?: unknown, maybeError?: unknown) {
+    if (metaOrError instanceof Error || typeof metaOrError === 'undefined') {
+      this.write('error', message, undefined, metaOrError);
+      return;
+    }
+
+    const error = maybeError instanceof Error ? maybeError : undefined;
+    this.write('error', message, metaOrError, error);
   }
 }

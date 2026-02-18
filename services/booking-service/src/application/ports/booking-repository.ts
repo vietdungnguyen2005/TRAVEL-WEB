@@ -1,0 +1,30 @@
+import type { Booking, BookingStatus } from '../../domain/booking';
+import type { TransactionContext } from './unit-of-work';
+
+export type BookingConflictQuery = {
+    roomId: string;
+    checkIn: Date;
+    checkOut: Date;
+};
+
+export type CreateBookingInput = {
+    userId: string;
+    roomId: string;
+    checkIn: Date;
+    checkOut: Date;
+    numberOfGuests: number;
+    totalPrice: unknown;
+    status: BookingStatus;
+    holdExpiresAt?: Date | null;
+};
+
+export type BookingRepository = {
+    findManyByUserId(userId: string): Promise<Booking[]>;
+    findManyAll(filter?: { userId?: string; status?: BookingStatus }): Promise<Booking[]>;
+    findFirstConflict(query: BookingConflictQuery): Promise<Booking | null>;
+
+    create(tx: TransactionContext, input: CreateBookingInput): Promise<Booking>;
+    updateStatus(tx: TransactionContext, input: { id: string; status: BookingStatus; paymentStatus?: string | null }): Promise<Booking>;
+    updatePaymentStatus(tx: TransactionContext, input: { id: string; paymentStatus: string }): Promise<Booking>;
+    getById(id: string): Promise<Booking | null>;
+};

@@ -3,7 +3,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.bookingOutboxPublishDurationSeconds = exports.bookingOutboxBatchSize = exports.bookingOutboxPublishErrorsTotal = exports.bookingOutboxPublishedTotal = exports.bookingRabbitConsumeDurationSeconds = exports.bookingRabbitConsumeTotal = exports.bookingCreateCounter = void 0;
+exports.bookingOutboxPublishDurationSeconds = exports.bookingOutboxBatchSize = exports.bookingOutboxPending = exports.bookingOutboxPublishErrorsTotal = exports.bookingOutboxPublishedTotal = exports.bookingRabbitConsumeDurationSeconds = exports.bookingRabbitConsumeTotal = exports.bookingCreateCounter = void 0;
 const prom_client_1 = __importDefault(require("prom-client"));
 const register = new prom_client_1.default.Registry();
 prom_client_1.default.collectDefaultMetrics({ register });
@@ -32,6 +32,10 @@ exports.bookingOutboxPublishErrorsTotal = new prom_client_1.default.Counter({
     name: 'booking_outbox_publish_errors_total',
     help: 'Total outbox publishing errors (booking-service)',
 });
+exports.bookingOutboxPending = new prom_client_1.default.Gauge({
+    name: 'booking_outbox_pending',
+    help: 'Current number of pending outbox rows (published=false) (booking-service)',
+});
 exports.bookingOutboxBatchSize = new prom_client_1.default.Histogram({
     name: 'booking_outbox_batch_size',
     help: 'Outbox batch sizes read by the publisher (booking-service)',
@@ -48,6 +52,7 @@ register.registerMetric(exports.bookingRabbitConsumeTotal);
 register.registerMetric(exports.bookingRabbitConsumeDurationSeconds);
 register.registerMetric(exports.bookingOutboxPublishedTotal);
 register.registerMetric(exports.bookingOutboxPublishErrorsTotal);
+register.registerMetric(exports.bookingOutboxPending);
 register.registerMetric(exports.bookingOutboxBatchSize);
 register.registerMetric(exports.bookingOutboxPublishDurationSeconds);
 exports.default = register;

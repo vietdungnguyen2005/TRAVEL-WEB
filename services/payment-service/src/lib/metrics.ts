@@ -16,6 +16,18 @@ export const paymentRabbitConsumeDurationSeconds = new client.Histogram({
     buckets: [0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10],
 });
 
+export const paymentRabbitRetryReceivedTotal = new client.Counter({
+    name: 'payment_rabbitmq_retry_received_total',
+    help: 'Total RabbitMQ messages received with x-retry-count > 0 (payment-service)',
+    labelNames: ['queue', 'routingKey', 'eventType', 'retryCount'],
+});
+
+export const paymentRabbitRetryScheduledTotal = new client.Counter({
+    name: 'payment_rabbitmq_retry_scheduled_total',
+    help: 'Total RabbitMQ retries scheduled into TTL retry queues (payment-service)',
+    labelNames: ['queue', 'routingKey', 'eventType', 'delayMs', 'nextRetry'],
+});
+
 export const paymentRabbitPublishTotal = new client.Counter({
     name: 'payment_rabbitmq_publish_total',
     help: 'Total RabbitMQ messages published by payment-service',
@@ -31,6 +43,8 @@ export const paymentRabbitPublishDurationSeconds = new client.Histogram({
 
 register.registerMetric(paymentRabbitConsumeTotal);
 register.registerMetric(paymentRabbitConsumeDurationSeconds);
+register.registerMetric(paymentRabbitRetryReceivedTotal);
+register.registerMetric(paymentRabbitRetryScheduledTotal);
 register.registerMetric(paymentRabbitPublishTotal);
 register.registerMetric(paymentRabbitPublishDurationSeconds);
 

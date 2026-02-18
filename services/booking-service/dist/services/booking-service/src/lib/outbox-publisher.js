@@ -57,18 +57,47 @@ async function publishOutbox() {
     const basePollMs = getNumberEnv('OUTBOX_POLL_INTERVAL_MS', 500);
     const idlePollMs = getNumberEnv('OUTBOX_IDLE_POLL_INTERVAL_MS', 1500);
     const maxBackoffMs = getNumberEnv('OUTBOX_MAX_BACKOFF_MS', 15000);
+    const lockTtlMs = getNumberEnv('OUTBOX_LOCK_TTL_MS', 60000);
+    const publisherId = process.env.OUTBOX_PUBLISHER_ID || process.env.HOSTNAME || `publisher-${Math.random().toString(16).slice(2)}`;
     let backoffMs = basePollMs;
     // Polling loop (simple + safe defaults). For higher throughput:
     // - run multiple publishers with SKIP LOCKED (requires a lock column)
     // - increase batch size and use confirm channels
     while (true) {
         try {
-            const outboxes = await prisma_1.default.outbox.findMany({
-                where: { published: false },
-                take: batchSize,
-                orderBy: { createdAt: 'asc' },
+            // Claim rows using SKIP LOCKED so multiple publishers won't double-publish.
+            // We keep the DB transaction short: claim -> return rows; publish happens outside.
+            const outboxes = await prisma_1.default.$transaction(async (tx) => {
+                const rows = await tx.$queryRaw `
+                    WITH cte AS (
+                        SELECT "id"
+                        FROM "booking"."outbox"
+                        WHERE "published" = false
+                          AND ("lockExpiresAt" IS NULL OR "lockExpiresAt" < NOW())
+                        ORDER BY "createdAt" ASC
+                        LIMIT ${batchSize}
+                        FOR UPDATE SKIP LOCKED
+                    )
+                    UPDATE "booking"."outbox" o
+                    SET "lockedAt" = NOW(),
+                        "lockExpiresAt" = NOW() + (${lockTtlMs} * INTERVAL '1 millisecond'),
+                        "lockedBy" = ${publisherId},
+                        "publishAttempts" = COALESCE("publishAttempts", 0) + 1,
+                        "lastError" = NULL
+                    FROM cte
+                    WHERE o."id" = cte."id"
+                    RETURNING o."id", o."aggregateType", o."aggregateId", o."eventType", o."payload", o."createdAt";
+                `;
+                return rows;
             });
             metrics_1.bookingOutboxBatchSize.observe(outboxes.length);
+            try {
+                const pendingCount = await prisma_1.default.outbox.count({ where: { published: false } });
+                metrics_1.bookingOutboxPending.set(pendingCount);
+            }
+            catch {
+                // ignore metric count errors
+            }
             if (outboxes.length === 0) {
                 backoffMs = basePollMs;
                 await new Promise((r) => setTimeout(r, idlePollMs));
@@ -85,13 +114,37 @@ async function publishOutbox() {
                     messageId: o.id,
                     timestamp: Math.floor(Date.now() / 1000),
                 });
-                await prisma_1.default.outbox.update({
-                    where: { id: o.id },
-                    data: { published: true, publishedAt: new Date() },
-                });
-                metrics_1.bookingOutboxPublishedTotal.inc({ routingKey });
-                endTimer({ routingKey });
-                logger.info('Published outbox', { id: o.id, routingKey });
+                try {
+                    await prisma_1.default.outbox.update({
+                        where: { id: o.id },
+                        data: { published: true, publishedAt: new Date() },
+                    });
+                    metrics_1.bookingOutboxPublishedTotal.inc({ routingKey });
+                    endTimer({ routingKey });
+                    logger.info('Published outbox', { id: o.id, routingKey });
+                }
+                catch (err) {
+                    // If DB update fails after publish, this can cause duplicates on restart.
+                    // Record the error for visibility and let idempotent consumers handle duplicates.
+                    const error = err;
+                    metrics_1.bookingOutboxPublishErrorsTotal.inc();
+                    try {
+                        await prisma_1.default.outbox.update({
+                            where: { id: o.id },
+                            data: {
+                                published: false,
+                                lastError: error.message,
+                                // shorten the lock so another publisher can pick it soon
+                                lockExpiresAt: new Date(Date.now() + Math.min(15000, lockTtlMs)),
+                            },
+                        });
+                    }
+                    catch {
+                        // ignore
+                    }
+                    endTimer({ routingKey });
+                    throw err;
+                }
             }
             backoffMs = basePollMs;
         }

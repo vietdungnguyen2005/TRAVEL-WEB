@@ -1,9 +1,10 @@
 import express from 'express';
-import { consulRegisterService, Logger, loadEnvProfile } from '@travel-web/shared';
-import { bookingRouter } from './http/routes';
+import { consulRegisterService, createCorrelationIdMiddleware, Logger, loadEnvProfile } from '@travel-web/shared';
+import { bookingRouter } from './interfaces/http/booking.routes';
 import { errorHandler } from './http/middlewares/error-handler';
 import publishOutbox from './lib/outbox-publisher';
-import { startPaymentEventsConsumer } from './lib/payment-events-consumer';
+import { startPaymentCompletedConsumer } from './interfaces/events/payment-completed.consumer';
+import { startPaymentRefundEventsConsumer } from './interfaces/events/payment-refund-events.consumer';
 import metricsRegister, { bookingCreateCounter } from './lib/metrics';
 import { healthHandler, readyHandler } from './lib/health';
 const logger = new Logger('BookingService');
@@ -14,6 +15,7 @@ const PORT = process.env.PORT || 3002;
 // In docker-compose, env can also be injected by the container; this won't override existing vars.
 loadEnvProfile({ cwd: process.cwd().split('/services/')[0] });
 
+app.use(createCorrelationIdMiddleware());
 app.use(express.json());
 app.use('/api/bookings', bookingRouter);
 app.get('/healthz', healthHandler);
@@ -29,7 +31,8 @@ app.listen(PORT, () => {
   // start outbox publisher in background
   publishOutbox().catch((err) => logger.error('Outbox publisher failed to start', err as Error));
   // start consumer for payment.* events
-  startPaymentEventsConsumer().catch((err) => logger.error('Payment events consumer failed to start', err as Error));
+  startPaymentCompletedConsumer().catch((err) => logger.error('Payment events consumer failed to start', err as Error));
+  startPaymentRefundEventsConsumer().catch((err) => logger.error('Payment refund events consumer failed to start', err as Error));
 
   if (process.env.SERVICE_DISCOVERY_MODE === 'consul') {
     consulRegisterService({

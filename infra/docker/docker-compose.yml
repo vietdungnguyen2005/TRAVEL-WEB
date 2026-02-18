@@ -35,11 +35,36 @@ services:
     volumes:
       - room-db-data:/var/lib/postgresql/data
 
+  room-service:
+    build:
+      context: ../..
+      dockerfile: services/room-service/Dockerfile
+    environment:
+      PORT: 3003
+      JWT_SECRET: ${JWT_SECRET}
+      ROOM_DATABASE_URL: postgresql://postgres:${POSTGRES_PASSWORD}@room-db:5432/room_db
+    ports:
+      - "3003:3003"
+    depends_on:
+      - room-db
+    volumes:
+      - ../../services/room-service:/app/services/room-service
+      - ../../packages:/app/packages
+
   # Redis for caching & sessions
   redis:
     image: redis:7-alpine
     ports:
       - "6379:6379"
+
+  rabbitmq:
+    image: rabbitmq:3-management
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-guest}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-guest}
 
   # Services
   auth-service:
@@ -47,7 +72,7 @@ services:
       context: ../..
       dockerfile: services/auth-service/Dockerfile
     environment:
-      DATABASE_URL: postgresql://postgres:${POSTGRES_PASSWORD}@auth-db:5432/auth_db
+      AUTH_DATABASE_URL: postgresql://postgres:${POSTGRES_PASSWORD}@auth-db:5432/auth_db
       PORT: 3001
       JWT_SECRET: ${JWT_SECRET}
     ports:
@@ -63,12 +88,17 @@ services:
       context: ../..
       dockerfile: services/booking-service/Dockerfile
     environment:
-      DATABASE_URL: postgresql://postgres:${POSTGRES_PASSWORD}@booking-db:5432/booking_db
+      BOOKING_DATABASE_URL: postgresql://postgres:${POSTGRES_PASSWORD}@booking-db:5432/booking_db
       PORT: 3002
+      REDIS_URL: redis://redis:6379
+      RABBITMQ_URL: amqp://${RABBITMQ_USER:-guest}:${RABBITMQ_PASSWORD:-guest}@rabbitmq:5672
+      DISABLE_RABBITMQ: "true"
     ports:
       - "3002:3002"
     depends_on:
       - booking-db
+      - redis
+      - rabbitmq
     volumes:
       - ../../services/booking-service:/app/services/booking-service
       - ../../packages:/app/packages
@@ -88,6 +118,7 @@ services:
     depends_on:
       - auth-service
       - booking-service
+      - room-service
     volumes:
       - ../../apps/gateway:/app/apps/gateway
       - ../../packages:/app/packages
@@ -98,7 +129,7 @@ services:
       context: ../..
       dockerfile: apps/web/Dockerfile
     environment:
-      NEXT_PUBLIC_API_URL: http://localhost:3000/api
+      NEXT_PUBLIC_API_GATEWAY_URL: http://localhost:3000
     ports:
       - "3100:3000"
     depends_on:

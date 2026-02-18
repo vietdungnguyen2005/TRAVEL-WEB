@@ -233,6 +233,16 @@ async function rabbitConsumeWithRetry(opts, handler) {
             }
             const nextRetry = currentRetry + 1;
             const delayMs = retryDelaysMs[nextRetry - 1];
+            const error = err;
+            logger.warn('RabbitMQ handler failed; scheduling retry', {
+                queue: opts.queue,
+                routingKey: raw.fields.routingKey,
+                messageId: raw.properties.messageId,
+                currentRetry,
+                nextRetry,
+                delayMs,
+                reason: error?.message,
+            });
             // Publish into a retry queue (expected to have TTL + DLX back to main exchange).
             const retryRoutingKey = `${opts.queue}.retry.${delayMs}`;
             const content = raw.content;
@@ -244,6 +254,8 @@ async function rabbitConsumeWithRetry(opts, handler) {
                 headers: {
                     ...(raw.properties.headers || {}),
                     'x-retry-count': nextRetry,
+                    'x-retry-delay-ms': delayMs,
+                    'x-retry-reason': error?.message,
                     'x-original-exchange': exchange,
                     'x-original-routing-key': raw.fields.routingKey,
                 },

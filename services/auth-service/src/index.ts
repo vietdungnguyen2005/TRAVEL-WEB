@@ -1,5 +1,5 @@
 import express from 'express';
-import { consulRegisterService, Logger } from '@travel-web/shared';
+import { consulRegisterService, createCorrelationIdMiddleware, Logger } from '@travel-web/shared';
 import { authRouter } from './http/routes';
 import { adminRouter } from './http/routes/admin';
 import { errorHandler } from './http/middlewares/error-handler';
@@ -22,6 +22,7 @@ if (process.env.TRUST_PROXY === '1' || process.env.TRUST_PROXY === 'true') {
 }
 
 app.use(express.json());
+app.use(createCorrelationIdMiddleware());
 app.use(cookieParser());
 
 // Standard discovery endpoint for public keys (used by API Gateway)

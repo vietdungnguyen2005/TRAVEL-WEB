@@ -7,8 +7,8 @@ export async function assertBookingQueueTopology() {
 
     const paymentQueue = process.env.RABBITMQ_QUEUE_PAYMENT_EVENTS || 'booking-service.payment-events';
 
-    // Retry queues: 1s, 10s, 60s. Messages dead-letter back to the main exchange with original routing key.
-    const retryDelaysMs = [1000, 10000, 60000];
+    // Retry queues: 5s, 30s, 5m.
+    const retryDelaysMs = [5000, 30000, 300000];
 
     await rabbitAssertTopology({
         exchange: { name: exchange, type: 'topic' },
@@ -24,8 +24,7 @@ export async function assertBookingQueueTopology() {
                     },
                 },
                 bindings: [
-                    { exchange, routingKey: 'payment.*' },
-                    { exchange, routingKey: 'payment.*.*' },
+                    { exchange, routingKey: 'payment.completed' },
                 ],
             },
             {
@@ -40,8 +39,7 @@ export async function assertBookingQueueTopology() {
                 name: `${paymentQueue}.retry.${ttlMs}`,
                 ttlMs,
                 deadLetterExchange: exchange,
-                // Consumers use the routing key on the message itself; we preserve it by dead-lettering to main exchange
-                // with the same routing key we publish retries with.
+                // Single binding key; retries always come back as payment.completed.
                 deadLetterRoutingKey: 'payment.completed',
                 bindings: [{ exchange: retryExchange, routingKey: `${paymentQueue}.retry.${ttlMs}` }],
             })),

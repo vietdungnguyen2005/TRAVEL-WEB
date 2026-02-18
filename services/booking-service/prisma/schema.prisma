@@ -47,9 +47,15 @@ model Outbox {
   payload       Json
   published     Boolean  @default(false)
   publishedAt   DateTime?
+  lockedAt      DateTime?
+  lockExpiresAt DateTime?
+  lockedBy      String?
+  publishAttempts Int     @default(0)
+  lastError     String?
   createdAt     DateTime @default(now())
 
   @@index([published, createdAt])
+  @@index([published, lockExpiresAt, createdAt])
   @@map("outbox")
   @@schema("booking")
 }

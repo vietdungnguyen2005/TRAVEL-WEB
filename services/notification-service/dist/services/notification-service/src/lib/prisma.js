@@ -1,8 +1,13 @@
 "use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", { value: true });
-// Use the notification-service specific generated Prisma client.
-// The custom Prisma generator outputs a client under node_modules/.prisma/notification-client.
-const notification_client_1 = require("../../node_modules/.prisma/notification-client");
-const prisma = new notification_client_1.PrismaClient();
+const path_1 = __importDefault(require("path"));
+const module_1 = require("module");
+const generatedClientPath = path_1.default.join(process.cwd(), 'node_modules', '.prisma', 'notification-client');
+const requireFromHere = (0, module_1.createRequire)(__filename);
+const { PrismaClient } = requireFromHere(generatedClientPath);
+const prisma = new PrismaClient();
 exports.default = prisma;
 //# sourceMappingURL=prisma.js.map

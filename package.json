@@ -13,11 +13,12 @@
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
     "postinstall": "echo 'postinstall: skipped root prisma generate (use per-service prisma)'",
-    "db:seed": "ts-node --compiler-options '{\"module\":\"CommonJS\"}' prisma/seed.ts",
-    "db:seed:auth": "npm run db:seed --workspace=@travel-web/auth-service"
+    "db:seed": "ts-node --compiler-options \"{\\\"module\\\":\\\"CommonJS\\\"}\" prisma/seed.ts",
+    "db:seed:auth": "npm run db:seed --workspace=@travel-web/auth-service",
+    "dlq:replay": "ts-node --compiler-options \"{\\\"module\\\":\\\"CommonJS\\\"}\" scripts/replay-dlq.ts"
   },
   "prisma": {
-    "seed": "ts-node --compiler-options '{\"module\":\"CommonJS\"}' prisma/seed.ts"
+    "seed": "ts-node --compiler-options \"{\\\"module\\\":\\\"CommonJS\\\"}\" prisma/seed.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",

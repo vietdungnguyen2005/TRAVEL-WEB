@@ -7,8 +7,8 @@ async function assertBookingQueueTopology() {
     const dlx = process.env.RABBITMQ_DLX_EXCHANGE || 'dlx';
     const retryExchange = process.env.RABBITMQ_RETRY_EXCHANGE || 'retry';
     const paymentQueue = process.env.RABBITMQ_QUEUE_PAYMENT_EVENTS || 'booking-service.payment-events';
-    // Retry queues: 1s, 10s, 60s. Messages dead-letter back to the main exchange with original routing key.
-    const retryDelaysMs = [1000, 10000, 60000];
+    // Retry queues: 5s, 30s, 5m.
+    const retryDelaysMs = [5000, 30000, 300000];
     await (0, shared_1.rabbitAssertTopology)({
         exchange: { name: exchange, type: 'topic' },
         dlx: { exchange: { name: dlx, type: 'topic' } },
@@ -23,8 +23,7 @@ async function assertBookingQueueTopology() {
                     },
                 },
                 bindings: [
-                    { exchange, routingKey: 'payment.*' },
-                    { exchange, routingKey: 'payment.*.*' },
+                    { exchange, routingKey: 'payment.completed' },
                 ],
             },
             {
@@ -39,8 +38,7 @@ async function assertBookingQueueTopology() {
                 name: `${paymentQueue}.retry.${ttlMs}`,
                 ttlMs,
                 deadLetterExchange: exchange,
-                // Consumers use the routing key on the message itself; we preserve it by dead-lettering to main exchange
-                // with the same routing key we publish retries with.
+                // Single binding key; retries always come back as payment.completed.
                 deadLetterRoutingKey: 'payment.completed',
                 bindings: [{ exchange: retryExchange, routingKey: `${paymentQueue}.retry.${ttlMs}` }],
             })),

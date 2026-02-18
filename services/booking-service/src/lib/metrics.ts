@@ -22,6 +22,25 @@ export const bookingRabbitConsumeDurationSeconds = new client.Histogram({
     buckets: [0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10],
 });
 
+export const bookingRabbitRetryReceivedTotal = new client.Counter({
+    name: 'booking_rabbitmq_retry_received_total',
+    help: 'Total RabbitMQ messages received with x-retry-count > 0 (booking-service)',
+    labelNames: ['queue', 'routingKey', 'eventType', 'retryCount'],
+});
+
+export const bookingRabbitRetryScheduledTotal = new client.Counter({
+    name: 'booking_rabbitmq_retry_scheduled_total',
+    help: 'Total RabbitMQ retries scheduled into TTL retry queues (booking-service)',
+    labelNames: ['queue', 'routingKey', 'eventType', 'delayMs', 'nextRetry'],
+});
+
+export const bookingLifecycleDurationSeconds = new client.Histogram({
+    name: 'booking_lifecycle_duration_seconds',
+    help: 'Booking lifecycle duration in seconds for key transitions (booking-service)',
+    labelNames: ['transition'],
+    buckets: [0.5, 1, 2.5, 5, 10, 30, 60, 120, 300, 600, 1800, 3600, 7200],
+});
+
 export const bookingOutboxPublishedTotal = new client.Counter({
     name: 'booking_outbox_published_total',
     help: 'Total outbox rows successfully published to RabbitMQ (booking-service)',
@@ -31,6 +50,11 @@ export const bookingOutboxPublishedTotal = new client.Counter({
 export const bookingOutboxPublishErrorsTotal = new client.Counter({
     name: 'booking_outbox_publish_errors_total',
     help: 'Total outbox publishing errors (booking-service)',
+});
+
+export const bookingOutboxPending = new client.Gauge({
+    name: 'booking_outbox_pending',
+    help: 'Current number of pending outbox rows (published=false) (booking-service)',
 });
 
 export const bookingOutboxBatchSize = new client.Histogram({
@@ -49,8 +73,12 @@ export const bookingOutboxPublishDurationSeconds = new client.Histogram({
 register.registerMetric(bookingCreateCounter);
 register.registerMetric(bookingRabbitConsumeTotal);
 register.registerMetric(bookingRabbitConsumeDurationSeconds);
+register.registerMetric(bookingRabbitRetryReceivedTotal);
+register.registerMetric(bookingRabbitRetryScheduledTotal);
+register.registerMetric(bookingLifecycleDurationSeconds);
 register.registerMetric(bookingOutboxPublishedTotal);
 register.registerMetric(bookingOutboxPublishErrorsTotal);
+register.registerMetric(bookingOutboxPending);
 register.registerMetric(bookingOutboxBatchSize);
 register.registerMetric(bookingOutboxPublishDurationSeconds);
 
