@@ -29,7 +29,7 @@ adminRouter.get('/users', async (_req: Request, res: Response) => {
             },
         });
         res.json(users);
-    } catch (err) {
+    } catch {
         res.status(500).json({ error: 'Failed to list users' });
     }
 });
@@ -69,7 +69,7 @@ adminRouter.get('/stats', async (_req: Request, res: Response) => {
             bookingGrowth: 0,
             recentBookings: [],
         });
-    } catch (err) {
+    } catch {
         res.status(500).json({ error: 'Failed to get stats' });
     }
 });
@@ -84,7 +84,7 @@ adminRouter.get('/analytics', async (req: Request, res: Response) => {
             revenue: [],
             periodMonths: months,
         });
-    } catch (err) {
+    } catch {
         res.status(500).json({ error: 'Failed to get analytics' });
     }
 });

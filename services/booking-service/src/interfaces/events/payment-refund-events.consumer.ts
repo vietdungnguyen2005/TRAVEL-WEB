@@ -34,7 +34,7 @@ function getBookingId(payload: unknown): string | undefined {
     const p = payload as Record<string, unknown>;
     const data = p.data && typeof p.data === 'object' ? (p.data as Record<string, unknown>) : undefined;
     const fromData = data && typeof data.bookingId === 'string' ? data.bookingId : undefined;
-    const fromTop = typeof (p as any).bookingId === 'string' ? (p as any).bookingId : undefined;
+    const fromTop = typeof p.bookingId === 'string' ? p.bookingId : undefined;
     return fromData || fromTop;
 }
 

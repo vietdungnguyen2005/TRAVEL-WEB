@@ -35,6 +35,7 @@ app.use(routes);
 
 // Global error handler
 app.use((err: unknown, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
+    void _next;
     if (err instanceof Error) {
         logger.error('unhandled_error', err);
     } else {

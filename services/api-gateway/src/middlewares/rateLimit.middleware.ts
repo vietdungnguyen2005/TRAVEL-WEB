@@ -14,7 +14,6 @@ async function getRedisClient() {
 
     const client = createClient({ url });
     client.on('error', (err) => {
-        // eslint-disable-next-line no-console
         console.error('[rate-limit] redis error', err);
     });
 

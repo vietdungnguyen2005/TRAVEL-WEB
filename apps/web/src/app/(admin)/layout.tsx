@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth-session";
 import Link from "next/link";
-import { Home, Calendar, Bed, Users, BarChart3, Settings, Image, FileText } from "lucide-react";
+import { Home, Calendar, Bed, Users, BarChart3, Image, FileText } from "lucide-react";
 
 export default async function AdminLayout({
     children,

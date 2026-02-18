@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useBookingStore } from "@/store/booking-store";
 import { ClientLayout } from "@/components/layout/client-layout";
@@ -22,65 +22,12 @@ export default function BookingConfirmPage() {
   const [error, setError] = useState<string | null>(null);
   const [availabilityChecked, setAvailabilityChecked] = useState(false);
   const [roomAvailable, setRoomAvailable] = useState(false);
-  const [assignedRoomId, setAssignedRoomId] = useState<string | null>(null);
   const [assignedRoomNumber, setAssignedRoomNumber] = useState<string | null>(null);
   const [holdBookingId, setHoldBookingId] = useState<string | null>(null);
   const [expiresAt, setExpiresAt] = useState<Date | null>(null);
   const [processingPayment, setProcessingPayment] = useState(false);
 
-  useEffect(() => {
-    if (!bookingData) {
-      router.push("/rooms");
-      return;
-    }
-
-    checkAvailability();
-  }, [bookingData, router]);
-
-  const checkAvailability = async () => {
-    if (!bookingData) return;
-
-    try {
-      setLoading(true);
-      setError(null);
-
-      const response = await gatewayFetch("/api/bookings/check-availability", {
-        method: "POST",
-        body: JSON.stringify({
-          // booking-service expects physical roomId, not roomTypeId.
-          // At this stage we use the pre-selected roomId from the availability step.
-          roomId: bookingData.roomId,
-          checkIn: bookingData.checkIn,
-          checkOut: bookingData.checkOut,
-          // booking-service uses numberOfGuests
-          numberOfGuests: bookingData.guests,
-        }),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || "Failed to check availability");
-      }
-
-      setAvailabilityChecked(true);
-      setRoomAvailable(data.available);
-
-      // booking-service check-availability responds with { available: boolean }
-      setAssignedRoomId(bookingData.roomId);
-      setAssignedRoomNumber(null);
-
-      if (data.available) {
-        await createHoldBooking(bookingData.roomId);
-      }
-    } catch (err: any) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const createHoldBooking = async (roomId: string) => {
+  const createHoldBooking = useCallback(async (roomId: string) => {
     if (!bookingData) return;
 
     try {
@@ -106,10 +53,64 @@ export default function BookingConfirmPage() {
       // booking-service returns booking directly
       setHoldBookingId(data.id);
       setExpiresAt(new Date(data.holdExpiresAt));
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to create hold booking");
     }
-  };
+  }, [bookingData]);
+
+  const checkAvailability = useCallback(async () => {
+    if (!bookingData) return;
+
+    try {
+      setLoading(true);
+      setError(null);
+
+      const response = await gatewayFetch("/api/bookings/check-availability", {
+        method: "POST",
+        body: JSON.stringify({
+          // booking-service expects physical roomId, not roomTypeId.
+          // At this stage we use the pre-selected roomId from the availability step.
+          roomId: bookingData.roomId,
+          checkIn: bookingData.checkIn,
+          checkOut: bookingData.checkOut,
+          // booking-service uses numberOfGuests
+          numberOfGuests: bookingData.guests,
+        }),
+      });
+
+      const data = await response.json().catch(() => ({} as Record<string, unknown>));
+
+      if (!response.ok) {
+        const message =
+          typeof (data as any)?.error === "string" ? (data as any).error : "Failed to check availability";
+        throw new Error(message);
+      }
+
+      const available = Boolean((data as any)?.available);
+      setAvailabilityChecked(true);
+      setRoomAvailable(available);
+
+      // booking-service check-availability responds with { available: boolean }
+      setAssignedRoomNumber(null);
+
+      if (available) {
+        await createHoldBooking(bookingData.roomId);
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to check availability");
+    } finally {
+      setLoading(false);
+    }
+  }, [bookingData, createHoldBooking]);
+
+  useEffect(() => {
+    if (!bookingData) {
+      router.push("/rooms");
+      return;
+    }
+
+    void checkAvailability();
+  }, [bookingData, router, checkAvailability]);
 
   const handleTimerExpire = () => {
     setError("Your reservation has expired. Please start over.");

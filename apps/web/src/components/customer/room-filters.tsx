@@ -29,19 +29,22 @@ export interface FilterState {
 }
 
 export function RoomFilters({ onFilterChange, initialFilters }: RoomFiltersProps) {
-  const defaultFilters: FilterState = {
-    priceRange: [0, 10000000],
-    capacity: null,
-    roomTypes: [],
-    promoDiscounts: [],
-    starRatings: [],
-    guestRatings: [],
-    accommodationTypes: [],
-    popularFacilities: [],
-    moreFlexibility: [],
-    uniqueFacilities: [],
-    roomFacilities: [],
-  };
+  const defaultFilters = useMemo<FilterState>(
+    () => ({
+      priceRange: [0, 10000000],
+      capacity: null,
+      roomTypes: [],
+      promoDiscounts: [],
+      starRatings: [],
+      guestRatings: [],
+      accommodationTypes: [],
+      popularFacilities: [],
+      moreFlexibility: [],
+      uniqueFacilities: [],
+      roomFacilities: [],
+    }),
+    []
+  );
 
   const [draftFilters, setDraftFilters] = useState<FilterState>(
     initialFilters || defaultFilters
@@ -125,7 +128,7 @@ export function RoomFilters({ onFilterChange, initialFilters }: RoomFiltersProps
 
   useEffect(() => {
     setDraftFilters(initialFilters || defaultFilters);
-  }, [initialFilters]);
+  }, [initialFilters, defaultFilters]);
 
   const hasChanges =
     draftFilters.priceRange[0] !== (initialFilters?.priceRange?.[0] ?? defaultFilters.priceRange[0]) ||

@@ -157,6 +157,7 @@ export async function login(req: Request, res: Response) {
     setRefreshCookie(res, refresh.token);
 
     const { password: _pw, ...safeUser } = user;
+    void _pw;
 
     return res.status(200).json({
         message: 'Đăng nhập thành công',

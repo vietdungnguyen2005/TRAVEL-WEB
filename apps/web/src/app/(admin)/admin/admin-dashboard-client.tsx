@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Calendar, Bed, Users, DollarSign, TrendingUp, Clock, Loader2 } from "lucide-react";
+import { Calendar, Bed, DollarSign, TrendingUp, Clock, Loader2 } from "lucide-react";
 import { format } from "date-fns";
 import { gatewayFetch } from "@/lib/gateway-client";
 

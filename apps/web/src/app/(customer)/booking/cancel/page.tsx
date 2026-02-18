@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { XCircle, AlertTriangle, Home, ArrowLeft } from "lucide-react";
+import { AlertTriangle, Home, ArrowLeft } from "lucide-react";
 import Link from "next/link";
 import { ClientLayout } from "@/components/layout/client-layout";
 

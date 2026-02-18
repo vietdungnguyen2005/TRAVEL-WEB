@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { format, addDays, differenceInDays } from "date-fns";
+import { format, differenceInDays } from "date-fns";
 import { Calendar } from "@/components/ui/calendar";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -30,6 +30,7 @@ export interface BookingData {
 }
 
 export function BookingForm({ roomTypeId, basePrice, capacity, onSubmit, isSubmitting = false }: BookingFormProps) {
+  void roomTypeId;
   const [checkIn, setCheckIn] = useState<Date>();
   const [checkOut, setCheckOut] = useState<Date>();
   const [guests, setGuests] = useState(1);

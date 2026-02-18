@@ -5,13 +5,16 @@
  * - Và khoảng thời gian [checkIn, checkOut) giao nhau với [existingCheckIn, existingCheckOut)
  */
 
-import { addDays, isAfter, isBefore } from "date-fns";
+// Note: date-fns imports were removed; UI-only web uses gateway endpoints for availability/pricing.
 
 export async function checkRoomAvailability(
   roomId: string,
   checkIn: Date,
   checkOut: Date
 ): Promise<boolean> {
+  void roomId;
+  void checkIn;
+  void checkOut;
   // UI-only web app: availability must be checked via booking-service through the API gateway.
   // Keep function as a guard to avoid silent incorrect logic.
   throw new Error(
@@ -27,6 +30,9 @@ export async function findAvailableRooms(
   checkIn: Date,
   checkOut: Date
 ) {
+  void roomTypeId;
+  void checkIn;
+  void checkOut;
   throw new Error(
     "findAvailableRooms() is not available in UI-only web. Use gateway endpoint /api/rooms/availability."
   );
@@ -40,6 +46,9 @@ export async function calculateTotalPrice(
   checkIn: Date,
   checkOut: Date
 ): Promise<number> {
+  void roomTypeId;
+  void checkIn;
+  void checkOut;
   throw new Error(
     "calculateTotalPrice(roomTypeId, checkIn, checkOut) is not available in UI-only web. Use booking-service pricing endpoint (via gateway) or calculate locally with calculateTotalPriceCompat()."
   );
@@ -54,6 +63,7 @@ export function calculateTotalPriceCompat(
   seasonalPrices: Array<{ startDate: Date; endDate: Date; pricePerNight: number }>
 ): number {
   const nights = Math.ceil((checkOut.getTime() - checkIn.getTime()) / (1000 * 60 * 60 * 24));
+  void nights;
   let total = 0;
   const current = new Date(checkIn);
   while (current < checkOut) {

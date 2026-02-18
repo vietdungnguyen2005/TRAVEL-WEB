@@ -84,11 +84,9 @@ async function main() {
 main()
     .then(async () => {
         await prisma.$disconnect();
-        // eslint-disable-next-line no-console
         console.log('room-service seed complete');
     })
     .catch(async (e) => {
-        // eslint-disable-next-line no-console
         console.error(e);
         await prisma.$disconnect();
         process.exit(1);

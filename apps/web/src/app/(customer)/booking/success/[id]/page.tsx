@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useCallback, useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
@@ -52,15 +52,10 @@ interface BookingData {
 export default function BookingSuccessPage({ params }: { params: { id: string } }) {
   const { id } = params;
   const router = useRouter();
-  const searchParams = useSearchParams();
   const [booking, setBooking] = useState<BookingData | null>(null);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    fetchBooking();
-  }, [id]);
-
-  const fetchBooking = async () => {
+  const fetchBooking = useCallback(async () => {
     try {
       // booking-service doesn't expose /api/booking/:id. Use my-bookings and find the booking.
       const response = await gatewayFetch("/api/bookings/my-bookings", {
@@ -77,16 +72,22 @@ export default function BookingSuccessPage({ params }: { params: { id: string } 
         throw new Error("Failed to fetch booking");
       }
 
-      const list = await response.json();
-      const data = Array.isArray(list) ? list.find((b: any) => b?.id === id) : null;
+      const list = (await response.json()) as unknown;
+      const data = Array.isArray(list)
+        ? list.find((b) => (b as { id?: string } | null)?.id === id)
+        : null;
       if (!data) throw new Error("Booking not found");
-      setBooking(data);
-    } catch (error) {
-      console.error("Error fetching booking:", error);
+      setBooking(data as BookingData);
+    } catch (err) {
+      console.error("Error fetching booking:", err);
     } finally {
       setLoading(false);
     }
-  };
+  }, [id, router]);
+
+  useEffect(() => {
+    void fetchBooking();
+  }, [fetchBooking]);
 
   const calculateNights = () => {
     if (!booking) return 0;

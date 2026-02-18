@@ -24,7 +24,6 @@ export async function resendVerificationEmailHandler(req: Request, res: Response
         // For production you'd email the token / verification link.
         return res.status(200).json({ success: true, verificationToken: token });
     } catch (err) {
-        // eslint-disable-next-line no-console
         console.error(err);
         return res.status(500).json({ error: 'Internal server error' });
     }

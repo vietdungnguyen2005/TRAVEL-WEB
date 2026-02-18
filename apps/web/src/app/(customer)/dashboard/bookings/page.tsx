@@ -1,13 +1,11 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth-session";
 import { gatewayFetchServer } from "@/lib/gateway-server";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { BookingItem } from "@/components/booking/booking-item";
 import Link from "next/link";
-import { format, differenceInDays } from "date-fns";
-import { Calendar, MapPin, Users, Clock } from "lucide-react";
+import { Calendar } from "lucide-react";
 import { ClientLayout } from "@/components/layout/client-layout";
 
 export default async function MyBookingsPage() {
@@ -28,7 +26,6 @@ export default async function MyBookingsPage() {
       bookings = Array.isArray(data) ? data : data?.data ?? [];
     }
   } catch (err) {
-    // eslint-disable-next-line no-console
     console.error("Error fetching bookings:", err);
     bookings = [];
   }

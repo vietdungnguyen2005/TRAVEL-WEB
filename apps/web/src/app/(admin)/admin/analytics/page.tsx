@@ -11,28 +11,16 @@ import {
 } from "@/components/ui/select";
 import { TrendingUp, DollarSign, Calendar, Percent } from "lucide-react";
 import {
-  LineChart,
-  Line,
   BarChart,
   Bar,
   XAxis,
   YAxis,
   CartesianGrid,
   Tooltip,
-  Legend,
   ResponsiveContainer,
   Area,
   AreaChart,
 } from "recharts";
-import {
-  format,
-  startOfMonth,
-  endOfMonth,
-  subMonths,
-  eachMonthOfInterval,
-  startOfYear,
-} from "date-fns";
-import { vi } from "date-fns/locale";
 
 interface MonthlyRevenue {
   month: string;
@@ -61,23 +49,25 @@ export default function AnalyticsPage() {
   const [period, setPeriod] = useState("6"); // months
 
   useEffect(() => {
-    fetchAnalytics();
-  }, [period]);
-
-  async function fetchAnalytics() {
-    try {
-      setLoading(true);
-      const response = await fetch(`/api/admin/analytics?months=${period}`);
-      if (response.ok) {
+    let cancelled = false;
+    (async () => {
+      try {
+        setLoading(true);
+        const response = await fetch(`/api/admin/analytics?months=${period}`);
+        if (!response.ok) return;
         const data = await response.json();
-        setStats(data);
+        if (!cancelled) setStats(data);
+      } catch (error) {
+        console.error("Error fetching analytics:", error);
+      } finally {
+        if (!cancelled) setLoading(false);
       }
-    } catch (error) {
-      console.error("Error fetching analytics:", error);
-    } finally {
-      setLoading(false);
-    }
-  }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [period]);
 
   return (
     <div className="space-y-6">

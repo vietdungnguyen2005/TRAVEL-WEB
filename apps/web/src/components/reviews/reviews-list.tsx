@@ -40,29 +40,35 @@ export function ReviewsList({ roomTypeId }: ReviewsListProps) {
   const [hasMore, setHasMore] = useState(false);
 
   useEffect(() => {
-    fetchReviews();
-  }, [roomTypeId, page]);
+    let cancelled = false;
 
-  async function fetchReviews() {
-    try {
-      setLoading(true);
-      const response = await gatewayFetch(
-        `/api/reviews/room-type/${roomTypeId}?page=${page}&limit=10`,
-        { method: "GET" }
-      );
+    (async () => {
+      try {
+        setLoading(true);
+        const response = await gatewayFetch(
+          `/api/reviews/room-type/${roomTypeId}?page=${page}&limit=10`,
+          { method: "GET" }
+        );
 
-      if (response.ok) {
+        if (!response.ok) return;
+
         const data = await response.json();
+        if (cancelled) return;
+
         setReviews(data.reviews);
         setStats(data.stats);
         setHasMore(data.pagination.page < data.pagination.totalPages);
+      } catch (error) {
+        console.error("Error fetching reviews:", error);
+      } finally {
+        if (!cancelled) setLoading(false);
       }
-    } catch (error) {
-      console.error("Error fetching reviews:", error);
-    } finally {
-      setLoading(false);
-    }
-  }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [roomTypeId, page]);
 
   function renderStars(rating: number) {
     return (

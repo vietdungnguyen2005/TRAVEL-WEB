@@ -2,10 +2,12 @@ import { notFound } from "next/navigation";
 import { gatewayFetch } from "@/lib/gateway-client";
 import { MainLayout } from "@/components/layout/main-layout";
 import { ImageGallery } from "@/components/customer/image-gallery";
-import { BookingFormClient } from "@/components/customer/booking-form-client"; import { ReviewsList } from "@/components/reviews/reviews-list"; import { Badge } from "@/components/ui/badge";
+import { BookingFormClient } from "@/components/customer/booking-form-client";
+import { ReviewsList } from "@/components/reviews/reviews-list";
+import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
-import { Users, Bed, Maximize, Wifi, Tv, Wind, Coffee, CheckCircle } from "lucide-react";
+import { type LucideIcon, Users, Bed, Maximize, Wifi, Tv, Wind, Coffee, CheckCircle } from "lucide-react";
 
 interface PageProps {
   params: {
@@ -13,7 +15,7 @@ interface PageProps {
   };
 }
 
-const amenityIcons: Record<string, any> = {
+const amenityIcons: Record<string, LucideIcon> = {
   "Wifi": Wifi,
   "TV": Tv,
   "AC": Wind,
@@ -29,7 +31,6 @@ async function getRoomType(id: string) {
     const data = await res.json();
     return data?.data ?? data;
   } catch (err) {
-    // eslint-disable-next-line no-console
     console.error("Error fetching room type:", err);
     return null;
   }
@@ -112,7 +113,7 @@ export default async function RoomDetailPage({ params }: PageProps) {
               </CardHeader>
               <CardContent>
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                  {roomType.amenities?.map((amenity: any) => {
+                  {(roomType.amenities as string[] | undefined)?.map((amenity) => {
                     const Icon = amenityIcons[amenity] || CheckCircle;
                     return (
                       <div key={amenity} className="flex items-center gap-2">

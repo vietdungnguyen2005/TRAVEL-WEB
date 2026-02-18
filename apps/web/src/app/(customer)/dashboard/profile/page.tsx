@@ -73,7 +73,7 @@ export default function ProfilePage() {
         throw new Error(error.message || "Update failed");
       }
 
-      const data = await response.json();
+      await response.json().catch(() => ({}));
 
       toast.success("Cập nhật thông tin thành công!");
     } catch (error: any) {
@@ -185,7 +185,7 @@ export default function ProfilePage() {
       if (updateResponse.ok) {
         toast.success("Cập nhật avatar thành công!");
       }
-    } catch (error) {
+    } catch {
       toast.error("Upload thất bại", {
         description: "Vui lòng thử lại",
       });

@@ -60,23 +60,6 @@ function getWebAppUrl() {
     return raw.endsWith('/') ? raw.slice(0, -1) : raw;
 }
 
-function toAbsoluteWebRedirect(pathOrUrl: string) {
-    // If the cookie somehow contains an absolute URL, only allow it if it matches WEB_APP_URL.
-    const web = getWebAppUrl();
-    if (!web) return pathOrUrl.startsWith('/') ? pathOrUrl : '/dashboard';
-
-    if (pathOrUrl.startsWith('/')) return `${web}${pathOrUrl}`;
-
-    try {
-        const u = new URL(pathOrUrl);
-        const w = new URL(web);
-        if (u.origin !== w.origin) return `${web}/dashboard`;
-        return u.toString();
-    } catch {
-        return `${web}/dashboard`;
-    }
-}
-
 function toWebOauthLandingUrl(args: { token: string; redirect: string }) {
     const web = getWebAppUrl();
     if (!web) return '/dashboard';

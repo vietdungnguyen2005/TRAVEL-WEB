@@ -17,7 +17,7 @@ adminHeroImagesRouter.get('/hero-images', async (_req: Request, res: Response) =
             orderBy: [{ order: 'asc' }, { createdAt: 'asc' }],
         });
         res.json(images);
-    } catch (err) {
+    } catch {
         res.status(500).json({ error: 'Failed to list hero images' });
     }
 });
@@ -41,7 +41,7 @@ adminHeroImagesRouter.post('/hero-images', async (req: Request, res: Response) =
             },
         });
         res.status(201).json(created);
-    } catch (err) {
+    } catch {
         res.status(500).json({ error: 'Failed to create hero image' });
     }
 });

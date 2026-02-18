@@ -26,7 +26,6 @@ export async function forgotPassword(req: Request, res: Response) {
         // For production you'd email the token. For now return token for dev/testing.
         return res.status(200).json({ message: 'Reset token created', token });
     } catch (err) {
-        // eslint-disable-next-line no-console
         console.error(err);
         return res.status(500).json({ error: 'Internal server error' });
     }

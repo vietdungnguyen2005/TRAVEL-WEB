@@ -14,14 +14,9 @@ export function ContactForm() {
     e.preventDefault();
     setLoading(true);
 
-    const formData = new FormData(e.currentTarget);
-    const data = {
-      name: formData.get("name") as string,
-      email: formData.get("email") as string,
-      phone: formData.get("phone") as string,
-      subject: formData.get("subject") as string,
-      message: formData.get("message") as string,
-    };
+    // In this demo UI, we just simulate sending.
+    // Read form data to ensure inputs are wired.
+    void new FormData(e.currentTarget);
 
     // Simulate API call
     await new Promise(resolve => setTimeout(resolve, 1000));

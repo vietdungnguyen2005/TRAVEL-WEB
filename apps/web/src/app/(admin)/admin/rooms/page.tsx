@@ -24,7 +24,6 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Bed, Plus, Edit, Trash2, Search } from "lucide-react";
-import Image from "next/image";
 
 interface RoomType {
   id: string;

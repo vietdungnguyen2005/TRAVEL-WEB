@@ -5,7 +5,7 @@ import { errorHandler } from './http/middlewares/error-handler';
 import publishOutbox from './lib/outbox-publisher';
 import { startPaymentCompletedConsumer } from './interfaces/events/payment-completed.consumer';
 import { startPaymentRefundEventsConsumer } from './interfaces/events/payment-refund-events.consumer';
-import metricsRegister, { bookingCreateCounter } from './lib/metrics';
+import metricsRegister from './lib/metrics';
 import { healthHandler, readyHandler } from './lib/health';
 const logger = new Logger('BookingService');
 const app = express();

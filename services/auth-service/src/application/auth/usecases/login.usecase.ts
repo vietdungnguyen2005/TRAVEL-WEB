@@ -49,6 +49,7 @@ export class LoginUseCase {
         });
 
         const { passwordHash: _pw, ...safeUser } = user;
+        void _pw;
         return { user: safeUser, accessToken, refreshToken: refresh.token };
     }
 }

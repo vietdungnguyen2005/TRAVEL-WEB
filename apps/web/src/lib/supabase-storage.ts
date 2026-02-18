@@ -59,7 +59,7 @@ export async function uploadToSupabaseStorage(
     }
 
     // Upload file to Supabase Storage
-    const { data, error } = await supabaseStorage.storage
+    const { error } = await supabaseStorage.storage
       .from(bucketName)
       .upload(filePath, fileBuffer, {
         contentType: file instanceof File ? file.type : 'image/jpeg',

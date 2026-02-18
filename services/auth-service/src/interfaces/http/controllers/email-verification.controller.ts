@@ -14,7 +14,6 @@ function mapAuthError(err: unknown, res: Response) {
         return res.status(400).json({ error: 'bad request' });
     }
 
-    // eslint-disable-next-line no-console
     console.error(err);
     return res.status(500).json({ error: 'Internal server error' });
 }

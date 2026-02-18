@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -102,11 +102,7 @@ export default function BookingsManagement() {
   const [filter, setFilter] = useState<string>("ALL");
   const [updating, setUpdating] = useState<string | null>(null);
 
-  useEffect(() => {
-    fetchBookings();
-  }, [filter]);
-
-  async function fetchBookings() {
+  const fetchBookings = useCallback(async () => {
     try {
       setLoading(true);
       const params = new URLSearchParams();
@@ -124,7 +120,11 @@ export default function BookingsManagement() {
     } finally {
       setLoading(false);
     }
-  }
+  }, [filter]);
+
+  useEffect(() => {
+    void fetchBookings();
+  }, [fetchBookings]);
 
   async function updateBookingStatus(bookingId: string, newStatus: string) {
     try {

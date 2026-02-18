@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -18,7 +18,6 @@ import {
   Clock
 } from "lucide-react";
 import { format } from "date-fns";
-import Image from "next/image";
 import { ClientLayout } from "@/components/layout/client-layout";
 import { gatewayFetch } from "@/lib/gateway-client";
 
@@ -45,9 +44,47 @@ export default function PaymentPage({ params }: { params: { id: string } }) {
   const [error, setError] = useState<string | null>(null);
   const [timeRemaining, setTimeRemaining] = useState<number>(0);
 
+  const fetchBooking = useCallback(async () => {
+    try {
+      const response = await gatewayFetch("/api/bookings/my-bookings", {
+        method: "GET",
+        attachAccessToken: true,
+        cache: "no-store",
+      });
+
+      if (!response.ok) {
+        if (response.status === 401) {
+          router.push(`/auth/login?redirect=${encodeURIComponent(`/booking/payment/${id}`)}`);
+          return;
+        }
+        throw new Error("Failed to fetch booking");
+      }
+
+      const list = (await response.json()) as unknown;
+      const data = Array.isArray(list)
+        ? list.find((b) => (b as { id?: string } | null)?.id === id)
+        : null;
+
+      if (!data) {
+        throw new Error("Booking not found");
+      }
+
+      if ((data as any)?.status !== "ON_HOLD") {
+        setError("This booking is no longer available for payment");
+        return;
+      }
+
+      setBooking(data as BookingData);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to fetch booking");
+    } finally {
+      setLoading(false);
+    }
+  }, [id, router]);
+
   useEffect(() => {
-    fetchBooking();
-  }, [id]);
+    void fetchBooking();
+  }, [fetchBooking]);
 
   useEffect(() => {
     if (!booking?.holdExpiresAt) return;
@@ -70,42 +107,6 @@ export default function PaymentPage({ params }: { params: { id: string } }) {
 
     return () => clearInterval(interval);
   }, [booking?.holdExpiresAt, router]);
-
-  const fetchBooking = async () => {
-    try {
-      const response = await gatewayFetch("/api/bookings/my-bookings", {
-        method: "GET",
-        attachAccessToken: true,
-        cache: "no-store",
-      });
-
-      if (!response.ok) {
-        if (response.status === 401) {
-          router.push(`/auth/login?redirect=${encodeURIComponent(`/booking/payment/${id}`)}`);
-          return;
-        }
-        throw new Error("Failed to fetch booking");
-      }
-
-      const list = await response.json();
-      const data = Array.isArray(list) ? list.find((b: any) => b?.id === id) : null;
-
-      if (!data) {
-        throw new Error("Booking not found");
-      }
-
-      if (data.status !== "ON_HOLD") {
-        setError("This booking is no longer available for payment");
-        return;
-      }
-
-      setBooking(data);
-    } catch (err: any) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const handleStripePayment = async () => {
     if (!booking) return;

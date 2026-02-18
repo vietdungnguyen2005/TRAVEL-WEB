@@ -48,7 +48,6 @@ export class NodemailerEmailService implements EmailService {
             }
 
             // Dev fallback: log the link so the flow can be tested locally.
-            // eslint-disable-next-line no-console
             console.info('[auth-service] Verification email link:', input.verifyUrl);
             return;
         }

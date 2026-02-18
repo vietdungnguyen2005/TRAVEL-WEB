@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -41,11 +41,7 @@ export default function MyReviewsPage() {
   const [selectedBooking, setSelectedBooking] = useState<ReviewableBooking | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
 
-  useEffect(() => {
-    fetchReviewableBookings();
-  }, []);
-
-  async function fetchReviewableBookings() {
+  const fetchReviewableBookings = useCallback(async () => {
     try {
       const response = await gatewayFetch("/api/reviews/my-reviewable", {
         method: "GET",
@@ -65,7 +61,11 @@ export default function MyReviewsPage() {
     } finally {
       setLoading(false);
     }
-  }
+  }, [router]);
+
+  useEffect(() => {
+    void fetchReviewableBookings();
+  }, [fetchReviewableBookings]);
 
   function handleReviewClick(booking: ReviewableBooking) {
     setSelectedBooking(booking);
@@ -75,7 +75,7 @@ export default function MyReviewsPage() {
   function handleReviewSuccess() {
     setDialogOpen(false);
     setSelectedBooking(null);
-    fetchReviewableBookings();
+    void fetchReviewableBookings();
     alert("Cảm ơn bạn đã đánh giá! Đánh giá của bạn đã được ghi nhận.");
   }
 

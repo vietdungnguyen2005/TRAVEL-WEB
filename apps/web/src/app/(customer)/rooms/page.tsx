@@ -53,22 +53,6 @@ async function getRooms(searchParams: PageProps["searchParams"]) {
     };
   }
 
-  let orderBy: any = {};
-  switch (sortBy) {
-    case "price-asc":
-      orderBy = { pricePerNight: "asc" };
-      break;
-    case "price-desc":
-      orderBy = { pricePerNight: "desc" };
-      break;
-    case "capacity":
-      orderBy = { capacity: "desc" };
-      break;
-    case "name":
-      orderBy = { name: "asc" };
-      break;
-  }
-
   try {
     const qs = new URLSearchParams();
     if (minPrice) qs.set("minPrice", minPrice);
@@ -85,7 +69,6 @@ async function getRooms(searchParams: PageProps["searchParams"]) {
     const rooms = Array.isArray(data) ? data : data?.data ?? [];
     return Array.isArray(rooms) ? rooms : [];
   } catch (err) {
-    // eslint-disable-next-line no-console
     console.error("Error fetching rooms:", err);
     return [];
   }

@@ -5,20 +5,20 @@ import type { Booking, BookingStatus } from '../../domain/booking';
 
 type PrismaLike = typeof prisma;
 
-function mapBooking(b: any): Booking {
+function mapBooking(b: Record<string, unknown>): Booking {
     return {
-        id: b.id,
-        userId: b.userId,
-        roomId: b.roomId,
-        checkIn: b.checkIn,
-        checkOut: b.checkOut,
-        numberOfGuests: b.numberOfGuests,
-        totalPrice: b.totalPrice,
+        id: String(b.id),
+        userId: String(b.userId),
+        roomId: String(b.roomId),
+        checkIn: b.checkIn as Date,
+        checkOut: b.checkOut as Date,
+        numberOfGuests: Number(b.numberOfGuests),
+        totalPrice: b.totalPrice as Booking['totalPrice'],
         status: b.status as BookingStatus,
-        paymentStatus: b.paymentStatus ?? null,
-        holdExpiresAt: b.holdExpiresAt ?? null,
-        createdAt: b.createdAt,
-        updatedAt: b.updatedAt,
+        paymentStatus: (b.paymentStatus ?? null) as Booking['paymentStatus'],
+        holdExpiresAt: (b.holdExpiresAt ?? null) as Booking['holdExpiresAt'],
+        createdAt: b.createdAt as Date,
+        updatedAt: b.updatedAt as Date,
     };
 }
 
@@ -30,7 +30,7 @@ export function createPrismaBookingRepository(): BookingRepository {
         },
 
         async findManyAll(filter) {
-            const where: any = {};
+            const where: Record<string, unknown> = {};
             if (filter?.userId) where.userId = filter.userId;
             if (filter?.status) where.status = filter.status;
 
@@ -65,12 +65,12 @@ export function createPrismaBookingRepository(): BookingRepository {
                     checkIn: input.checkIn,
                     checkOut: input.checkOut,
                     numberOfGuests: input.numberOfGuests,
-                    totalPrice: input.totalPrice as any,
+                    totalPrice: input.totalPrice as unknown,
                     status: input.status,
                     holdExpiresAt: input.holdExpiresAt ?? null,
                 },
             });
-            return mapBooking(row);
+            return mapBooking(row as unknown as Record<string, unknown>);
         },
 
         async updateStatus(tx: TransactionContext, input: { id: string; status: BookingStatus; paymentStatus?: string | null }) {
@@ -82,18 +82,18 @@ export function createPrismaBookingRepository(): BookingRepository {
                     ...(typeof input.paymentStatus !== 'undefined' ? { paymentStatus: input.paymentStatus } : null),
                 },
             });
-            return mapBooking(row);
+            return mapBooking(row as unknown as Record<string, unknown>);
         },
 
         async updatePaymentStatus(tx: TransactionContext, input: { id: string; paymentStatus: string }) {
             const client = tx as PrismaLike;
             const row = await client.booking.update({ where: { id: input.id }, data: { paymentStatus: input.paymentStatus } });
-            return mapBooking(row);
+            return mapBooking(row as unknown as Record<string, unknown>);
         },
 
         async getById(id: string) {
             const row = await prisma.booking.findUnique({ where: { id } });
-            return row ? mapBooking(row) : null;
+            return row ? mapBooking(row as unknown as Record<string, unknown>) : null;
         },
     };
 }

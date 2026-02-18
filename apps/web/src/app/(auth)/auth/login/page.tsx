@@ -61,7 +61,7 @@ export default function LoginPage() {
         router.push("/dashboard");
       }
       router.refresh();
-    } catch (error) {
+    } catch {
       toast.error("Lỗi hệ thống", {
         description: "Đã có lỗi xảy ra. Vui lòng thử lại."
       });

@@ -89,7 +89,7 @@ export async function checkRateLimit(
 ): Promise<RateLimitResult> {
   try {
     const limiter = getRateLimiter();
-    const { success, limit, reset, remaining } = await limiter.limit(identifier);
+    const { success, reset, remaining } = await limiter.limit(identifier);
 
     return {
       success,

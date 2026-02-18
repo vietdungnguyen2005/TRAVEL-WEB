@@ -14,7 +14,7 @@ export function createPrismaOutboxRepository(): OutboxRepository {
                     aggregateType: input.aggregateType,
                     aggregateId: input.aggregateId,
                     eventType: input.eventType,
-                    payload: input.payload as any,
+                    payload: input.payload as unknown,
                 },
             });
         },

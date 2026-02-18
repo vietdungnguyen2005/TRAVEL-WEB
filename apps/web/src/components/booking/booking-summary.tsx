@@ -1,4 +1,5 @@
 import { format } from "date-fns";
+import Image from "next/image";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { CalendarIcon, Users, Mail, Phone, User } from "lucide-react";
@@ -37,11 +38,15 @@ export function BookingSummary({
       </CardHeader>
       <CardContent className="space-y-4">
         <div>
-          <img
-            src={roomImage}
-            alt={roomName}
-            className="w-full h-48 object-cover rounded-lg mb-3"
-          />
+          <div className="relative w-full h-48 rounded-lg overflow-hidden mb-3">
+            <Image
+              src={roomImage}
+              alt={roomName}
+              fill
+              className="object-cover"
+              sizes="(max-width: 1024px) 100vw, 400px"
+            />
+          </div>
           <h3 className="text-xl font-semibold">{roomName}</h3>
         </div>
 

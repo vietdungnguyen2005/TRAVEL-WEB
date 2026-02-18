@@ -166,7 +166,6 @@ export default function HeroImagesPage() {
   };
 
   const handleReorder = async (image: HeroImage, direction: "up" | "down") => {
-    const currentIndex = heroImages.findIndex((img) => img.id === image.id);
     const newOrder = direction === "up" ? image.order - 1 : image.order + 1;
 
     if (newOrder < 0 || newOrder >= heroImages.length) return;

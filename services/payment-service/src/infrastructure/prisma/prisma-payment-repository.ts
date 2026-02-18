@@ -1,10 +1,23 @@
 import prisma from '../../lib/prisma';
 import type { PaymentRepository } from '../../application/ports/payment-repository';
 import type { Payment, PaymentStatus } from '../../domain/payment';
+import type { Prisma } from '@prisma/client';
 
-type PrismaPayment = Awaited<ReturnType<typeof prisma.payment.findFirst>>;
+type PaymentRow = {
+    id: string;
+    bookingId: string;
+    userId: string;
+    amount: number;
+    currency: string;
+    status: string;
+    stripeCheckoutSessionId: string | null;
+    stripePaymentIntentId: string | null;
+    metadata: unknown;
+    createdAt: Date;
+    updatedAt: Date;
+};
 
-function mapPayment(p: any): Payment {
+function mapPayment(p: PaymentRow): Payment {
     return {
         id: p.id,
         bookingId: p.bookingId,
@@ -37,7 +50,7 @@ export function createPrismaPaymentRepository(): PaymentRepository {
                     currency: input.currency,
                     status: 'PENDING',
                     stripeCheckoutSessionId: input.stripeCheckoutSessionId,
-                    metadata: input.metadata as any,
+                    metadata: input.metadata as Prisma.InputJsonValue,
                 },
                 update: {
                     userId: input.userId,
@@ -45,10 +58,10 @@ export function createPrismaPaymentRepository(): PaymentRepository {
                     currency: input.currency,
                     status: 'PENDING',
                     stripeCheckoutSessionId: input.stripeCheckoutSessionId,
-                    metadata: input.metadata as any,
+                    metadata: input.metadata as Prisma.InputJsonValue,
                 },
             });
-            return mapPayment(row);
+            return mapPayment(row as PaymentRow);
         },
 
         async upsertDemoCompleted(input) {
@@ -60,14 +73,14 @@ export function createPrismaPaymentRepository(): PaymentRepository {
                     amount: 0,
                     currency: 'vnd',
                     status: 'COMPLETED',
-                    metadata: { source: 'queue-demo', roomId: input.roomId } as any,
+                    metadata: { source: 'queue-demo', roomId: input.roomId } as Prisma.InputJsonObject,
                 },
                 update: {
                     status: 'COMPLETED',
-                    metadata: { source: 'queue-demo', roomId: input.roomId } as any,
+                    metadata: { source: 'queue-demo', roomId: input.roomId } as Prisma.InputJsonObject,
                 },
             });
-            return mapPayment(row);
+            return mapPayment(row as PaymentRow);
         },
 
         async markCompletedByBookingId(input) {
@@ -83,12 +96,14 @@ export function createPrismaPaymentRepository(): PaymentRepository {
         async updateStatusByBookingId(input) {
             const existing = await prisma.payment.findUnique({ where: { bookingId: input.bookingId } });
             const meta = (typeof existing?.metadata === 'object' && existing?.metadata ? (existing.metadata as Record<string, unknown>) : {});
+            const mergedMetadata =
+                input.mergeMetadata ? ({ ...meta, ...input.mergeMetadata } as Prisma.InputJsonObject) : undefined;
 
             await prisma.payment.update({
                 where: { bookingId: input.bookingId },
                 data: {
                     status: input.status,
-                    ...(input.mergeMetadata ? { metadata: { ...meta, ...input.mergeMetadata } as any } : {}),
+                    ...(mergedMetadata ? { metadata: mergedMetadata } : {}),
                 },
             });
         },
@@ -96,12 +111,13 @@ export function createPrismaPaymentRepository(): PaymentRepository {
         async updateRefundMetadataByBookingId(input) {
             const existing = await prisma.payment.findUnique({ where: { bookingId: input.bookingId } });
             const meta = (typeof existing?.metadata === 'object' && existing?.metadata ? (existing.metadata as Record<string, unknown>) : {});
+            const mergedMetadata = { ...meta, ...input.mergeMetadata } as Prisma.InputJsonObject;
 
             await prisma.payment.update({
                 where: { bookingId: input.bookingId },
                 data: {
                     status: input.status,
-                    metadata: { ...meta, ...input.mergeMetadata } as any,
+                    metadata: mergedMetadata,
                 },
             });
         },
