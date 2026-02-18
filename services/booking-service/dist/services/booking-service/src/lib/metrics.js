@@ -3,7 +3,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.bookingOutboxPublishDurationSeconds = exports.bookingOutboxBatchSize = exports.bookingOutboxPending = exports.bookingOutboxPublishErrorsTotal = exports.bookingOutboxPublishedTotal = exports.bookingRabbitConsumeDurationSeconds = exports.bookingRabbitConsumeTotal = exports.bookingCreateCounter = void 0;
+exports.bookingOutboxPublishDurationSeconds = exports.bookingOutboxBatchSize = exports.bookingOutboxPending = exports.bookingOutboxPublishErrorsTotal = exports.bookingOutboxPublishedTotal = exports.bookingLifecycleDurationSeconds = exports.bookingRabbitRetryScheduledTotal = exports.bookingRabbitRetryReceivedTotal = exports.bookingRabbitConsumeDurationSeconds = exports.bookingRabbitConsumeTotal = exports.bookingCreateCounter = void 0;
 const prom_client_1 = __importDefault(require("prom-client"));
 const register = new prom_client_1.default.Registry();
 prom_client_1.default.collectDefaultMetrics({ register });
@@ -22,6 +22,22 @@ exports.bookingRabbitConsumeDurationSeconds = new prom_client_1.default.Histogra
     help: 'RabbitMQ message handler duration in seconds (booking-service)',
     labelNames: ['queue', 'routingKey', 'eventType'],
     buckets: [0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10],
+});
+exports.bookingRabbitRetryReceivedTotal = new prom_client_1.default.Counter({
+    name: 'booking_rabbitmq_retry_received_total',
+    help: 'Total RabbitMQ messages received with x-retry-count > 0 (booking-service)',
+    labelNames: ['queue', 'routingKey', 'eventType', 'retryCount'],
+});
+exports.bookingRabbitRetryScheduledTotal = new prom_client_1.default.Counter({
+    name: 'booking_rabbitmq_retry_scheduled_total',
+    help: 'Total RabbitMQ retries scheduled into TTL retry queues (booking-service)',
+    labelNames: ['queue', 'routingKey', 'eventType', 'delayMs', 'nextRetry'],
+});
+exports.bookingLifecycleDurationSeconds = new prom_client_1.default.Histogram({
+    name: 'booking_lifecycle_duration_seconds',
+    help: 'Booking lifecycle duration in seconds for key transitions (booking-service)',
+    labelNames: ['transition'],
+    buckets: [0.5, 1, 2.5, 5, 10, 30, 60, 120, 300, 600, 1800, 3600, 7200],
 });
 exports.bookingOutboxPublishedTotal = new prom_client_1.default.Counter({
     name: 'booking_outbox_published_total',
@@ -50,6 +66,9 @@ exports.bookingOutboxPublishDurationSeconds = new prom_client_1.default.Histogra
 register.registerMetric(exports.bookingCreateCounter);
 register.registerMetric(exports.bookingRabbitConsumeTotal);
 register.registerMetric(exports.bookingRabbitConsumeDurationSeconds);
+register.registerMetric(exports.bookingRabbitRetryReceivedTotal);
+register.registerMetric(exports.bookingRabbitRetryScheduledTotal);
+register.registerMetric(exports.bookingLifecycleDurationSeconds);
 register.registerMetric(exports.bookingOutboxPublishedTotal);
 register.registerMetric(exports.bookingOutboxPublishErrorsTotal);
 register.registerMetric(exports.bookingOutboxPending);

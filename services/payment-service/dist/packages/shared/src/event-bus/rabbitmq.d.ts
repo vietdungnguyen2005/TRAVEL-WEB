@@ -69,6 +69,15 @@ export type ConsumeWithRetryOptions = ConsumeOptions & {
     retryDelaysMs?: number[];
     retryExchange?: string;
     enableRetry?: boolean;
+    onRetryScheduled?: (info: {
+        queue: string;
+        routingKey: string;
+        messageId?: string;
+        correlationId?: string;
+        currentRetry: number;
+        nextRetry: number;
+        delayMs: number;
+    }) => void;
 };
 export type ConsumeHandler = (payload: unknown, raw: ConsumeMessage) => Promise<void> | void;
 export declare function rabbitConnect(config?: Partial<RabbitMqConfig>): Promise<{

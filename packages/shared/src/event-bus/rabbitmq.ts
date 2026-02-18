@@ -5,6 +5,10 @@ import { ensureCorrelationId, runWithCorrelationId } from '../observability/corr
 
 const logger = new Logger('RabbitMQ');
 
+function sleep(ms: number) {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 export type RabbitMqConfig = {
     url: string;
     exchange: string;
@@ -97,6 +101,7 @@ export type ConsumeHandler = (payload: unknown, raw: ConsumeMessage) => Promise<
 
 let connection: ChannelModel | null = null;
 let channel: Channel | null = null;
+let connecting: Promise<{ connection: ChannelModel; channel: Channel }> | null = null;
 
 export async function rabbitConnect(config?: Partial<RabbitMqConfig>) {
     const url = config?.url || process.env.RABBITMQ_URL;
@@ -107,27 +112,76 @@ export async function rabbitConnect(config?: Partial<RabbitMqConfig>) {
         throw new Error('RABBITMQ_URL is not set');
     }
 
-    if (connection && channel) return { connection, channel, url, exchange };
+    if (connection && channel) {
+        await channel.assertExchange(exchange, 'topic', { durable: true });
+        await channel.assertExchange(dlxExchange, 'topic', { durable: true });
+        return { connection, channel, url, exchange };
+    }
 
-    const conn = await amqp.connect(url);
-    const ch = await conn.createChannel();
-    await ch.assertExchange(exchange, 'topic', { durable: true });
-    await ch.assertExchange(dlxExchange, 'topic', { durable: true });
+    if (!connecting) {
+        connecting = (async () => {
+            const timeoutMsRaw = process.env.RABBITMQ_CONNECT_TIMEOUT_MS;
+            const timeoutMs = typeof timeoutMsRaw === 'string' && timeoutMsRaw.length > 0 ? Number(timeoutMsRaw) : 30000;
+            const start = Date.now();
 
-    connection = conn;
-    channel = ch;
+            let attempt = 0;
+            // eslint-disable-next-line no-constant-condition
+            while (true) {
+                attempt += 1;
+                try {
+                    const conn = await amqp.connect(url);
+                    const ch = await conn.createChannel();
 
-    conn.on('error', (err) => {
-        logger.error('RabbitMQ connection error', err as Error);
-    });
-    conn.on('close', () => {
-        logger.warn('RabbitMQ connection closed');
-        connection = null;
-        channel = null;
-    });
+                    connection = conn;
+                    channel = ch;
 
-    logger.info('RabbitMQ connected', { url, exchange, dlxExchange });
-    return { connection, channel, url, exchange };
+                    conn.on('error', (err) => {
+                        logger.error('RabbitMQ connection error', err as Error);
+                    });
+                    conn.on('close', () => {
+                        logger.warn('RabbitMQ connection closed');
+                        connection = null;
+                        channel = null;
+                    });
+
+                    logger.info('RabbitMQ connected', { url, dlxExchange });
+                    return { connection: conn, channel: ch };
+                } catch (err) {
+                    const elapsed = Date.now() - start;
+                    const remaining = timeoutMs - elapsed;
+                    const error = err as { code?: unknown; message?: unknown };
+
+                    if (!(Number.isFinite(timeoutMs) && timeoutMs > 0) || remaining <= 0) {
+                        logger.error('RabbitMQ connect failed (giving up)', err as Error);
+                        throw err;
+                    }
+
+                    const backoffBaseMs = 250;
+                    const backoffMaxMs = 5000;
+                    const exp = Math.min(backoffMaxMs, backoffBaseMs * Math.pow(2, attempt - 1));
+                    const jitter = Math.floor(Math.random() * Math.min(250, exp));
+                    const waitMs = Math.min(remaining, exp + jitter);
+
+                    logger.warn('RabbitMQ connect failed; retrying', {
+                        attempt,
+                        waitMs,
+                        code: typeof error.code === 'string' ? error.code : undefined,
+                        message: typeof error.message === 'string' ? error.message : undefined,
+                    });
+                    await sleep(waitMs);
+                }
+            }
+        })();
+    }
+
+    try {
+        const { connection: conn, channel: ch } = await connecting;
+        await ch.assertExchange(exchange, 'topic', { durable: true });
+        await ch.assertExchange(dlxExchange, 'topic', { durable: true });
+        return { connection: conn, channel: ch, url, exchange };
+    } finally {
+        connecting = null;
+    }
 }
 
 export async function rabbitAssertTopology(topology: RabbitTopology) {

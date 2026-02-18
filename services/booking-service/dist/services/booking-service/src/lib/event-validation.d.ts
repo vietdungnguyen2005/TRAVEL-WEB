@@ -42,18 +42,18 @@ export declare const paymentCompletedSchema: {
     };
 };
 export declare const validatePaymentCompleted: import("ajv").ValidateFunction<{
+    type: any;
     id: any;
     data: any;
-    type: any;
     source: any;
     occurredAt: any;
     version: any;
 } & {
+    type: any;
+} & {
     id: any;
 } & {
     data: any;
-} & {
-    type: any;
 } & {
     source: any;
 } & {

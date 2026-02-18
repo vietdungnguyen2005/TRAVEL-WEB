@@ -1,6 +1,7 @@
 import prisma from '../../lib/prisma';
 import type { OutboxRepository } from '../../application/ports/outbox-repository';
 import type { TransactionContext } from '../../application/ports/unit-of-work';
+import type { Prisma } from '../../../node_modules/.prisma/booking-client';
 
 type PrismaLike = typeof prisma;
 
@@ -14,7 +15,7 @@ export function createPrismaOutboxRepository(): OutboxRepository {
                     aggregateType: input.aggregateType,
                     aggregateId: input.aggregateId,
                     eventType: input.eventType,
-                    payload: input.payload as unknown,
+                    payload: input.payload as Prisma.InputJsonValue,
                 },
             });
         },

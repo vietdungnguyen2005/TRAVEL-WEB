@@ -107,11 +107,17 @@ async function publishOutbox() {
                 const endTimer = metrics_1.bookingOutboxPublishDurationSeconds.startTimer();
                 const routingKey = toRoutingKey(o.aggregateType, o.eventType);
                 const payload = Buffer.from(JSON.stringify(o.payload));
+                const correlationId = (() => {
+                    const v = o.payload?.correlationId;
+                    return typeof v === 'string' && v.trim().length > 0 ? v : undefined;
+                })();
                 // Use outbox id as messageId so consumers can do idempotency.
                 ch.publish(exchange, routingKey, payload, {
                     persistent: true,
                     contentType: 'application/json',
                     messageId: o.id,
+                    correlationId,
+                    headers: correlationId ? { 'x-correlation-id': correlationId } : undefined,
                     timestamp: Math.floor(Date.now() / 1000),
                 });
                 try {

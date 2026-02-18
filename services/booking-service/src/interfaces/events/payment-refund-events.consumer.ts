@@ -62,17 +62,30 @@ export async function startPaymentRefundEventsConsumer() {
 
     const queue = process.env.RABBITMQ_QUEUE_PAYMENT_REFUND_EVENTS || 'booking-service.payment-refund-events';
     const exchange = process.env.RABBITMQ_EXCHANGE || 'events';
+    const dlx = process.env.RABBITMQ_DLX_EXCHANGE || 'dlx';
 
     await rabbitAssertTopology({
         exchange: { name: exchange, type: 'topic' },
-        dlx: { exchange: { name: process.env.RABBITMQ_DLX_EXCHANGE || 'dlx', type: 'topic' } },
+        dlx: { exchange: { name: dlx, type: 'topic' } },
         queues: [
             {
                 name: queue,
+                options: {
+                    durable: true,
+                    arguments: {
+                        'x-dead-letter-exchange': dlx,
+                        'x-dead-letter-routing-key': `${queue}.dlq`,
+                    },
+                },
                 bindings: [
                     { exchange, routingKey: 'payment.paymentrefunded' },
                     { exchange, routingKey: 'payment.refund.failed' },
                 ],
+            },
+            {
+                name: `${queue}.dlq`,
+                options: { durable: true },
+                bindings: [{ exchange: dlx, routingKey: `${queue}.dlq` }],
             },
         ],
         retry: {

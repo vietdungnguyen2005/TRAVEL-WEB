@@ -91,39 +91,55 @@ export async function startNotificationConsumers() {
     const notificationsRepo = createPrismaNotificationRepository();
     const idempotency = createPrismaEventIdempotencyStore();
 
+    const exchange = process.env.RABBITMQ_EXCHANGE || 'events';
+    const dlx = process.env.RABBITMQ_DLX_EXCHANGE || 'dlx';
+    const retryExchange = process.env.RABBITMQ_RETRY_EXCHANGE || 'retry';
+
     for (const r of routes) {
         await rabbitAssertTopology({
-            exchange: { name: process.env.RABBITMQ_EXCHANGE || 'events', type: 'topic' },
-            dlx: { exchange: { name: process.env.RABBITMQ_DLX_EXCHANGE || 'dlx', type: 'topic' } },
+            exchange: { name: exchange, type: 'topic' },
+            dlx: { exchange: { name: dlx, type: 'topic' } },
             queues: [
                 {
                     name: r.queue,
-                    bindings: [{ exchange: process.env.RABBITMQ_EXCHANGE || 'events', routingKey: r.bindingKey }],
+                    options: {
+                        durable: true,
+                        arguments: {
+                            'x-dead-letter-exchange': dlx,
+                            'x-dead-letter-routing-key': `${r.queue}.dlq`,
+                        },
+                    },
+                    bindings: [{ exchange, routingKey: r.bindingKey }],
+                },
+                {
+                    name: `${r.queue}.dlq`,
+                    options: { durable: true },
+                    bindings: [{ exchange: dlx, routingKey: `${r.queue}.dlq` }],
                 },
             ],
             retry: {
-                exchange: { name: process.env.RABBITMQ_RETRY_EXCHANGE || 'retry', type: 'topic' },
+                exchange: { name: retryExchange, type: 'topic' },
                 queues: [
                     {
                         name: `${r.queue}.retry.5000`,
                         ttlMs: 5000,
-                        deadLetterExchange: process.env.RABBITMQ_EXCHANGE || 'events',
+                        deadLetterExchange: exchange,
                         deadLetterRoutingKey: r.bindingKey,
-                        bindings: [{ exchange: process.env.RABBITMQ_RETRY_EXCHANGE || 'retry', routingKey: `${r.queue}.retry.5000` }],
+                        bindings: [{ exchange: retryExchange, routingKey: `${r.queue}.retry.5000` }],
                     },
                     {
                         name: `${r.queue}.retry.30000`,
                         ttlMs: 30000,
-                        deadLetterExchange: process.env.RABBITMQ_EXCHANGE || 'events',
+                        deadLetterExchange: exchange,
                         deadLetterRoutingKey: r.bindingKey,
-                        bindings: [{ exchange: process.env.RABBITMQ_RETRY_EXCHANGE || 'retry', routingKey: `${r.queue}.retry.30000` }],
+                        bindings: [{ exchange: retryExchange, routingKey: `${r.queue}.retry.30000` }],
                     },
                     {
                         name: `${r.queue}.retry.300000`,
                         ttlMs: 300000,
-                        deadLetterExchange: process.env.RABBITMQ_EXCHANGE || 'events',
+                        deadLetterExchange: exchange,
                         deadLetterRoutingKey: r.bindingKey,
-                        bindings: [{ exchange: process.env.RABBITMQ_RETRY_EXCHANGE || 'retry', routingKey: `${r.queue}.retry.300000` }],
+                        bindings: [{ exchange: retryExchange, routingKey: `${r.queue}.retry.300000` }],
                     },
                 ],
             },

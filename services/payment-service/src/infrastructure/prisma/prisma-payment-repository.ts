@@ -1,7 +1,7 @@
 import prisma from '../../lib/prisma';
 import type { PaymentRepository } from '../../application/ports/payment-repository';
 import type { Payment, PaymentStatus } from '../../domain/payment';
-import type { Prisma } from '@prisma/client';
+import type { Prisma } from '../../../node_modules/.prisma/payment-client';
 
 type PaymentRow = {
     id: string;

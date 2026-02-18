@@ -40,15 +40,28 @@ export async function startBookingEventsConsumer() {
     if (!process.env.RABBITMQ_URL) throw new Error('RABBITMQ_URL is not set');
 
     const queue = process.env.RABBITMQ_QUEUE_BOOKING_EVENTS || 'payment-service.booking-events';
+        const dlx = process.env.RABBITMQ_DLX_EXCHANGE || 'dlx';
 
     await rabbitAssertTopology({
         exchange: { name: process.env.RABBITMQ_EXCHANGE || 'events', type: 'topic' },
-        dlx: { exchange: { name: process.env.RABBITMQ_DLX_EXCHANGE || 'dlx', type: 'topic' } },
+            dlx: { exchange: { name: dlx, type: 'topic' } },
         queues: [
             {
                 name: queue,
                 bindings: [{ exchange: process.env.RABBITMQ_EXCHANGE || 'events', routingKey: 'booking.created' }],
+                    options: {
+                        durable: true,
+                        arguments: {
+                            'x-dead-letter-exchange': dlx,
+                            'x-dead-letter-routing-key': `${queue}.dlq`,
+                        },
+                    },
             },
+                {
+                    name: `${queue}.dlq`,
+                    options: { durable: true },
+                    bindings: [{ exchange: dlx, routingKey: `${queue}.dlq` }],
+                },
         ],
         retry: {
             exchange: { name: process.env.RABBITMQ_RETRY_EXCHANGE || 'retry', type: 'topic' },

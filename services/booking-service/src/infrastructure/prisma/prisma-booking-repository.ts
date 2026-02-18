@@ -65,7 +65,7 @@ export function createPrismaBookingRepository(): BookingRepository {
                     checkIn: input.checkIn,
                     checkOut: input.checkOut,
                     numberOfGuests: input.numberOfGuests,
-                    totalPrice: input.totalPrice as unknown,
+                    totalPrice: String(input.totalPrice),
                     status: input.status,
                     holdExpiresAt: input.holdExpiresAt ?? null,
                 },

@@ -3,7 +3,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.paymentRabbitPublishDurationSeconds = exports.paymentRabbitPublishTotal = exports.paymentRabbitConsumeDurationSeconds = exports.paymentRabbitConsumeTotal = exports.register = void 0;
+exports.paymentRabbitPublishDurationSeconds = exports.paymentRabbitPublishTotal = exports.paymentRabbitRetryScheduledTotal = exports.paymentRabbitRetryReceivedTotal = exports.paymentRabbitConsumeDurationSeconds = exports.paymentRabbitConsumeTotal = exports.register = void 0;
 const prom_client_1 = __importDefault(require("prom-client"));
 exports.register = new prom_client_1.default.Registry();
 prom_client_1.default.collectDefaultMetrics({ register: exports.register });
@@ -18,6 +18,16 @@ exports.paymentRabbitConsumeDurationSeconds = new prom_client_1.default.Histogra
     labelNames: ['queue', 'routingKey', 'eventType'],
     buckets: [0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10],
 });
+exports.paymentRabbitRetryReceivedTotal = new prom_client_1.default.Counter({
+    name: 'payment_rabbitmq_retry_received_total',
+    help: 'Total RabbitMQ messages received with x-retry-count > 0 (payment-service)',
+    labelNames: ['queue', 'routingKey', 'eventType', 'retryCount'],
+});
+exports.paymentRabbitRetryScheduledTotal = new prom_client_1.default.Counter({
+    name: 'payment_rabbitmq_retry_scheduled_total',
+    help: 'Total RabbitMQ retries scheduled into TTL retry queues (payment-service)',
+    labelNames: ['queue', 'routingKey', 'eventType', 'delayMs', 'nextRetry'],
+});
 exports.paymentRabbitPublishTotal = new prom_client_1.default.Counter({
     name: 'payment_rabbitmq_publish_total',
     help: 'Total RabbitMQ messages published by payment-service',
@@ -31,6 +41,8 @@ exports.paymentRabbitPublishDurationSeconds = new prom_client_1.default.Histogra
 });
 exports.register.registerMetric(exports.paymentRabbitConsumeTotal);
 exports.register.registerMetric(exports.paymentRabbitConsumeDurationSeconds);
+exports.register.registerMetric(exports.paymentRabbitRetryReceivedTotal);
+exports.register.registerMetric(exports.paymentRabbitRetryScheduledTotal);
 exports.register.registerMetric(exports.paymentRabbitPublishTotal);
 exports.register.registerMetric(exports.paymentRabbitPublishDurationSeconds);
 exports.default = exports.register;

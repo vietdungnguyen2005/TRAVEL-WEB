@@ -35,15 +35,29 @@ export async function startPaymentCompletedConsumer() {
     }
     if (!process.env.RABBITMQ_URL) throw new Error('RABBITMQ_URL is not set');
 
+    const exchange = process.env.RABBITMQ_EXCHANGE || 'events';
+    const dlx = process.env.RABBITMQ_DLX_EXCHANGE || 'dlx';
     const queueName = process.env.RABBITMQ_QUEUE_PAYMENT_EVENTS || 'booking-service.payment-events';
 
     await rabbitAssertTopology({
-        exchange: { name: process.env.RABBITMQ_EXCHANGE || 'events', type: 'topic' },
-        dlx: { exchange: { name: process.env.RABBITMQ_DLX_EXCHANGE || 'dlx', type: 'topic' } },
+        exchange: { name: exchange, type: 'topic' },
+        dlx: { exchange: { name: dlx, type: 'topic' } },
         queues: [
             {
                 name: queueName,
-                bindings: [{ exchange: process.env.RABBITMQ_EXCHANGE || 'events', routingKey: 'payment.completed' }],
+                options: {
+                    durable: true,
+                    arguments: {
+                        'x-dead-letter-exchange': dlx,
+                        'x-dead-letter-routing-key': `${queueName}.dlq`,
+                    },
+                },
+                bindings: [{ exchange, routingKey: 'payment.completed' }],
+            },
+            {
+                name: `${queueName}.dlq`,
+                options: { durable: true },
+                bindings: [{ exchange: dlx, routingKey: `${queueName}.dlq` }],
             },
         ],
         retry: {
@@ -52,21 +66,21 @@ export async function startPaymentCompletedConsumer() {
                 {
                     name: `${queueName}.retry.5000`,
                     ttlMs: 5000,
-                    deadLetterExchange: process.env.RABBITMQ_EXCHANGE || 'events',
+                    deadLetterExchange: exchange,
                     deadLetterRoutingKey: 'payment.completed',
                     bindings: [{ exchange: process.env.RABBITMQ_RETRY_EXCHANGE || 'retry', routingKey: `${queueName}.retry.5000` }],
                 },
                 {
                     name: `${queueName}.retry.30000`,
                     ttlMs: 30000,
-                    deadLetterExchange: process.env.RABBITMQ_EXCHANGE || 'events',
+                    deadLetterExchange: exchange,
                     deadLetterRoutingKey: 'payment.completed',
                     bindings: [{ exchange: process.env.RABBITMQ_RETRY_EXCHANGE || 'retry', routingKey: `${queueName}.retry.30000` }],
                 },
                 {
                     name: `${queueName}.retry.300000`,
                     ttlMs: 300000,
-                    deadLetterExchange: process.env.RABBITMQ_EXCHANGE || 'events',
+                    deadLetterExchange: exchange,
                     deadLetterRoutingKey: 'payment.completed',
                     bindings: [{ exchange: process.env.RABBITMQ_RETRY_EXCHANGE || 'retry', routingKey: `${queueName}.retry.300000` }],
                 },

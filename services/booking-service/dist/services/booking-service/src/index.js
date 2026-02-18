@@ -18,6 +18,7 @@ const PORT = process.env.PORT || 3002;
 // Load root env + selected profile env (.env.docker/.env.supabase)
 // In docker-compose, env can also be injected by the container; this won't override existing vars.
 (0, shared_1.loadEnvProfile)({ cwd: process.cwd().split('/services/')[0] });
+app.use((0, shared_1.createCorrelationIdMiddleware)());
 app.use(express_1.default.json());
 app.use('/api/bookings', booking_routes_1.bookingRouter);
 app.get('/healthz', health_1.healthHandler);

@@ -12,6 +12,7 @@ exports.rabbitConsumeWithRetry = rabbitConsumeWithRetry;
 const amqplib_1 = __importDefault(require("amqplib"));
 const logger_1 = require("../logger");
 const node_crypto_1 = require("node:crypto");
+const correlation_1 = require("../observability/correlation");
 const logger = new logger_1.Logger('RabbitMQ');
 let connection = null;
 let channel = null;
@@ -92,7 +93,13 @@ async function rabbitPublish({ routingKey, message, options }) {
     if (!ch)
         throw new Error('RabbitMQ channel not initialized');
     const content = Buffer.from(JSON.stringify(message));
-    ch.publish(exchange, routingKey, content, { persistent: true, contentType: 'application/json', ...options });
+    const correlationId = (0, correlation_1.ensureCorrelationId)(options?.correlationId);
+    ch.publish(exchange, routingKey, content, {
+        persistent: true,
+        contentType: 'application/json',
+        ...options,
+        correlationId,
+    });
 }
 async function rabbitRpc({ routingKey, message, timeoutMs = 5000, options }) {
     const { channel: ch, exchange } = await rabbitConnect();
@@ -171,37 +178,42 @@ async function rabbitConsume(opts, handler) {
     await ch.consume(opts.queue, async (msg) => {
         if (!msg)
             return;
-        try {
-            const body = msg.content.toString('utf-8');
-            const payload = body ? JSON.parse(body) : null;
-            await handler(payload, msg);
-            ch.ack(msg);
-        }
-        catch (err) {
-            const error = err;
-            const body = msg.content.toString('utf-8');
-            logger.error('RabbitMQ handler failed', error);
-            logger.warn('RabbitMQ message dead-lettering', {
-                queue: opts.queue,
-                dlxExchange: enableDlq ? dlxExchange : undefined,
-                dlqQueue: enableDlq ? dlqQueue : undefined,
-                dlqRoutingKey: enableDlq ? dlqRoutingKey : undefined,
-                routingKey: msg.fields.routingKey,
-                deliveryTag: msg.fields.deliveryTag,
-                redelivered: msg.fields.redelivered,
-                properties: {
-                    messageId: msg.properties.messageId,
-                    correlationId: msg.properties.correlationId,
-                    timestamp: msg.properties.timestamp,
-                    headers: msg.properties.headers,
-                },
-                payloadPreview: safePreview(body),
-                errorMessage: error.message,
-            });
-            // Requeue=false to avoid poison message infinite loops.
-            // If DLQ is enabled on the queue, this rejection will dead-letter the message.
-            ch.nack(msg, false, false);
-        }
+        const correlationId = (0, correlation_1.ensureCorrelationId)((typeof msg.properties.correlationId === 'string' && msg.properties.correlationId.trim())
+            ? msg.properties.correlationId
+            : msg.properties.headers?.['x-correlation-id']);
+        await (0, correlation_1.runWithCorrelationId)(correlationId, async () => {
+            try {
+                const body = msg.content.toString('utf-8');
+                const payload = body ? JSON.parse(body) : null;
+                await handler(payload, msg);
+                ch.ack(msg);
+            }
+            catch (err) {
+                const error = err;
+                const body = msg.content.toString('utf-8');
+                logger.error('RabbitMQ handler failed', error);
+                logger.warn('RabbitMQ message dead-lettering', {
+                    queue: opts.queue,
+                    dlxExchange: enableDlq ? dlxExchange : undefined,
+                    dlqQueue: enableDlq ? dlqQueue : undefined,
+                    dlqRoutingKey: enableDlq ? dlqRoutingKey : undefined,
+                    routingKey: msg.fields.routingKey,
+                    deliveryTag: msg.fields.deliveryTag,
+                    redelivered: msg.fields.redelivered,
+                    properties: {
+                        messageId: msg.properties.messageId,
+                        correlationId: msg.properties.correlationId,
+                        timestamp: msg.properties.timestamp,
+                        headers: msg.properties.headers,
+                    },
+                    payloadPreview: safePreview(body),
+                    errorMessage: error.message,
+                });
+                // Requeue=false to avoid poison message infinite loops.
+                // If DLQ is enabled on the queue, this rejection will dead-letter the message.
+                ch.nack(msg, false, false);
+            }
+        });
     }, { consumerTag: opts.consumerTag });
 }
 function getRetryCount(msg) {
@@ -246,6 +258,20 @@ async function rabbitConsumeWithRetry(opts, handler) {
             // Publish into a retry queue (expected to have TTL + DLX back to main exchange).
             const retryRoutingKey = `${opts.queue}.retry.${delayMs}`;
             const content = raw.content;
+            try {
+                opts.onRetryScheduled?.({
+                    queue: opts.queue,
+                    routingKey: raw.fields.routingKey,
+                    messageId: typeof raw.properties.messageId === 'string' ? raw.properties.messageId : undefined,
+                    correlationId: typeof raw.properties.correlationId === 'string' ? raw.properties.correlationId : undefined,
+                    currentRetry,
+                    nextRetry,
+                    delayMs,
+                });
+            }
+            catch {
+                // never block message handling on metrics
+            }
             ch.publish(retryExchange, retryRoutingKey, content, {
                 persistent: true,
                 contentType: raw.properties.contentType || 'application/json',

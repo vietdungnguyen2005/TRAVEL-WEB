@@ -23,4 +23,6 @@ __exportStar(require("./http/axios-client"), exports);
 __exportStar(require("./auth/jwt"), exports);
 __exportStar(require("./auth/express"), exports);
 __exportStar(require("./env/load-env-profile"), exports);
+__exportStar(require("./observability/correlation"), exports);
+__exportStar(require("./cache/redis"), exports);
 //# sourceMappingURL=index.js.map
