@@ -976,14 +976,9 @@ function ContactForm() {
     const handleSubmit = async (e)=>{
         e.preventDefault();
         setLoading(true);
-        const formData = new FormData(e.currentTarget);
-        const data = {
-            name: formData.get("name"),
-            email: formData.get("email"),
-            phone: formData.get("phone"),
-            subject: formData.get("subject"),
-            message: formData.get("message")
-        };
+        // In this demo UI, we just simulate sending.
+        // Read form data to ensure inputs are wired.
+        void new FormData(e.currentTarget);
         // Simulate API call
         await new Promise((resolve)=>setTimeout(resolve, 1000));
         __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$sonner$2f$dist$2f$index$2e$mjs__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["toast"].success("Gửi tin nhắn thành công!", {
@@ -1004,7 +999,7 @@ function ContactForm() {
                         children: "Họ và tên"
                     }, void 0, false, {
                         fileName: "[project]/apps/web/src/components/customer/contact-form.tsx",
-                        lineNumber: 41,
+                        lineNumber: 36,
                         columnNumber: 9
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$apps$2f$web$2f$src$2f$components$2f$ui$2f$input$2e$tsx__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["Input"], {
@@ -1015,13 +1010,13 @@ function ContactForm() {
                         disabled: loading
                     }, void 0, false, {
                         fileName: "[project]/apps/web/src/components/customer/contact-form.tsx",
-                        lineNumber: 42,
+                        lineNumber: 37,
                         columnNumber: 9
                     }, this)
                 ]
             }, void 0, true, {
                 fileName: "[project]/apps/web/src/components/customer/contact-form.tsx",
-                lineNumber: 40,
+                lineNumber: 35,
                 columnNumber: 7
             }, this),
             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -1031,7 +1026,7 @@ function ContactForm() {
                         children: "Email"
                     }, void 0, false, {
                         fileName: "[project]/apps/web/src/components/customer/contact-form.tsx",
-                        lineNumber: 52,
+                        lineNumber: 47,
                         columnNumber: 9
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$apps$2f$web$2f$src$2f$components$2f$ui$2f$input$2e$tsx__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["Input"], {
@@ -1043,13 +1038,13 @@ function ContactForm() {
                         disabled: loading
                     }, void 0, false, {
                         fileName: "[project]/apps/web/src/components/customer/contact-form.tsx",
-                        lineNumber: 53,
+                        lineNumber: 48,
                         columnNumber: 9
                     }, this)
                 ]
             }, void 0, true, {
                 fileName: "[project]/apps/web/src/components/customer/contact-form.tsx",
-                lineNumber: 51,
+                lineNumber: 46,
                 columnNumber: 7
             }, this),
             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -1059,7 +1054,7 @@ function ContactForm() {
                         children: "Số điện thoại"
                     }, void 0, false, {
                         fileName: "[project]/apps/web/src/components/customer/contact-form.tsx",
-                        lineNumber: 64,
+                        lineNumber: 59,
                         columnNumber: 9
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$apps$2f$web$2f$src$2f$components$2f$ui$2f$input$2e$tsx__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["Input"], {
@@ -1070,13 +1065,13 @@ function ContactForm() {
                         disabled: loading
                     }, void 0, false, {
                         fileName: "[project]/apps/web/src/components/customer/contact-form.tsx",
-                        lineNumber: 65,
+                        lineNumber: 60,
                         columnNumber: 9
                     }, this)
                 ]
             }, void 0, true, {
                 fileName: "[project]/apps/web/src/components/customer/contact-form.tsx",
-                lineNumber: 63,
+                lineNumber: 58,
                 columnNumber: 7
             }, this),
             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -1086,7 +1081,7 @@ function ContactForm() {
                         children: "Chủ đề"
                     }, void 0, false, {
                         fileName: "[project]/apps/web/src/components/customer/contact-form.tsx",
-                        lineNumber: 75,
+                        lineNumber: 70,
                         columnNumber: 9
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$apps$2f$web$2f$src$2f$components$2f$ui$2f$input$2e$tsx__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["Input"], {
@@ -1097,13 +1092,13 @@ function ContactForm() {
                         disabled: loading
                     }, void 0, false, {
                         fileName: "[project]/apps/web/src/components/customer/contact-form.tsx",
-                        lineNumber: 76,
+                        lineNumber: 71,
                         columnNumber: 9
                     }, this)
                 ]
             }, void 0, true, {
                 fileName: "[project]/apps/web/src/components/customer/contact-form.tsx",
-                lineNumber: 74,
+                lineNumber: 69,
                 columnNumber: 7
             }, this),
             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -1113,7 +1108,7 @@ function ContactForm() {
                         children: "Nội dung"
                     }, void 0, false, {
                         fileName: "[project]/apps/web/src/components/customer/contact-form.tsx",
-                        lineNumber: 86,
+                        lineNumber: 81,
                         columnNumber: 9
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$apps$2f$web$2f$src$2f$components$2f$ui$2f$textarea$2e$tsx__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["Textarea"], {
@@ -1125,13 +1120,13 @@ function ContactForm() {
                         disabled: loading
                     }, void 0, false, {
                         fileName: "[project]/apps/web/src/components/customer/contact-form.tsx",
-                        lineNumber: 87,
+                        lineNumber: 82,
                         columnNumber: 9
                     }, this)
                 ]
             }, void 0, true, {
                 fileName: "[project]/apps/web/src/components/customer/contact-form.tsx",
-                lineNumber: 85,
+                lineNumber: 80,
                 columnNumber: 7
             }, this),
             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$apps$2f$web$2f$src$2f$components$2f$ui$2f$button$2e$tsx__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["Button"], {
@@ -1141,13 +1136,13 @@ function ContactForm() {
                 children: loading ? "Đang gửi..." : "Gửi tin nhắn"
             }, void 0, false, {
                 fileName: "[project]/apps/web/src/components/customer/contact-form.tsx",
-                lineNumber: 97,
+                lineNumber: 92,
                 columnNumber: 7
             }, this)
         ]
     }, void 0, true, {
         fileName: "[project]/apps/web/src/components/customer/contact-form.tsx",
-        lineNumber: 39,
+        lineNumber: 34,
         columnNumber: 5
     }, this);
 }

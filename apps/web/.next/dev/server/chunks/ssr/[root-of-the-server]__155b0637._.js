@@ -1583,29 +1583,6 @@ async function getRooms(searchParams) {
             in: types
         };
     }
-    let orderBy = {};
-    switch(sortBy){
-        case "price-asc":
-            orderBy = {
-                pricePerNight: "asc"
-            };
-            break;
-        case "price-desc":
-            orderBy = {
-                pricePerNight: "desc"
-            };
-            break;
-        case "capacity":
-            orderBy = {
-                capacity: "desc"
-            };
-            break;
-        case "name":
-            orderBy = {
-                name: "asc"
-            };
-            break;
-    }
     try {
         const qs = new URLSearchParams();
         if (minPrice) qs.set("minPrice", minPrice);
@@ -1623,7 +1600,6 @@ async function getRooms(searchParams) {
         const rooms = Array.isArray(data) ? data : data?.data ?? [];
         return Array.isArray(rooms) ? rooms : [];
     } catch (err) {
-        // eslint-disable-next-line no-console
         console.error("Error fetching rooms:", err);
         return [];
     }
@@ -1640,7 +1616,7 @@ function RoomListSkeleton() {
                         className: "h-36 w-56 shrink-0 rounded-lg"
                     }, void 0, false, {
                         fileName: "[project]/apps/web/src/app/(customer)/rooms/page.tsx",
-                        lineNumber: 99,
+                        lineNumber: 82,
                         columnNumber: 11
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$rsc$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$rsc$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -1650,21 +1626,21 @@ function RoomListSkeleton() {
                                 className: "h-6 w-2/3"
                             }, void 0, false, {
                                 fileName: "[project]/apps/web/src/app/(customer)/rooms/page.tsx",
-                                lineNumber: 101,
+                                lineNumber: 84,
                                 columnNumber: 13
                             }, this),
                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$rsc$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$rsc$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$apps$2f$web$2f$src$2f$components$2f$ui$2f$skeleton$2e$tsx__$5b$app$2d$rsc$5d$__$28$ecmascript$29$__["Skeleton"], {
                                 className: "h-4 w-full"
                             }, void 0, false, {
                                 fileName: "[project]/apps/web/src/app/(customer)/rooms/page.tsx",
-                                lineNumber: 102,
+                                lineNumber: 85,
                                 columnNumber: 13
                             }, this),
                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$rsc$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$rsc$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$apps$2f$web$2f$src$2f$components$2f$ui$2f$skeleton$2e$tsx__$5b$app$2d$rsc$5d$__$28$ecmascript$29$__["Skeleton"], {
                                 className: "h-4 w-5/6"
                             }, void 0, false, {
                                 fileName: "[project]/apps/web/src/app/(customer)/rooms/page.tsx",
-                                lineNumber: 103,
+                                lineNumber: 86,
                                 columnNumber: 13
                             }, this),
                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$rsc$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$rsc$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -1674,33 +1650,33 @@ function RoomListSkeleton() {
                                         className: "h-6 w-24 rounded-full"
                                     }, void 0, false, {
                                         fileName: "[project]/apps/web/src/app/(customer)/rooms/page.tsx",
-                                        lineNumber: 105,
+                                        lineNumber: 88,
                                         columnNumber: 15
                                     }, this),
                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$rsc$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$rsc$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$apps$2f$web$2f$src$2f$components$2f$ui$2f$skeleton$2e$tsx__$5b$app$2d$rsc$5d$__$28$ecmascript$29$__["Skeleton"], {
                                         className: "h-6 w-24 rounded-full"
                                     }, void 0, false, {
                                         fileName: "[project]/apps/web/src/app/(customer)/rooms/page.tsx",
-                                        lineNumber: 106,
+                                        lineNumber: 89,
                                         columnNumber: 15
                                     }, this),
                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$rsc$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$rsc$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$apps$2f$web$2f$src$2f$components$2f$ui$2f$skeleton$2e$tsx__$5b$app$2d$rsc$5d$__$28$ecmascript$29$__["Skeleton"], {
                                         className: "h-6 w-24 rounded-full"
                                     }, void 0, false, {
                                         fileName: "[project]/apps/web/src/app/(customer)/rooms/page.tsx",
-                                        lineNumber: 107,
+                                        lineNumber: 90,
                                         columnNumber: 15
                                     }, this)
                                 ]
                             }, void 0, true, {
                                 fileName: "[project]/apps/web/src/app/(customer)/rooms/page.tsx",
-                                lineNumber: 104,
+                                lineNumber: 87,
                                 columnNumber: 13
                             }, this)
                         ]
                     }, void 0, true, {
                         fileName: "[project]/apps/web/src/app/(customer)/rooms/page.tsx",
-                        lineNumber: 100,
+                        lineNumber: 83,
                         columnNumber: 11
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$rsc$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$rsc$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -1710,38 +1686,38 @@ function RoomListSkeleton() {
                                 className: "h-6 w-28 ml-auto"
                             }, void 0, false, {
                                 fileName: "[project]/apps/web/src/app/(customer)/rooms/page.tsx",
-                                lineNumber: 111,
+                                lineNumber: 94,
                                 columnNumber: 13
                             }, this),
                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$rsc$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$rsc$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$apps$2f$web$2f$src$2f$components$2f$ui$2f$skeleton$2e$tsx__$5b$app$2d$rsc$5d$__$28$ecmascript$29$__["Skeleton"], {
                                 className: "h-4 w-20 ml-auto"
                             }, void 0, false, {
                                 fileName: "[project]/apps/web/src/app/(customer)/rooms/page.tsx",
-                                lineNumber: 112,
+                                lineNumber: 95,
                                 columnNumber: 13
                             }, this),
                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$rsc$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$rsc$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$apps$2f$web$2f$src$2f$components$2f$ui$2f$skeleton$2e$tsx__$5b$app$2d$rsc$5d$__$28$ecmascript$29$__["Skeleton"], {
                                 className: "h-10 w-full rounded-lg"
                             }, void 0, false, {
                                 fileName: "[project]/apps/web/src/app/(customer)/rooms/page.tsx",
-                                lineNumber: 113,
+                                lineNumber: 96,
                                 columnNumber: 13
                             }, this)
                         ]
                     }, void 0, true, {
                         fileName: "[project]/apps/web/src/app/(customer)/rooms/page.tsx",
-                        lineNumber: 110,
+                        lineNumber: 93,
                         columnNumber: 11
                     }, this)
                 ]
             }, i, true, {
                 fileName: "[project]/apps/web/src/app/(customer)/rooms/page.tsx",
-                lineNumber: 98,
+                lineNumber: 81,
                 columnNumber: 9
             }, this))
     }, void 0, false, {
         fileName: "[project]/apps/web/src/app/(customer)/rooms/page.tsx",
-        lineNumber: 96,
+        lineNumber: 79,
         columnNumber: 5
     }, this);
 }
@@ -1766,7 +1742,7 @@ async function RoomList({ searchParams }) {
                                     className: "h-4 w-4 text-muted-foreground"
                                 }, void 0, false, {
                                     fileName: "[project]/apps/web/src/app/(customer)/rooms/page.tsx",
-                                    lineNumber: 135,
+                                    lineNumber: 118,
                                     columnNumber: 13
                                 }, this),
                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$rsc$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$rsc$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -1777,7 +1753,7 @@ async function RoomList({ searchParams }) {
                                             children: "Check-in & Check-out"
                                         }, void 0, false, {
                                             fileName: "[project]/apps/web/src/app/(customer)/rooms/page.tsx",
-                                            lineNumber: 137,
+                                            lineNumber: 120,
                                             columnNumber: 15
                                         }, this),
                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$rsc$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$rsc$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -1789,19 +1765,19 @@ async function RoomList({ searchParams }) {
                                             ]
                                         }, void 0, true, {
                                             fileName: "[project]/apps/web/src/app/(customer)/rooms/page.tsx",
-                                            lineNumber: 138,
+                                            lineNumber: 121,
                                             columnNumber: 15
                                         }, this)
                                     ]
                                 }, void 0, true, {
                                     fileName: "[project]/apps/web/src/app/(customer)/rooms/page.tsx",
-                                    lineNumber: 136,
+                                    lineNumber: 119,
                                     columnNumber: 13
                                 }, this)
                             ]
                         }, void 0, true, {
                             fileName: "[project]/apps/web/src/app/(customer)/rooms/page.tsx",
-                            lineNumber: 134,
+                            lineNumber: 117,
                             columnNumber: 11
                         }, this),
                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$rsc$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$rsc$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -1811,7 +1787,7 @@ async function RoomList({ searchParams }) {
                                     className: "h-4 w-4 text-muted-foreground"
                                 }, void 0, false, {
                                     fileName: "[project]/apps/web/src/app/(customer)/rooms/page.tsx",
-                                    lineNumber: 143,
+                                    lineNumber: 126,
                                     columnNumber: 13
                                 }, this),
                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$rsc$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$rsc$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -1822,7 +1798,7 @@ async function RoomList({ searchParams }) {
                                             children: "Guests"
                                         }, void 0, false, {
                                             fileName: "[project]/apps/web/src/app/(customer)/rooms/page.tsx",
-                                            lineNumber: 145,
+                                            lineNumber: 128,
                                             columnNumber: 15
                                         }, this),
                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$rsc$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$rsc$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -1830,19 +1806,19 @@ async function RoomList({ searchParams }) {
                                             children: guestsText
                                         }, void 0, false, {
                                             fileName: "[project]/apps/web/src/app/(customer)/rooms/page.tsx",
-                                            lineNumber: 146,
+                                            lineNumber: 129,
                                             columnNumber: 15
                                         }, this)
                                     ]
                                 }, void 0, true, {
                                     fileName: "[project]/apps/web/src/app/(customer)/rooms/page.tsx",
-                                    lineNumber: 144,
+                                    lineNumber: 127,
                                     columnNumber: 13
                                 }, this)
                             ]
                         }, void 0, true, {
                             fileName: "[project]/apps/web/src/app/(customer)/rooms/page.tsx",
-                            lineNumber: 142,
+                            lineNumber: 125,
                             columnNumber: 11
                         }, this),
                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$rsc$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$rsc$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -1856,7 +1832,7 @@ async function RoomList({ searchParams }) {
                                             children: "Results"
                                         }, void 0, false, {
                                             fileName: "[project]/apps/web/src/app/(customer)/rooms/page.tsx",
-                                            lineNumber: 152,
+                                            lineNumber: 135,
                                             columnNumber: 15
                                         }, this),
                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$rsc$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$rsc$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -1868,35 +1844,35 @@ async function RoomList({ searchParams }) {
                                             ]
                                         }, void 0, true, {
                                             fileName: "[project]/apps/web/src/app/(customer)/rooms/page.tsx",
-                                            lineNumber: 153,
+                                            lineNumber: 136,
                                             columnNumber: 15
                                         }, this)
                                     ]
                                 }, void 0, true, {
                                     fileName: "[project]/apps/web/src/app/(customer)/rooms/page.tsx",
-                                    lineNumber: 151,
+                                    lineNumber: 134,
                                     columnNumber: 13
                                 }, this),
                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$rsc$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$rsc$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$apps$2f$web$2f$src$2f$components$2f$customer$2f$rooms$2d$sort$2d$bar$2e$tsx__$5b$app$2d$rsc$5d$__$28$ecmascript$29$__["RoomsSortBar"], {}, void 0, false, {
                                     fileName: "[project]/apps/web/src/app/(customer)/rooms/page.tsx",
-                                    lineNumber: 155,
+                                    lineNumber: 138,
                                     columnNumber: 13
                                 }, this)
                             ]
                         }, void 0, true, {
                             fileName: "[project]/apps/web/src/app/(customer)/rooms/page.tsx",
-                            lineNumber: 150,
+                            lineNumber: 133,
                             columnNumber: 11
                         }, this)
                     ]
                 }, void 0, true, {
                     fileName: "[project]/apps/web/src/app/(customer)/rooms/page.tsx",
-                    lineNumber: 133,
+                    lineNumber: 116,
                     columnNumber: 9
                 }, this)
             }, void 0, false, {
                 fileName: "[project]/apps/web/src/app/(customer)/rooms/page.tsx",
-                lineNumber: 132,
+                lineNumber: 115,
                 columnNumber: 7
             }, this),
             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$rsc$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$rsc$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -1907,7 +1883,7 @@ async function RoomList({ searchParams }) {
                         children: rooms.length > 0 ? "Popular Rooms" : "No rooms found"
                     }, void 0, false, {
                         fileName: "[project]/apps/web/src/app/(customer)/rooms/page.tsx",
-                        lineNumber: 161,
+                        lineNumber: 144,
                         columnNumber: 9
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$rsc$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$rsc$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
@@ -1915,13 +1891,13 @@ async function RoomList({ searchParams }) {
                         children: rooms.length > 0 ? "Compare prices and choose your stay" : "Try adjusting filters or searching with different criteria."
                     }, void 0, false, {
                         fileName: "[project]/apps/web/src/app/(customer)/rooms/page.tsx",
-                        lineNumber: 164,
+                        lineNumber: 147,
                         columnNumber: 9
                     }, this)
                 ]
             }, void 0, true, {
                 fileName: "[project]/apps/web/src/app/(customer)/rooms/page.tsx",
-                lineNumber: 160,
+                lineNumber: 143,
                 columnNumber: 7
             }, this),
             rooms.length > 0 ? /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$rsc$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$rsc$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -1934,12 +1910,12 @@ async function RoomList({ searchParams }) {
                         variant: "list"
                     }, room.id, false, {
                         fileName: "[project]/apps/web/src/app/(customer)/rooms/page.tsx",
-                        lineNumber: 174,
+                        lineNumber: 157,
                         columnNumber: 13
                     }, this))
             }, void 0, false, {
                 fileName: "[project]/apps/web/src/app/(customer)/rooms/page.tsx",
-                lineNumber: 172,
+                lineNumber: 155,
                 columnNumber: 9
             }, this) : /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$rsc$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$rsc$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
                 className: "rounded-lg border bg-background p-10 text-center",
@@ -1949,7 +1925,7 @@ async function RoomList({ searchParams }) {
                         children: "No rooms match your search criteria."
                     }, void 0, false, {
                         fileName: "[project]/apps/web/src/app/(customer)/rooms/page.tsx",
-                        lineNumber: 182,
+                        lineNumber: 165,
                         columnNumber: 11
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$rsc$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$rsc$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
@@ -1957,13 +1933,13 @@ async function RoomList({ searchParams }) {
                         children: "Try adjusting your filters or search with different criteria."
                     }, void 0, false, {
                         fileName: "[project]/apps/web/src/app/(customer)/rooms/page.tsx",
-                        lineNumber: 183,
+                        lineNumber: 166,
                         columnNumber: 11
                     }, this)
                 ]
             }, void 0, true, {
                 fileName: "[project]/apps/web/src/app/(customer)/rooms/page.tsx",
-                lineNumber: 181,
+                lineNumber: 164,
                 columnNumber: 9
             }, this)
         ]
@@ -1989,30 +1965,30 @@ async function RoomsPage({ searchParams }) {
                                         children: "Filters"
                                     }, void 0, false, {
                                         fileName: "[project]/apps/web/src/app/(customer)/rooms/page.tsx",
-                                        lineNumber: 201,
+                                        lineNumber: 184,
                                         columnNumber: 17
                                     }, this)
                                 }, void 0, false, {
                                     fileName: "[project]/apps/web/src/app/(customer)/rooms/page.tsx",
-                                    lineNumber: 200,
+                                    lineNumber: 183,
                                     columnNumber: 15
                                 }, this),
                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$rsc$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$rsc$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$apps$2f$web$2f$src$2f$components$2f$customer$2f$room$2d$filters$2d$client$2e$tsx__$5b$app$2d$rsc$5d$__$28$ecmascript$29$__["RoomFiltersClient"], {
                                     initialParams: params
                                 }, void 0, false, {
                                     fileName: "[project]/apps/web/src/app/(customer)/rooms/page.tsx",
-                                    lineNumber: 203,
+                                    lineNumber: 186,
                                     columnNumber: 15
                                 }, this)
                             ]
                         }, void 0, true, {
                             fileName: "[project]/apps/web/src/app/(customer)/rooms/page.tsx",
-                            lineNumber: 199,
+                            lineNumber: 182,
                             columnNumber: 13
                         }, this)
                     }, void 0, false, {
                         fileName: "[project]/apps/web/src/app/(customer)/rooms/page.tsx",
-                        lineNumber: 198,
+                        lineNumber: 181,
                         columnNumber: 11
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$rsc$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$rsc$5d$__$28$ecmascript$29$__["jsxDEV"])("main", {
@@ -2020,40 +1996,40 @@ async function RoomsPage({ searchParams }) {
                         children: /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$rsc$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$rsc$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$rsc$2f$react$2e$js__$5b$app$2d$rsc$5d$__$28$ecmascript$29$__["Suspense"], {
                             fallback: /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$rsc$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$rsc$5d$__$28$ecmascript$29$__["jsxDEV"])(RoomListSkeleton, {}, void 0, false, {
                                 fileName: "[project]/apps/web/src/app/(customer)/rooms/page.tsx",
-                                lineNumber: 208,
+                                lineNumber: 191,
                                 columnNumber: 33
                             }, void 0),
                             children: /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$rsc$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$rsc$5d$__$28$ecmascript$29$__["jsxDEV"])(RoomList, {
                                 searchParams: searchParams
                             }, void 0, false, {
                                 fileName: "[project]/apps/web/src/app/(customer)/rooms/page.tsx",
-                                lineNumber: 209,
+                                lineNumber: 192,
                                 columnNumber: 15
                             }, this)
                         }, void 0, false, {
                             fileName: "[project]/apps/web/src/app/(customer)/rooms/page.tsx",
-                            lineNumber: 208,
+                            lineNumber: 191,
                             columnNumber: 13
                         }, this)
                     }, void 0, false, {
                         fileName: "[project]/apps/web/src/app/(customer)/rooms/page.tsx",
-                        lineNumber: 207,
+                        lineNumber: 190,
                         columnNumber: 11
                     }, this)
                 ]
             }, void 0, true, {
                 fileName: "[project]/apps/web/src/app/(customer)/rooms/page.tsx",
-                lineNumber: 197,
+                lineNumber: 180,
                 columnNumber: 9
             }, this)
         }, void 0, false, {
             fileName: "[project]/apps/web/src/app/(customer)/rooms/page.tsx",
-            lineNumber: 196,
+            lineNumber: 179,
             columnNumber: 7
         }, this)
     }, void 0, false, {
         fileName: "[project]/apps/web/src/app/(customer)/rooms/page.tsx",
-        lineNumber: 195,
+        lineNumber: 178,
         columnNumber: 5
     }, this);
 }

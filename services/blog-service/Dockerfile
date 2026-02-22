@@ -1,7 +1,17 @@
 # Stage 1: Build (monorepo-aware)
-FROM node:18-alpine AS builder
+FROM node:20-alpine AS builder
 
 WORKDIR /app
+ARG HTTP_PROXY
+ARG HTTPS_PROXY
+ARG NO_PROXY
+ENV HTTP_PROXY=$HTTP_PROXY
+ENV HTTPS_PROXY=$HTTPS_PROXY
+ENV NO_PROXY=$NO_PROXY
+
+RUN if [ -n "$HTTP_PROXY" ]; then npm config set proxy "$HTTP_PROXY"; fi \
+	&& if [ -n "$HTTPS_PROXY" ]; then npm config set https-proxy "$HTTPS_PROXY"; fi \
+	&& if [ -n "$NO_PROXY" ]; then npm config set noproxy "$NO_PROXY"; fi
 
 # Copy workspace manifests first for better caching
 COPY package.json package-lock.json ./
@@ -9,7 +19,8 @@ COPY tsconfig.base.json ./
 COPY tsconfig.json ./
 
 COPY packages ./packages
-COPY services/blog-service ./services/blog-service
+COPY services ./services
+COPY apps ./apps
 
 RUN npm ci
 
@@ -18,7 +29,7 @@ RUN npm -w blog-service run prisma:generate
 RUN npm -w blog-service run build
 
 # Stage 2: Production runtime
-FROM node:18-alpine
+FROM node:20-alpine
 
 WORKDIR /app
 

@@ -66,6 +66,40 @@ Tạo `apps/web/.env.local` nếu cần:
 NEXT_PUBLIC_API_GATEWAY_URL=http://localhost:4000
 ```
 
+### 4) Chạy bằng Docker (không dùng npm run dev)
+
+Chạy toàn bộ hệ thống (web + gateway + services) bằng Docker:
+
+```powershell
+docker compose --project-directory . -f apps/gateway/docker-compose.yml up -d --build
+```
+
+Chỉ chạy backend bằng Docker, còn web chạy local:
+
+```powershell
+docker compose --project-directory . -f apps/gateway/docker-compose.yml up -d \
+	auth-service booking-service room-service payment-service review-service notification-service api-gateway rabbitmq redis
+```
+
+Sau đó chạy web local:
+
+```powershell
+cd apps/web
+npm run dev
+```
+
+## Tình trạng đã làm (tóm tắt)
+
+- Monorepo + tooling: NPM workspaces, Turborepo, TypeScript, ESLint, Jest.
+- Frontend: Next.js 16 + React 19, Tailwind, Radix UI, Zustand, React Hook Form.
+- Backend: microservices Node/Express (booking, payment, notification, auth, room, review, blog, content, api-gateway).
+- Messaging: RabbitMQ (topic exchange), outbox publisher, idempotent consumers, DLQ/retry.
+- Data: PostgreSQL + Prisma (mỗi service schema riêng), Redis.
+- Observability: metrics endpoints, correlationId logs.
+- Diagrams/docs: luồng booking, cancel/refund, queue architecture.
+
+Chi tiết đầy đủ: xem `docs/WORK_DONE_STATUS.md`.
+
 ## Ports mặc định
 - Web (Next dev): `3000`
 - API Gateway: `4000`

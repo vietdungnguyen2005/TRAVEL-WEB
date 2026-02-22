@@ -25,7 +25,7 @@ services:
       - backend-network
 
   consul:
-    image: consul:1.16
+    image: hashicorp/consul:1.16
     container_name: consul
     command: ["agent", "-dev", "-client=0.0.0.0"]
     ports:
@@ -196,7 +196,13 @@ services:
       - backend-network
 
   auth-service:
-    build: ./services/auth-service
+    build:
+      context: .
+      dockerfile: ./services/auth-service/Dockerfile
+      args:
+        HTTP_PROXY: ${HTTP_PROXY}
+        HTTPS_PROXY: ${HTTPS_PROXY}
+        NO_PROXY: ${NO_PROXY}
     container_name: auth-service
     ports:
       - "3001:3001"
@@ -210,7 +216,13 @@ services:
       - backend-network
 
   booking-service:
-    build: ./services/booking-service
+    build:
+      context: .
+      dockerfile: ./services/booking-service/Dockerfile
+      args:
+        HTTP_PROXY: ${HTTP_PROXY}
+        HTTPS_PROXY: ${HTTPS_PROXY}
+        NO_PROXY: ${NO_PROXY}
     container_name: booking-service
     ports:
       - "3002:3002"
@@ -228,7 +240,13 @@ services:
       - backend-network
 
   room-service:
-    build: ./services/room-service
+    build:
+      context: .
+      dockerfile: ./services/room-service/Dockerfile
+      args:
+        HTTP_PROXY: ${HTTP_PROXY}
+        HTTPS_PROXY: ${HTTPS_PROXY}
+        NO_PROXY: ${NO_PROXY}
     container_name: room-service
     ports:
       - "3003:3003"
@@ -244,7 +262,13 @@ services:
       - backend-network
 
   payment-service:
-    build: ./services/payment-service
+    build:
+      context: .
+      dockerfile: ./services/payment-service/Dockerfile
+      args:
+        HTTP_PROXY: ${HTTP_PROXY}
+        HTTPS_PROXY: ${HTTPS_PROXY}
+        NO_PROXY: ${NO_PROXY}
     container_name: payment-service
     ports:
       - "3004:3004"
@@ -260,7 +284,13 @@ services:
       - backend-network
 
   review-service:
-    build: ./services/review-service
+    build:
+      context: .
+      dockerfile: ./services/review-service/Dockerfile
+      args:
+        HTTP_PROXY: ${HTTP_PROXY}
+        HTTPS_PROXY: ${HTTPS_PROXY}
+        NO_PROXY: ${NO_PROXY}
     container_name: review-service
     ports:
       - "3005:3005"
@@ -273,7 +303,13 @@ services:
       - backend-network
 
   notification-service:
-    build: ./services/notification-service
+    build:
+      context: .
+      dockerfile: ./services/notification-service/Dockerfile
+      args:
+        HTTP_PROXY: ${HTTP_PROXY}
+        HTTPS_PROXY: ${HTTPS_PROXY}
+        NO_PROXY: ${NO_PROXY}
     container_name: notification-service
     ports:
       - "3006:3006"
@@ -292,7 +328,13 @@ services:
       - backend-network
 
   api-gateway:
-    build: ./services/api-gateway
+    build:
+      context: .
+      dockerfile: ./services/api-gateway/Dockerfile
+      args:
+        HTTP_PROXY: ${HTTP_PROXY}
+        HTTPS_PROXY: ${HTTPS_PROXY}
+        NO_PROXY: ${NO_PROXY}
     container_name: api-gateway
     ports:
       - "4000:4000"
@@ -321,6 +363,10 @@ services:
     build:
       context: .
       dockerfile: apps/web/Dockerfile
+      args:
+        HTTP_PROXY: ${HTTP_PROXY}
+        HTTPS_PROXY: ${HTTPS_PROXY}
+        NO_PROXY: ${NO_PROXY}
     container_name: web
     ports:
       - "3000:3000"

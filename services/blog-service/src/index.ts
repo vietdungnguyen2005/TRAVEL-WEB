@@ -1,8 +1,15 @@
 import express from 'express';
 import cors from 'cors';
 import prisma from './lib/prisma';
-import { createCorrelationIdMiddleware, requireRole, verifyJWT } from '@travel-web/shared';
-import { loadEnvProfile } from '@travel-web/shared';
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const shared = require('@travel-web/shared') as typeof import('@travel-web/shared');
+
+const {
+    createCorrelationIdMiddleware,
+    loadEnvProfile,
+    requireRole,
+    verifyJWT,
+} = shared as typeof import('@travel-web/shared');
 
 // Load root env + selected profile env (.env.docker/.env.supabase)
 // In docker-compose, env can also be injected by the container; this won't override existing vars.
@@ -129,3 +136,6 @@ const port = Number(process.env.PORT || 3008);
 app.listen(port, () => {
     console.log(`Blog service running on port ${port}`);
 });
+
+// Disable RabbitMQ
+process.env.DISABLE_RABBITMQ = 'true';

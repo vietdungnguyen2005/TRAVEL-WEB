@@ -1180,12 +1180,10 @@ async function Home() {
             // Best-effort filters on client side if gateway doesn't support query params yet
             featuredRooms = featuredRooms.filter((r)=>r?.featured && r?.available).sort((a, b)=>Number(a?.pricePerNight ?? 0) - Number(b?.pricePerNight ?? 0)).slice(0, 3);
         } else {
-            // eslint-disable-next-line no-console
             console.warn("Failed to fetch rooms:", res.status, res.statusText);
             featuredRooms = [];
         }
     } catch (err) {
-        // eslint-disable-next-line no-console
         console.error("Error loading featured rooms:", err);
         featuredRooms = [];
     }
@@ -1193,12 +1191,12 @@ async function Home() {
         children: [
             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$rsc$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$rsc$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$apps$2f$web$2f$src$2f$components$2f$customer$2f$hero$2d$section$2e$tsx__$5b$app$2d$rsc$5d$__$28$ecmascript$29$__["HeroSection"], {}, void 0, false, {
                 fileName: "[project]/apps/web/src/app/page.tsx",
-                lineNumber: 38,
+                lineNumber: 36,
                 columnNumber: 7
             }, this),
             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$rsc$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$rsc$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$apps$2f$web$2f$src$2f$components$2f$customer$2f$features$2e$tsx__$5b$app$2d$rsc$5d$__$28$ecmascript$29$__["Features"], {}, void 0, false, {
                 fileName: "[project]/apps/web/src/app/page.tsx",
-                lineNumber: 39,
+                lineNumber: 37,
                 columnNumber: 7
             }, this),
             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$rsc$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$rsc$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$apps$2f$web$2f$src$2f$components$2f$customer$2f$featured$2d$rooms$2e$tsx__$5b$app$2d$rsc$5d$__$28$ecmascript$29$__["FeaturedRooms"], {
@@ -1208,13 +1206,13 @@ async function Home() {
                     }))
             }, void 0, false, {
                 fileName: "[project]/apps/web/src/app/page.tsx",
-                lineNumber: 40,
+                lineNumber: 38,
                 columnNumber: 7
             }, this)
         ]
     }, void 0, true, {
         fileName: "[project]/apps/web/src/app/page.tsx",
-        lineNumber: 37,
+        lineNumber: 35,
         columnNumber: 5
     }, this);
 }

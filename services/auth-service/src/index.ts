@@ -1,11 +1,18 @@
 import express from 'express';
-import { consulRegisterService, createCorrelationIdMiddleware, Logger } from '@travel-web/shared';
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const shared = require('@travel-web/shared') as typeof import('@travel-web/shared');
 import { authRouter } from './http/routes';
 import { adminRouter } from './http/routes/admin';
 import { errorHandler } from './http/middlewares/error-handler';
 import cookieParser from 'cookie-parser';
-import { loadEnvProfile } from '@travel-web/shared';
 import { getJwks } from './lib/jwt.rs256';
+
+const {
+    consulRegisterService,
+    createCorrelationIdMiddleware,
+    loadEnvProfile,
+    Logger,
+} = shared as typeof import('@travel-web/shared');
 
 // Load root env + selected profile env (.env.docker/.env.supabase)
 // Only do this when explicitly requested; in docker-compose we rely on container-provided env.
