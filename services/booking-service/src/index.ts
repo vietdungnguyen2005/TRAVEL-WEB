@@ -5,6 +5,7 @@ import { errorHandler } from './http/middlewares/error-handler';
 import publishOutbox from './lib/outbox-publisher';
 import { startPaymentCompletedConsumer } from './interfaces/events/payment-completed.consumer';
 import { startPaymentRefundEventsConsumer } from './interfaces/events/payment-refund-events.consumer';
+import { startExpireHoldsScheduler } from './schedulers/expire-holds';
 import metricsRegister from './lib/metrics';
 import { healthHandler, readyHandler } from './lib/health';
 const logger = new Logger('BookingService');
@@ -33,6 +34,8 @@ app.listen(PORT, () => {
   // start consumer for payment.* events
   startPaymentCompletedConsumer().catch((err) => logger.error('Payment events consumer failed to start', err as Error));
   startPaymentRefundEventsConsumer().catch((err) => logger.error('Payment refund events consumer failed to start', err as Error));
+  // start scheduler to auto-expire ON_HOLD bookings
+  startExpireHoldsScheduler();
 
   if (process.env.SERVICE_DISCOVERY_MODE === 'consul') {
     consulRegisterService({

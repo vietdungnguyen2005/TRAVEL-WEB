@@ -44,7 +44,7 @@ export async function sendBookingConfirmationEmail(booking: BookingData) {
         checkOutDate: format(new Date(booking.checkOut), 'dd/MM/yyyy', { locale: vi }),
         numberOfGuests: booking.numberOfGuests,
         totalPrice: formatCurrency(Number(booking.totalPrice)),
-        paymentMethod: booking.paymentMethod === 'STRIPE' ? 'Thanh toán online' : 'Thanh toán tại khách sạn',
+        paymentMethod: booking.paymentMethod === 'VNPAY' ? 'Thanh toán qua VNPay' : 'Thanh toán tại khách sạn',
       })
     );
 

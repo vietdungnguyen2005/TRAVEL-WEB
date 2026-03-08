@@ -5,12 +5,12 @@ generator client {
   provider = "prisma-client-js"
   output   = "../node_modules/.prisma/room-client"
   previewFeatures = ["multiSchema"]
+  binaryTargets = ["native", "linux-musl-openssl-3.0.x"]
 }
 
 // Datasource configuration
 datasource db {
   provider = "postgresql"
-  binaryTargets = ["native", "windows"]
   url      = env("ROOM_DATABASE_URL")
   schemas  = ["room"]
 }
@@ -31,6 +31,7 @@ model RoomType {
   description String
   basePrice   Float
   maxGuests   Int
+  location    String   @default("Hà Nội")
   amenities   String[]
   images      String[]
   isActive    Boolean  @default(true)

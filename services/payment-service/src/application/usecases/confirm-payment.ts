@@ -19,12 +19,12 @@ export async function confirmPayment(deps: {
     const existing = await deps.payments.findByBookingId(bookingId);
     if (!existing) {
         // Create minimal payment row via checkout upsert (reusing helper), then set desired status.
-        await deps.payments.upsertCheckoutSession({
+        await deps.payments.upsertPaymentUrl({
             bookingId,
             userId: resolvedUserId,
             amount: 0,
             currency: 'vnd',
-            stripeCheckoutSessionId: 'manual',
+            vnpTxnRef: 'manual',
             metadata: { paymentMethod },
         });
     }

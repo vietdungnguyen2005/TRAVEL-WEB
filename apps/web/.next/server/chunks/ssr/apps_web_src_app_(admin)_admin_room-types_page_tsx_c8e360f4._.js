@@ -1,3 +1,0 @@
-module.exports=[32231,a=>{"use strict";var b=a.i(87924),c=a.i(72131);function d(){let[a,d]=(0,c.useState)([]),[e,f]=(0,c.useState)(!0),[g,h]=(0,c.useState)(!1),[i,j]=(0,c.useState)(null),[k,l]=(0,c.useState)({amenities:[],images:[],featured:!1,available:!0});return(0,c.useEffect)(()=>{},[]),(0,b.jsx)("div",{})}a.s(["default",()=>d])}];
-
-//# sourceMappingURL=apps_web_src_app_%28admin%29_admin_room-types_page_tsx_c8e360f4._.js.map

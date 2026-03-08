@@ -41,7 +41,7 @@ export class LoginUseCase {
         const ok = await this.deps.passwordHasher.compare(input.password, user.passwordHash);
         if (!ok) throw new AuthError('Email hoặc mật khẩu không đúng', 'INVALID_CREDENTIALS');
 
-        const accessToken = this.deps.jwt.signAccessToken({ userId: user.id, role: user.role });
+        const accessToken = this.deps.jwt.signAccessToken({ userId: user.id, role: user.role, name: user.name ?? undefined, email: user.email });
         const refresh = await this.deps.refreshTokens.issue({
             userId: user.id,
             ip: input.ip,

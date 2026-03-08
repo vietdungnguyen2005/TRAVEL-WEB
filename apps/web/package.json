@@ -9,9 +9,11 @@
         "lint": "eslint . --ignore-pattern .next --ignore-pattern out"
     },
     "dependencies": {
+        "@travel-web/contracts": "*",
+        "@travel-web/shared": "*",
         "next": "16.1.1",
         "react": "19.2.3",
         "react-dom": "19.2.3",
-        "react-is": "^18.2.0"
+        "react-is": "^19.2.4"
     }
 }

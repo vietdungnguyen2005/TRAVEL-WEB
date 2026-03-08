@@ -17,6 +17,7 @@ interface RoomFiltersProps {
 export interface FilterState {
   priceRange: [number, number];
   capacity: number | null;
+  location: string;
   roomTypes: string[];
   promoDiscounts: string[];
   starRatings: number[];
@@ -33,6 +34,7 @@ export function RoomFilters({ onFilterChange, initialFilters }: RoomFiltersProps
     () => ({
       priceRange: [0, 10000000],
       capacity: null,
+      location: "",
       roomTypes: [],
       promoDiscounts: [],
       starRatings: [],
@@ -59,6 +61,24 @@ export function RoomFilters({ onFilterChange, initialFilters }: RoomFiltersProps
       "Valentine Sale",
       "Pay at hotel deal",
       "Last minute deal",
+    ],
+    []
+  );
+
+  const locationOptions = useMemo(
+    () => [
+      "Hà Nội",
+      "TP. Hồ Chí Minh",
+      "Đà Nẵng",
+      "Nha Trang",
+      "Hội An",
+      "Đà Lạt",
+      "Phú Quốc",
+      "Hạ Long",
+      "Huế",
+      "Sa Pa",
+      "Quy Nhơn",
+      "Vũng Tàu",
     ],
     []
   );
@@ -134,6 +154,7 @@ export function RoomFilters({ onFilterChange, initialFilters }: RoomFiltersProps
     draftFilters.priceRange[0] !== (initialFilters?.priceRange?.[0] ?? defaultFilters.priceRange[0]) ||
     draftFilters.priceRange[1] !== (initialFilters?.priceRange?.[1] ?? defaultFilters.priceRange[1]) ||
     (draftFilters.capacity ?? null) !== (initialFilters?.capacity ?? null) ||
+    (draftFilters.location ?? "") !== (initialFilters?.location ?? "") ||
     draftFilters.roomTypes.join(",") !== (initialFilters?.roomTypes ?? []).join(",") ||
     draftFilters.promoDiscounts.join(",") !== (initialFilters?.promoDiscounts ?? []).join(",") ||
     draftFilters.starRatings.join(",") !== (initialFilters?.starRatings ?? []).join(",") ||
@@ -170,6 +191,10 @@ export function RoomFilters({ onFilterChange, initialFilters }: RoomFiltersProps
     setDraftFilters((prev) => ({ ...prev, capacity: value === "all" ? null : parseInt(value) }));
   };
 
+  const handleLocationChange = (value: string) => {
+    setDraftFilters((prev) => ({ ...prev, location: value === "all" ? "" : value }));
+  };
+
   const handleRoomTypeChange = (roomType: string, checked: boolean) => {
     setDraftFilters((prev) => {
       const nextRoomTypes = checked
@@ -201,6 +226,7 @@ export function RoomFilters({ onFilterChange, initialFilters }: RoomFiltersProps
         <Accordion
           type="multiple"
           defaultValue={[
+            "location",
             "price",
             "promo",
             "star",
@@ -214,6 +240,30 @@ export function RoomFilters({ onFilterChange, initialFilters }: RoomFiltersProps
             "types",
           ]}
         >
+          <AccordionItem value="location" className="border-b">
+            <AccordionTrigger className="px-4 py-3">
+              <div>
+                <div className="font-semibold">Địa điểm</div>
+              </div>
+            </AccordionTrigger>
+            <AccordionContent className="px-4 pb-4">
+              <Select
+                value={draftFilters.location || "all"}
+                onValueChange={handleLocationChange}
+              >
+                <SelectTrigger className="h-10">
+                  <SelectValue placeholder="Tất cả địa điểm" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Tất cả địa điểm</SelectItem>
+                  {locationOptions.map((loc) => (
+                    <SelectItem key={loc} value={loc}>{loc}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </AccordionContent>
+          </AccordionItem>
+
           <AccordionItem value="price" className="border-b">
             <AccordionTrigger className="px-4 py-3">
               <div className="flex w-full items-center justify-between pr-2">

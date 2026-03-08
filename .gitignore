@@ -12,7 +12,8 @@ node_modules/
 !.yarn/versions
 
 # testing
-/coverage
+**/coverage/
+*.lcov
 
 # next.js
 /.next/
@@ -32,7 +33,6 @@ node_modules/
 **/dist/
 
 # misc
-.DS_Store
 *.pem
 
 # debug
@@ -63,11 +63,12 @@ infra/replication/supabase.env
 next-env.d.ts
 
 # Prisma
-/src/generated/prisma
+**/generated/prisma/
 
 # Database
 *.db
 *.db-journal
+dump.rdb
 
 # IDE
 .vscode/
@@ -76,21 +77,19 @@ next-env.d.ts
 *.swo
 *~
 
+# AI assistants
+.claude/
+.copilot/
+
 # OS
 .DS_Store
 Thumbs.db
+ehthumbs.db
+Desktop.ini
 
 # Logs
 logs/
 *.log
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-.pnpm-debug.log*
-
-# Testing
-/coverage
-*.lcov
 
 # Temporary files
 *.tmp
@@ -98,4 +97,20 @@ yarn-error.log*
 
 # Turborepo
 .turbo/
+
+# Terraform
+.terraform/
+*.tfstate
+*.tfstate.backup
+*.tfvars
+!*.tfvars.example
+
+# Docker
+infra/nginx/certs/
+
+# ESLint
+.eslintcache
+
+# Sentry
+.sentryclirc
 

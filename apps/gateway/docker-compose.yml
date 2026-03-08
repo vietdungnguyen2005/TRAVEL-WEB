@@ -54,7 +54,7 @@ services:
     image: postgres:15
     container_name: auth-db
     ports:
-      - "5432:5432"
+      - "5438:5432"
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
@@ -191,7 +191,7 @@ services:
     image: redis:7-alpine
     container_name: redis
     ports:
-      - "6379:6379"
+      - "6380:6379"
     networks:
       - backend-network
 
@@ -353,6 +353,7 @@ services:
       ROOM_SERVICE_URL: http://room-service:3003
       PAYMENT_SERVICE_URL: http://payment-service:3004
       REVIEW_SERVICE_URL: http://review-service:3005
+      REDIS_URL: redis://redis:6379
       SERVICE_DISCOVERY_MODE: ${SERVICE_DISCOVERY_MODE:-static}
       CONSUL_URL: http://consul:8500
       DISCOVERY_REFRESH_MS: 10000

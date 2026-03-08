@@ -6,7 +6,6 @@ import { Button } from "@/components/ui/button";
 import { BookingItem } from "@/components/booking/booking-item";
 import Link from "next/link";
 import { Calendar } from "lucide-react";
-import { ClientLayout } from "@/components/layout/client-layout";
 
 export default async function MyBookingsPage() {
   const session = await auth();
@@ -25,14 +24,32 @@ export default async function MyBookingsPage() {
       const data = await res.json();
       bookings = Array.isArray(data) ? data : data?.data ?? [];
     }
+
+    // Enrich bookings with room/roomType info from room-service
+    if (bookings.length > 0) {
+      const roomIds = [...new Set(bookings.map((b: any) => b.roomId))];
+      const roomRes = await gatewayFetchServer("/api/rooms/by-ids", {
+        method: "POST",
+        body: JSON.stringify({ ids: roomIds }),
+        cache: "no-store",
+      });
+      if (roomRes.ok) {
+        const roomData = await roomRes.json();
+        const rooms = Array.isArray(roomData) ? roomData : roomData?.data ?? [];
+        const roomMap = new Map(rooms.map((r: any) => [r.id, r]));
+        bookings = bookings.map((b: any) => ({
+          ...b,
+          room: roomMap.get(b.roomId) || null,
+        }));
+      }
+    }
   } catch (err) {
     console.error("Error fetching bookings:", err);
     bookings = [];
   }
 
   return (
-    <ClientLayout>
-      <div className="container mx-auto px-4 py-8">
+    <div className="container mx-auto px-4 py-8">
         <div className="max-w-6xl mx-auto">
           <div className="flex items-center justify-between mb-6">
             <div>
@@ -67,7 +84,6 @@ export default async function MyBookingsPage() {
             </div>
           )}
         </div>
-      </div>
-    </ClientLayout>
+    </div>
   );
 }

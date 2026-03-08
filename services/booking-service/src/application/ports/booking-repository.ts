@@ -22,9 +22,11 @@ export type BookingRepository = {
     findManyByUserId(userId: string): Promise<Booking[]>;
     findManyAll(filter?: { userId?: string; status?: BookingStatus }): Promise<Booking[]>;
     findFirstConflict(query: BookingConflictQuery): Promise<Booking | null>;
+    findActiveBookingsForRooms(roomIds: string[]): Promise<Booking[]>;
 
     create(tx: TransactionContext, input: CreateBookingInput): Promise<Booking>;
     updateStatus(tx: TransactionContext, input: { id: string; status: BookingStatus; paymentStatus?: string | null }): Promise<Booking>;
     updatePaymentStatus(tx: TransactionContext, input: { id: string; paymentStatus: string }): Promise<Booking>;
     getById(id: string): Promise<Booking | null>;
+    findExpiredOnHold(now: Date): Promise<Booking[]>;
 };

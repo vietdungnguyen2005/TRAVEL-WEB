@@ -10,8 +10,8 @@ type PaymentRow = {
     amount: number;
     currency: string;
     status: string;
-    stripeCheckoutSessionId: string | null;
-    stripePaymentIntentId: string | null;
+    vnpTxnRef: string | null;
+    vnpTransactionNo: string | null;
     metadata: unknown;
     createdAt: Date;
     updatedAt: Date;
@@ -25,8 +25,8 @@ function mapPayment(p: PaymentRow): Payment {
         amount: p.amount,
         currency: p.currency,
         status: p.status as PaymentStatus,
-        stripeCheckoutSessionId: p.stripeCheckoutSessionId ?? null,
-        stripePaymentIntentId: p.stripePaymentIntentId ?? null,
+        vnpTxnRef: p.vnpTxnRef ?? null,
+        vnpTransactionNo: p.vnpTransactionNo ?? null,
         metadata: p.metadata,
         createdAt: p.createdAt,
         updatedAt: p.updatedAt,
@@ -40,7 +40,7 @@ export function createPrismaPaymentRepository(): PaymentRepository {
             return row ? mapPayment(row) : null;
         },
 
-        async upsertCheckoutSession(input) {
+        async upsertPaymentUrl(input) {
             const row = await prisma.payment.upsert({
                 where: { bookingId: input.bookingId },
                 create: {
@@ -49,7 +49,7 @@ export function createPrismaPaymentRepository(): PaymentRepository {
                     amount: input.amount,
                     currency: input.currency,
                     status: 'PENDING',
-                    stripeCheckoutSessionId: input.stripeCheckoutSessionId,
+                    vnpTxnRef: input.vnpTxnRef,
                     metadata: input.metadata as Prisma.InputJsonValue,
                 },
                 update: {
@@ -57,7 +57,7 @@ export function createPrismaPaymentRepository(): PaymentRepository {
                     amount: input.amount,
                     currency: input.currency,
                     status: 'PENDING',
-                    stripeCheckoutSessionId: input.stripeCheckoutSessionId,
+                    vnpTxnRef: input.vnpTxnRef,
                     metadata: input.metadata as Prisma.InputJsonValue,
                 },
             });
@@ -88,7 +88,7 @@ export function createPrismaPaymentRepository(): PaymentRepository {
                 where: { bookingId: input.bookingId },
                 data: {
                     status: 'COMPLETED',
-                    stripePaymentIntentId: input.stripePaymentIntentId || undefined,
+                    vnpTransactionNo: input.vnpTransactionNo || undefined,
                 },
             });
         },

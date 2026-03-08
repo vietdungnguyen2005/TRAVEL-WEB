@@ -23,7 +23,11 @@ COPY services ./services
 COPY apps ./apps
 
 # 3. Install all workspace deps from root (resolves @travel-web/*)
-RUN npm ci
+RUN npm ci --legacy-peer-deps
+
+# Build workspace packages needed at runtime
+RUN npm -w @travel-web/contracts run build \
+	&& npm -w @travel-web/shared run build
 
 # 4. Generate Prisma client then compile
 RUN npx prisma generate --schema=./services/notification-service/prisma/schema.prisma
@@ -33,12 +37,17 @@ RUN npm -w notification-service run build
 FROM node:20-alpine
 WORKDIR /app
 
+RUN apk add --no-cache openssl
+
+COPY --from=builder /app/packages/contracts                   ./packages/contracts
+COPY --from=builder /app/packages/shared                      ./packages/shared
 COPY --from=builder /app/services/notification-service/dist             ./services/notification-service/dist
 COPY --from=builder /app/services/notification-service/package.json     ./services/notification-service/package.json
+COPY --from=builder /app/services/notification-service/node_modules     ./services/notification-service/node_modules
 COPY --from=builder /app/node_modules                                   ./node_modules
 COPY --from=builder /app/services/notification-service/node_modules/.prisma ./node_modules/.prisma
 
 WORKDIR /app/services/notification-service
 ENV NODE_ENV=production
 EXPOSE 3006
-CMD ["node", "dist/main.js"]
+CMD ["node", "dist/services/notification-service/src/main.js"]

@@ -12,12 +12,11 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { ReviewForm } from "@/components/reviews/review-form";
-import { Star, Calendar, Home } from "lucide-react";
+import { Star, Calendar, Home, AlertTriangle } from "lucide-react";
 import { format } from "date-fns";
 import { vi } from "date-fns/locale";
 import Image from "next/image";
 import Link from "next/link";
-import { ClientLayout } from "@/components/layout/client-layout";
 import { gatewayFetch } from "@/lib/gateway-client";
 
 interface ReviewableBooking {
@@ -38,12 +37,14 @@ export default function MyReviewsPage() {
   const router = useRouter();
   const [bookings, setBookings] = useState<ReviewableBooking[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [selectedBooking, setSelectedBooking] = useState<ReviewableBooking | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
 
   const fetchReviewableBookings = useCallback(async () => {
     try {
-      const response = await gatewayFetch("/api/reviews/my-reviewable", {
+      setError(null);
+      const response = await gatewayFetch("/api/bookings/my-bookings", {
         method: "GET",
         attachAccessToken: true,
       });
@@ -52,12 +53,21 @@ export default function MyReviewsPage() {
           router.push("/auth/login?redirect=/dashboard/reviews");
           return;
         }
-        throw new Error("Failed to fetch bookings");
+        setError("Không thể tải danh sách đặt phòng. Vui lòng thử lại sau.");
+        return;
       }
       const data = await response.json();
-      setBookings(data);
-    } catch (error) {
-      console.error("Error fetching reviewable bookings:", error);
+      const all = Array.isArray(data) ? data : data?.data ?? [];
+      // Only show completed bookings (checked out) that can be reviewed
+      const reviewable = all.filter(
+        (b: any) =>
+          b.status === "COMPLETED" ||
+          (b.status === "CONFIRMED" && new Date(b.checkOut) < new Date())
+      );
+      setBookings(reviewable);
+    } catch (err) {
+      console.error("Error fetching reviewable bookings:", err);
+      setError("Không thể kết nối đến máy chủ. Vui lòng thử lại sau.");
     } finally {
       setLoading(false);
     }
@@ -81,20 +91,17 @@ export default function MyReviewsPage() {
 
   if (loading) {
     return (
-      <ClientLayout>
-        <div className="container mx-auto px-4 py-8">
-          <div className="text-center py-12">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-            <p className="text-gray-500 mt-4">Đang tải...</p>
-          </div>
+      <div className="container mx-auto px-4 py-8">
+        <div className="text-center py-12">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+          <p className="text-gray-500 mt-4">Đang tải...</p>
         </div>
-      </ClientLayout>
+      </div>
     );
   }
 
   return (
-    <ClientLayout>
-      <div className="container mx-auto px-4 py-8">
+    <div className="container mx-auto px-4 py-8">
         <div className="mb-8">
           <div className="flex items-center gap-4 mb-4">
             <Link href="/dashboard">
@@ -110,7 +117,19 @@ export default function MyReviewsPage() {
           </p>
         </div>
 
-        {bookings.length === 0 ? (
+        {error && (
+          <Card className="mb-6">
+            <CardContent className="py-8 text-center">
+              <AlertTriangle className="w-10 h-10 text-yellow-500 mx-auto mb-3" />
+              <p className="text-gray-600 mb-4">{error}</p>
+              <Button variant="outline" onClick={() => { setLoading(true); void fetchReviewableBookings(); }}>
+                Thử lại
+              </Button>
+            </CardContent>
+          </Card>
+        )}
+
+        {!error && bookings.length === 0 ? (
           <Card>
             <CardContent className="py-12 text-center">
               <Star className="w-12 h-12 text-gray-400 mx-auto mb-4" />
@@ -125,7 +144,7 @@ export default function MyReviewsPage() {
               </Link>
             </CardContent>
           </Card>
-        ) : (
+        ) : !error && bookings.length > 0 ? (
           <div className="grid gap-6">
             {bookings.map((booking) => (
               <Card key={booking.id}>
@@ -184,7 +203,7 @@ export default function MyReviewsPage() {
               </Card>
             ))}
           </div>
-        )}
+        ) : null}
 
         {/* Review Dialog */}
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
@@ -204,7 +223,6 @@ export default function MyReviewsPage() {
             )}
           </DialogContent>
         </Dialog>
-      </div>
-    </ClientLayout>
+    </div>
   );
 }

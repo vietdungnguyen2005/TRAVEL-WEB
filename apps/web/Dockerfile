@@ -26,6 +26,10 @@ RUN npm install --legacy-peer-deps \
 # Copy full source
 COPY . .
 
+# Build workspace packages required by the web app
+RUN npm -w @travel-web/contracts run build \
+	&& npm -w @travel-web/shared run build
+
 # Build Next.js web
 ENV NEXT_TELEMETRY_DISABLED=1
 RUN cd apps/web && npm run build
@@ -43,7 +47,7 @@ COPY --from=builder /app/package.json ./package.json
 
 # Copy built web app
 COPY --from=builder /app/apps/web/.next ./apps/web/.next
-COPY --from=builder /app/apps/web/public ./apps/web/public
+COPY --from=builder /app/public ./apps/web/public
 COPY --from=builder /app/apps/web/package.json ./apps/web/package.json
 
 # Copy packages (may be imported at runtime)

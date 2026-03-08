@@ -65,8 +65,9 @@ export async function POST(request: NextRequest) {
         console.error('Supabase upload failed, trying Cloudinary:', error);
         // Fallback to Cloudinary if Supabase fails
         if (isCloudinaryConfigured()) {
+          const buffer = Buffer.from(await file.arrayBuffer());
           const result = await uploadToCloudinary(
-            await file.arrayBuffer(),
+            buffer,
             'travel-booking'
           );
           url = result.url;
@@ -76,8 +77,9 @@ export async function POST(request: NextRequest) {
         }
       }
     } else if (isCloudinaryConfigured()) {
+      const buffer = Buffer.from(await file.arrayBuffer());
       const result = await uploadToCloudinary(
-        await file.arrayBuffer(),
+        buffer,
         'travel-booking'
       );
       url = result.url;

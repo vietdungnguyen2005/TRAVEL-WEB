@@ -22,23 +22,23 @@ import {
 import { format } from "date-fns";
 import Image from "next/image";
 import Link from "next/link";
-import { ClientLayout } from "@/components/layout/client-layout";
 import { gatewayFetch } from "@/lib/gateway-client";
 import { RefundRequestButton } from "@/components/customer/refund-request-button";
 
 interface Booking {
   id: string;
+  roomId?: string;
   checkIn: string;
   checkOut: string;
   numberOfGuests: number;
   totalPrice: number;
   status: string;
   paymentStatus: string;
-  paymentMethod: string;
   createdAt: string;
-  room: {
+  holdExpiresAt?: string;
+  room?: {
     roomNumber: string;
-    roomType: {
+    roomType?: {
       name: string;
       images: string[];
       description: string;
@@ -68,7 +68,34 @@ export default function DashboardPage() {
         throw new Error("Failed to fetch bookings");
       }
       const data = await response.json();
-      setBookings(data);
+      const rawBookings: Booking[] = Array.isArray(data) ? data : data?.data ?? [];
+
+      // Enrich bookings with room/roomType info from room-service
+      const roomIds = [...new Set(rawBookings.map((b) => b.roomId).filter(Boolean))];
+      if (roomIds.length > 0) {
+        try {
+          const roomRes = await gatewayFetch("/api/rooms/by-ids", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ ids: roomIds }),
+            attachAccessToken: true,
+          });
+          if (roomRes.ok) {
+            const roomData = await roomRes.json();
+            const rooms = Array.isArray(roomData) ? roomData : roomData?.data ?? [];
+            const roomMap = new Map(rooms.map((r: any) => [r.id, r]));
+            for (const b of rawBookings) {
+              if (b.roomId && roomMap.has(b.roomId)) {
+                b.room = roomMap.get(b.roomId);
+              }
+            }
+          }
+        } catch {
+          // Room enrichment failed — continue with partial data
+        }
+      }
+
+      setBookings(rawBookings);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to fetch bookings");
     } finally {
@@ -143,7 +170,7 @@ export default function DashboardPage() {
 
   const upcomingBookings = bookings.filter(
     (b) =>
-      (b.status === "CONFIRMED" || b.status === "PENDING") &&
+      (b.status === "CONFIRMED" || b.status === "PENDING" || b.status === "ON_HOLD") &&
       new Date(b.checkIn) > new Date()
   );
 
@@ -158,14 +185,14 @@ export default function DashboardPage() {
   const BookingCard = ({ booking }: { booking: Booking }) => {
     const nights = calculateNights(booking.checkIn, booking.checkOut);
     const canCancel =
-      booking.status === "CONFIRMED" &&
+      (booking.status === "CONFIRMED" || booking.status === "PENDING" || booking.status === "ON_HOLD") &&
       new Date(booking.checkIn) > new Date(Date.now() + 24 * 60 * 60 * 1000);
 
     return (
       <Card className="overflow-hidden">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="relative h-48 md:h-full">
-            {booking.room.roomType.images[0] && (
+            {booking.room?.roomType?.images?.[0] && (
               <Image
                 src={booking.room.roomType.images[0]}
                 alt={booking.room.roomType.name}
@@ -179,10 +206,10 @@ export default function DashboardPage() {
             <div className="flex items-start justify-between mb-4">
               <div>
                 <h3 className="text-xl font-semibold mb-1">
-                  {booking.room.roomType.name}
+                  {booking.room?.roomType?.name ?? "Room"}
                 </h3>
                 <p className="text-sm text-muted-foreground">
-                  Room {booking.room.roomNumber}
+                  Room {booking.room?.roomNumber ?? "—"}
                 </p>
               </div>
               <Badge className={`${getStatusColor(booking.status)} text-white`}>
@@ -245,8 +272,13 @@ export default function DashboardPage() {
                   {Number(booking.totalPrice).toLocaleString("vi-VN")} VND
                 </p>
                 <p className="text-xs text-muted-foreground mt-1">
-                  Payment: {booking.paymentStatus} ({booking.paymentMethod})
+                  Payment: {booking.paymentStatus ?? "N/A"}
                 </p>
+                {booking.status === "ON_HOLD" && booking.holdExpiresAt && (
+                  <p className="text-xs text-orange-600 mt-1 font-medium">
+                    Hold expires: {format(new Date(booking.holdExpiresAt), "PPP p")}
+                  </p>
+                )}
               </div>
 
               <div className="flex gap-2">
@@ -291,19 +323,16 @@ export default function DashboardPage() {
 
   if (loading) {
     return (
-      <ClientLayout>
-        <div className="container mx-auto px-4 py-16">
-          <div className="flex items-center justify-center">
-            <Loader2 className="h-12 w-12 animate-spin text-primary" />
-          </div>
+      <div className="container mx-auto px-4 py-16">
+        <div className="flex items-center justify-center">
+          <Loader2 className="h-12 w-12 animate-spin text-primary" />
         </div>
-      </ClientLayout>
+      </div>
     );
   }
 
   return (
-    <ClientLayout>
-      <div className="container mx-auto px-4 py-8">
+    <div className="container mx-auto px-4 py-8">
         <div className="mb-8">
           <h1 className="text-3xl font-bold mb-2">My Dashboard</h1>
           <p className="text-muted-foreground">
@@ -392,7 +421,6 @@ export default function DashboardPage() {
             )}
           </TabsContent>
         </Tabs>
-      </div>
-    </ClientLayout>
+    </div>
   );
 }

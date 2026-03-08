@@ -2,6 +2,7 @@ export * from './booking';
 export * from './rooms';
 export * from './payments';
 export * from './reviews';
+export * from './events';
 export type LoginRequest = {
     email: string;
     password: string;

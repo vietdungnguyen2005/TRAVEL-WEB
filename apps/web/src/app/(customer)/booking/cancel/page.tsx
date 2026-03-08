@@ -6,13 +6,12 @@ import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { AlertTriangle, Home, ArrowLeft } from "lucide-react";
 import Link from "next/link";
-import { ClientLayout } from "@/components/layout/client-layout";
 
 export default function PaymentCancelPage() {
   const router = useRouter();
 
   return (
-    <ClientLayout>
+    <>
       <div className="container mx-auto px-4 py-16">
         <div className="max-w-2xl mx-auto">
         <div className="text-center mb-8">
@@ -78,6 +77,6 @@ export default function PaymentCancelPage() {
         </div>
       </div>
       </div>
-    </ClientLayout>
+    </>
   );
 }

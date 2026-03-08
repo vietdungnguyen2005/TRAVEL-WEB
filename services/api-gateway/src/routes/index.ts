@@ -1,18 +1,30 @@
 import { Router } from 'express';
 import { createClient } from 'redis';
 import { proxyMiddleware } from '../proxy/proxy.middleware';
-import { requireAuthForPaths } from '../middlewares/auth.middleware';
+import { requireAuthForPaths, requireAdminForPaths } from '../middlewares/auth.middleware';
 import { discoveryConfig } from '../config/discovery.config';
 import { getServiceTarget } from '../discovery/service-resolver';
 import { register as metricsRegister } from '../lib/metrics';
 
 const router = Router();
 
+// VNPay IPN callback – no auth required (server-to-server from VNPay)
+router.use('/api/payments/vnpay-ipn', proxyMiddleware.payments);
+
 // JWT protection (verify at gateway, forward user context via x-user-* headers)
 router.use(
     requireAuthForPaths([
         '/api/bookings',
         '/api/payments',
+        '/api/admin',
+    ], [
+        '/api/bookings/unavailable-dates',
+    ])
+);
+
+// Admin role guard – runs AFTER auth so req.auth is already set
+router.use(
+    requireAdminForPaths([
         '/api/admin',
     ])
 );

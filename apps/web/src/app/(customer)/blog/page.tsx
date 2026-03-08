@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { ClientLayout } from "@/components/layout/client-layout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { gatewayFetchServer } from "@/lib/gateway-server";
 
@@ -32,7 +31,7 @@ async function getPosts(): Promise<BlogPostListItem[]> {
 export default async function BlogIndexPage() {
     const posts = await getPosts();
     return (
-        <ClientLayout>
+        <>
             <div className="container mx-auto px-4 py-10 space-y-6">
                 <div>
                     <h1 className="text-3xl font-bold">Blog</h1>
@@ -69,6 +68,6 @@ export default async function BlogIndexPage() {
                     )}
                 </div>
             </div>
-        </ClientLayout>
+        </>
     );
 }

@@ -22,7 +22,7 @@ COPY packages ./packages
 COPY services ./services
 COPY apps ./apps
 
-RUN npm ci
+RUN npm ci --legacy-peer-deps
 
 # Prisma client for blog-service (uses BLOG_DATABASE_URL at runtime)
 RUN npm -w blog-service run prisma:generate

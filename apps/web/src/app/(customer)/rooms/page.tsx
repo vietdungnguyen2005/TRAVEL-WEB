@@ -6,13 +6,14 @@ import { RoomFiltersClient } from "@/components/customer/room-filters-client";
 import { RoomsSortBar } from "@/components/customer/rooms-sort-bar";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Card } from "@/components/ui/card";
-import { CalendarDays, Users } from "lucide-react";
+import { CalendarDays, Users, MapPin } from "lucide-react";
 
 interface PageProps {
   searchParams: {
     checkIn?: string;
     checkOut?: string;
     guests?: string;
+    location?: string;
     minPrice?: string;
     maxPrice?: string;
     capacity?: string;
@@ -28,6 +29,7 @@ async function getRooms(searchParams: PageProps["searchParams"]) {
     maxPrice,
     capacity,
     roomTypes,
+    location,
     sortBy = "price-asc",
   } = params;
 
@@ -59,6 +61,7 @@ async function getRooms(searchParams: PageProps["searchParams"]) {
     if (maxPrice) qs.set("maxPrice", maxPrice);
     if (capacity) qs.set("capacity", capacity);
     if (roomTypes) qs.set("roomTypes", roomTypes);
+    if (location) qs.set("location", location);
     if (sortBy) qs.set("sortBy", sortBy);
 
     const path = `/api/rooms${qs.toString() ? `?${qs.toString()}` : ""}`;
@@ -104,16 +107,25 @@ function RoomListSkeleton() {
 async function RoomList({ searchParams }: { searchParams: PageProps["searchParams"] }) {
   const rooms = await getRooms(searchParams);
   const params = await searchParams;
-  const { checkIn, checkOut, guests } = params;
+  const { checkIn, checkOut, guests, location } = params;
 
   const checkInText = checkIn ? new Date(checkIn).toLocaleDateString("vi-VN") : "Select dates";
   const checkOutText = checkOut ? new Date(checkOut).toLocaleDateString("vi-VN") : "Select dates";
   const guestsText = guests ? `${guests} guest${Number(guests) === 1 ? "" : "s"}` : "Guests";
+  const locationText = location || "Tất cả địa điểm";
 
   return (
     <>
       <Card className="mb-6 p-3 md:p-4">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+          <div className="flex items-center gap-3 rounded-lg border bg-background px-3 py-2">
+            <MapPin className="h-4 w-4 text-muted-foreground" />
+            <div className="text-sm">
+              <div className="text-muted-foreground">Địa điểm</div>
+              <div className="font-medium">{locationText}</div>
+            </div>
+          </div>
+
           <div className="flex items-center gap-3 rounded-lg border bg-background px-3 py-2">
             <CalendarDays className="h-4 w-4 text-muted-foreground" />
             <div className="text-sm">

@@ -1,4 +1,4 @@
-export type IdempotencyScope = 'refund' | 'refund-approve' | 'refund-reject' | 'stripe-webhook';
+export type IdempotencyScope = 'refund' | 'refund-approve' | 'refund-reject' | 'vnpay-ipn';
 
 export type IdempotencyStore = {
     begin(scope: IdempotencyScope, key: string, bookingId?: string): Promise<{ ok: true } | { ok: false; conflict: true }>;

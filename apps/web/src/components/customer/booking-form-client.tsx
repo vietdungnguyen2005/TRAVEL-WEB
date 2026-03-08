@@ -19,9 +19,10 @@ interface BookingFormClientProps {
   roomTypeId: string;
   basePrice: number;
   capacity: number;
+  roomIds?: string[];
 }
 
-export function BookingFormClient({ roomTypeId, basePrice, capacity }: BookingFormClientProps) {
+export function BookingFormClient({ roomTypeId, basePrice, capacity, roomIds }: BookingFormClientProps) {
   const router = useRouter();
   const setBookingData = useBookingStore((state) => state.setBookingData);
   const [isChecking, setIsChecking] = useState(false);
@@ -72,6 +73,7 @@ export function BookingFormClient({ roomTypeId, basePrice, capacity }: BookingFo
       setBookingData({
         roomTypeId,
         roomId: result.availableRooms[0].id, // Use first available room
+        roomIds: result.availableRooms.map((r: { id: string }) => r.id), // All available rooms for fallback
         checkIn: data.checkIn,
         checkOut: data.checkOut,
         guests: data.guests,
@@ -99,6 +101,7 @@ export function BookingFormClient({ roomTypeId, basePrice, capacity }: BookingFo
       capacity={capacity}
       onSubmit={handleSubmit}
       isSubmitting={isChecking}
+      roomIds={roomIds}
     />
   );
 }

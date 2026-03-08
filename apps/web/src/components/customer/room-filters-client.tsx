@@ -33,6 +33,7 @@ export function RoomFiltersClient({ initialParams }: RoomFiltersClientProps) {
       parseInt(initialParams.maxPrice || "10000000"),
     ],
     capacity: initialParams.capacity ? parseInt(initialParams.capacity) : null,
+    location: initialParams.location || "",
     roomTypes: initialParams.roomTypes ? initialParams.roomTypes.split(",") : [],
     promoDiscounts: parseCsv(initialParams.promoDiscounts),
     starRatings: parseNumberCsv(initialParams.starRatings),
@@ -63,6 +64,13 @@ export function RoomFiltersClient({ initialParams }: RoomFiltersClientProps) {
       params.set("roomTypes", filters.roomTypes.join(","));
     } else {
       params.delete("roomTypes");
+    }
+
+    // Update location
+    if (filters.location) {
+      params.set("location", filters.location);
+    } else {
+      params.delete("location");
     }
 
     const setCsvParam = (key: string, values: Array<string | number>) => {

@@ -10,7 +10,6 @@ const booking_created_consumer_1 = require("./interfaces/events/booking-created.
 const booking_cancelled_consumer_1 = require("./interfaces/events/booking-cancelled.consumer");
 const metrics_1 = __importDefault(require("./lib/metrics"));
 const prisma_1 = __importDefault(require("./lib/prisma"));
-const stripe_client_1 = require("./lib/stripe-client");
 const payments_routes_1 = require("./interfaces/http/payments.routes");
 const app = (0, express_1.default)();
 const PORT = process.env.PORT || 3004;
@@ -49,22 +48,9 @@ async function checkRabbitMq() {
     await withTimeout(conn.close(), timeoutMs, 'RabbitMQ close');
 }
 // Load root env + selected profile env (.env.docker/.env.supabase)
-// In docker-compose, env can also be injected by the container; this won't override existing vars.
 (0, shared_1.loadEnvProfile)({ cwd: process.cwd().split('/services/')[0] });
-const STRIPE_WEBHOOK_SECRET = process.env.STRIPE_WEBHOOK_SECRET;
-const stripe = (0, stripe_client_1.getStripeClient)();
 app.use((0, shared_1.createCorrelationIdMiddleware)());
-// JSON routes
-// IMPORTANT: Stripe webhooks must use raw body for signature verification.
-// So we skip JSON parsing for the webhook endpoint and let its route-level `express.raw()` handle it.
-const jsonParser = express_1.default.json();
-app.use((req, res, next) => {
-    // When mounting routers, `req.path` may be relative; use originalUrl to be safe.
-    const url = typeof req.originalUrl === 'string' ? req.originalUrl : req.url;
-    if (url.includes('/api/payments/webhook'))
-        return next();
-    return jsonParser(req, res, next);
-});
+app.use(express_1.default.json());
 app.get('/health', (_req, res) => {
     res.status(200).json({ ok: true, service: 'payment-service' });
 });
@@ -72,7 +58,6 @@ app.get('/metrics', async (_req, res) => {
     res.setHeader('Content-Type', metrics_1.default.contentType);
     res.end(await metrics_1.default.metrics());
 });
-// Liveness: DB connectivity (Compose healthcheck can use this or /ready)
 app.get('/healthz', async (_req, res) => {
     try {
         await checkDb();
@@ -82,7 +67,6 @@ app.get('/healthz', async (_req, res) => {
         return res.status(503).json({ ok: false, service: 'payment-service', dependency: 'db', error: err.message });
     }
 });
-// Readiness: DB + RabbitMQ connectivity
 app.get('/ready', async (_req, res) => {
     try {
         await Promise.all([checkDb(), checkRabbitMq()]);
@@ -92,7 +76,7 @@ app.get('/ready', async (_req, res) => {
         return res.status(503).json({ status: 'not-ready', error: err.message });
     }
 });
-app.use('/api/payments', (0, payments_routes_1.createPaymentsRouter)({ stripe, stripeWebhookSecret: STRIPE_WEBHOOK_SECRET }));
+app.use('/api/payments', (0, payments_routes_1.createPaymentsRouter)());
 app.listen(PORT, () => {
     console.log(`Payment Service running on port ${PORT}`);
     (0, booking_created_consumer_1.startBookingEventsConsumer)().catch((err) => console.error('Booking events consumer failed to start', err));

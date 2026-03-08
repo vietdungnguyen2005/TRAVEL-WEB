@@ -117,7 +117,7 @@ export default function RoomsManagement() {
       });
       if (response.ok) {
         const data = await response.json();
-        setRooms(data);
+        setRooms(Array.isArray(data) ? data : data?.data ?? []);
       }
     } catch (error) {
       console.error("Error fetching rooms:", error);
@@ -134,7 +134,7 @@ export default function RoomsManagement() {
       });
       if (response.ok) {
         const data = await response.json();
-        setRoomTypes(data);
+        setRoomTypes(Array.isArray(data) ? data : data?.data ?? []);
       }
     } catch (error) {
       console.error("Error fetching room types:", error);
@@ -173,12 +173,13 @@ export default function RoomsManagement() {
         : "/api/admin/rooms";
       const method = editingRoom ? "PATCH" : "POST";
 
-      const response = await fetch(url, {
+      const response = await gatewayFetch(url, {
         method,
         headers: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify(formData),
+        attachAccessToken: true,
       });
 
       if (response.ok) {
@@ -202,8 +203,9 @@ export default function RoomsManagement() {
     }
 
     try {
-      const response = await fetch(`/api/admin/rooms/${roomId}`, {
+      const response = await gatewayFetch(`/api/admin/rooms/${roomId}`, {
         method: "DELETE",
+        attachAccessToken: true,
       });
 
       if (response.ok) {

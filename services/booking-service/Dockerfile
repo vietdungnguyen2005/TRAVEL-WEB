@@ -24,7 +24,11 @@ COPY services ./services
 COPY apps ./apps
 
 # 3. Install all workspace deps from root (resolves @travel-web/*)
-RUN npm ci
+RUN npm ci --legacy-peer-deps
+
+# Build workspace packages needed at runtime
+RUN npm -w @travel-web/contracts run build \
+	&& npm -w @travel-web/shared run build
 
 # 4. Generate Prisma client then compile
 RUN npx prisma generate --schema=./services/booking-service/prisma/schema.prisma
@@ -34,12 +38,17 @@ RUN npm -w booking-service run build
 FROM node:20-alpine
 WORKDIR /app
 
+RUN apk add --no-cache openssl
+
+COPY --from=builder /app/packages/contracts                   ./packages/contracts
+COPY --from=builder /app/packages/shared                      ./packages/shared
 COPY --from=builder /app/services/booking-service/dist             ./services/booking-service/dist
 COPY --from=builder /app/services/booking-service/package.json     ./services/booking-service/package.json
+COPY --from=builder /app/services/booking-service/node_modules     ./services/booking-service/node_modules
 COPY --from=builder /app/node_modules                              ./node_modules
 COPY --from=builder /app/services/booking-service/node_modules/.prisma ./node_modules/.prisma
 
 WORKDIR /app/services/booking-service
 ENV NODE_ENV=production
 EXPOSE 3002
-CMD ["node", "dist/main.js"]
+CMD ["node", "dist/services/booking-service/src/main.js"]

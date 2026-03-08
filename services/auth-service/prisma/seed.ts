@@ -28,6 +28,11 @@ const ADMIN_EMAIL = 'admin@travel.com';
 const ADMIN_PASSWORD = 'admin123';
 const ADMIN_NAME = 'Admin User';
 
+const TEST_USERS = [
+  { email: 'user@travel.com', password: 'user123', name: 'Nguyen Van A', role: 'CUSTOMER' as const },
+  { email: 'customer@travel.com', password: 'customer123', name: 'Tran Thi B', role: 'CUSTOMER' as const },
+];
+
 async function main() {
   const url = process.env.AUTH_DATABASE_URL ?? process.env.DATABASE_URL;
   if (!url) {
@@ -57,6 +62,28 @@ async function main() {
 
   console.log('✅ Admin user ready:', admin.email);
   console.log('   Login: email =', ADMIN_EMAIL, ', password =', ADMIN_PASSWORD);
+
+  // Create test users
+  for (const u of TEST_USERS) {
+    const hashed = await bcrypt.hash(u.password, 10);
+    const user = await prisma.user.upsert({
+      where: { email: u.email },
+      update: {
+        password: hashed,
+        name: u.name,
+        role: u.role,
+        isVerified: true,
+      },
+      create: {
+        email: u.email,
+        password: hashed,
+        name: u.name,
+        role: u.role,
+        isVerified: true,
+      },
+    });
+    console.log('✅ Test user ready:', user.email, '/ password:', u.password);
+  }
 }
 
 main()

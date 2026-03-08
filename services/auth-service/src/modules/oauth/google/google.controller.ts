@@ -1,8 +1,7 @@
 import { createHash, randomBytes, timingSafeEqual } from 'crypto';
 import { prisma } from '../../../lib/prisma';
 import { getGoogleOauthConfig } from './google.config';
-import jwt from 'jsonwebtoken';
-import type { SignOptions } from 'jsonwebtoken';
+import { signAccessToken as signJwt } from '../../../lib/jwt.rs256';
 import type { Request, Response } from 'express';
 
 function base64Url(input: Buffer) {
@@ -17,20 +16,6 @@ function sha256Base64Url(verifier: string) {
     // Node supports 'base64url' since v14+, but keep manual for portability.
     const hash = createHash('sha256').update(verifier).digest();
     return base64Url(hash);
-}
-
-function getJwtSecret() {
-    const secret = process.env.JWT_SECRET;
-    if (!secret) throw new Error('JWT_SECRET is not set');
-    return secret;
-}
-
-function signAccessToken(payload: { sub: string; email: string; role: string }) {
-    const secret = getJwtSecret();
-    const opts: SignOptions = {
-        expiresIn: (process.env.JWT_EXPIRES_IN as SignOptions['expiresIn']) || '7d',
-    };
-    return jwt.sign(payload, secret, opts);
 }
 
 function cookieOptions() {
@@ -52,16 +37,33 @@ function getRedirectAfterLogin(req: Request) {
     return redirect;
 }
 
-function getWebAppUrl() {
+function getWebAppUrl(req?: Request) {
     // This should point to the Next.js app origin (NOT the API gateway).
     // Example: http://localhost:3000 or http://192.168.1.43:3000
+    //
+    // In dev, try to derive from the request's origin/referer so it works
+    // regardless of whether the user accesses via localhost or LAN IP.
+    if (req) {
+        const origin = req.headers['origin'] || req.headers['referer'];
+        if (origin) {
+            try {
+                const u = new URL(typeof origin === 'string' ? origin : origin[0]);
+                // The web app is on port 3000; the gateway on 4000.
+                // If the request came via gateway (port 4000), swap to 3000.
+                const webPort = '3000';
+                return `${u.protocol}//${u.hostname}:${webPort}`;
+            } catch {
+                // ignore
+            }
+        }
+    }
     const raw = process.env.WEB_APP_URL;
     if (!raw) return undefined;
     return raw.endsWith('/') ? raw.slice(0, -1) : raw;
 }
 
-function toWebOauthLandingUrl(args: { token: string; redirect: string }) {
-    const web = getWebAppUrl();
+function toWebOauthLandingUrl(args: { token: string; redirect: string; req?: Request }) {
+    const web = getWebAppUrl(args.req);
     if (!web) return '/dashboard';
 
     const redirectPath = args.redirect.startsWith('/') ? args.redirect : '/dashboard';
@@ -90,6 +92,18 @@ export async function googleStart(req: Request, res: Response) {
         path: '/',
         maxAge: 10 * 60 * 1000,
     });
+
+    // Store the web app origin so callback can redirect to the correct host
+    const webOrigin = getWebAppUrl(req);
+    if (webOrigin) {
+        res.cookie('oauth_web_origin', webOrigin, {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === 'production',
+            sameSite: 'lax',
+            path: '/',
+            maxAge: 10 * 60 * 1000,
+        });
+    }
 
     const params = new URLSearchParams({
         client_id: clientId,
@@ -165,6 +179,7 @@ export async function googleCallback(req: Request, res: Response) {
         const cookieState = req.cookies?.oauth_state as string | undefined;
         const codeVerifier = req.cookies?.oauth_code_verifier as string | undefined;
         const redirect = (req.cookies?.oauth_redirect as string | undefined) || '/dashboard';
+        const storedWebOrigin = req.cookies?.oauth_web_origin as string | undefined;
 
         if (!cookieState || !codeVerifier) {
             return res.status(400).json({ message: 'OAuth cookies missing. Restart login.' });
@@ -198,22 +213,23 @@ export async function googleCallback(req: Request, res: Response) {
             select: { id: true, email: true, name: true, role: true, isVerified: true },
         });
 
-        const token = signAccessToken({ sub: user.id, email: user.email, role: user.role });
+        const token = signJwt({ userId: user.id, role: user.role, name: user.name ?? undefined, email: user.email });
 
         // Clear transient cookies
         res.clearCookie('oauth_state', { path: '/' });
         res.clearCookie('oauth_code_verifier', { path: '/' });
         res.clearCookie('oauth_redirect', { path: '/' });
+        res.clearCookie('oauth_web_origin', { path: '/' });
 
-        // In local dev, the OAuth callback executes on the gateway origin (localhost:4000).
-        // Browsers won't let that response set cookies for the web origin (192.168.x.x:3000).
-        // So we bounce through a tiny web page that stores the token on the web origin.
-        return res.redirect(
-            toWebOauthLandingUrl({
-                token,
-                redirect: redirect.startsWith('/') ? redirect : '/dashboard',
-            })
-        );
+        // Build the redirect URL. Prefer the stored web origin from the start request.
+        const redirectPath = redirect.startsWith('/') ? redirect : '/dashboard';
+        const webBase = storedWebOrigin || getWebAppUrl(req);
+        if (!webBase) return res.redirect(redirectPath);
+
+        const url = new URL(`${webBase}/auth/oauth/callback`);
+        url.searchParams.set('token', token);
+        url.searchParams.set('redirect', redirectPath);
+        return res.redirect(url.toString());
     } catch (err) {
         console.error('Google OAuth callback failed:', err);
         const message = err instanceof Error ? err.message : 'unknown_error';

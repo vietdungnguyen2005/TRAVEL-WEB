@@ -1,8 +1,18 @@
 import express from 'express';
 import { consulRegisterService, createCorrelationIdMiddleware } from '@travel-web/shared';
-import { PrismaClient, Prisma, RoomStatus } from '../node_modules/.prisma/room-client';
+import path from 'path';
+import { createRequire } from 'module';
+import type { Prisma as PrismaTypes, RoomStatus as RoomStatusType } from '../node_modules/.prisma/room-client';
 import { requireRole, verifyJWT } from '@travel-web/shared';
 import { config as loadEnv } from 'dotenv';
+
+type RoomPrismaClientModule = {
+    PrismaClient: typeof import('../node_modules/.prisma/room-client').PrismaClient;
+};
+
+const requireFromHere = createRequire(__filename);
+const generatedClientPath = path.join(process.cwd(), 'node_modules', '.prisma', 'room-client');
+const { PrismaClient } = requireFromHere(generatedClientPath) as RoomPrismaClientModule;
 
 // Load env vars from services/room-service/.env when running locally.
 loadEnv();
@@ -31,6 +41,7 @@ admin.get('/room-types', async (_req, res) => {
             description: t.description,
             pricePerNight: t.basePrice,
             maxGuests: t.maxGuests,
+            location: t.location,
             amenities: t.amenities,
             images: t.images,
             isActive: t.isActive,
@@ -38,6 +49,92 @@ admin.get('/room-types', async (_req, res) => {
             updatedAt: t.updatedAt,
         }))
     );
+});
+
+admin.post('/room-types', async (req, res) => {
+    const { name, description, pricePerNight, maxGuests, location, amenities, images, isActive } = req.body ?? {};
+    if (!name) return res.status(400).json({ error: 'name is required' });
+
+    try {
+        const created = await prisma.roomType.create({
+            data: {
+                name: String(name),
+                description: description ? String(description) : '',
+                basePrice: typeof pricePerNight === 'number' ? pricePerNight : Number(pricePerNight ?? 0),
+                maxGuests: typeof maxGuests === 'number' ? maxGuests : Number(maxGuests ?? 2),
+                location: typeof location === 'string' ? location : 'Hà Nội',
+                amenities: Array.isArray(amenities) ? amenities : [],
+                images: Array.isArray(images) ? images : [],
+                isActive: typeof isActive === 'boolean' ? isActive : true,
+            },
+        });
+
+        return res.status(201).json({
+            id: created.id,
+            name: created.name,
+            description: created.description,
+            pricePerNight: created.basePrice,
+            maxGuests: created.maxGuests,
+            location: created.location,
+            amenities: created.amenities,
+            images: created.images,
+            isActive: created.isActive,
+            createdAt: created.createdAt,
+            updatedAt: created.updatedAt,
+        });
+    } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : 'Cannot create room type';
+        return res.status(400).json({ error: message });
+    }
+});
+
+admin.patch('/room-types/:id', async (req, res) => {
+    const { id } = req.params;
+    const { name, description, pricePerNight, maxGuests, location, amenities, images, isActive } = req.body ?? {};
+
+    try {
+        const updated = await prisma.roomType.update({
+            where: { id },
+            data: {
+                name: typeof name === 'string' ? name : undefined,
+                description: typeof description === 'string' ? description : undefined,
+                basePrice: typeof pricePerNight === 'number' ? pricePerNight : undefined,
+                maxGuests: typeof maxGuests === 'number' ? maxGuests : undefined,
+                location: typeof location === 'string' ? location : undefined,
+                amenities: Array.isArray(amenities) ? amenities : undefined,
+                images: Array.isArray(images) ? images : undefined,
+                isActive: typeof isActive === 'boolean' ? isActive : undefined,
+            },
+        });
+
+        return res.json({
+            id: updated.id,
+            name: updated.name,
+            description: updated.description,
+            pricePerNight: updated.basePrice,
+            maxGuests: updated.maxGuests,
+            location: updated.location,
+            amenities: updated.amenities,
+            images: updated.images,
+            isActive: updated.isActive,
+            createdAt: updated.createdAt,
+            updatedAt: updated.updatedAt,
+        });
+    } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : 'Cannot update room type';
+        return res.status(400).json({ error: message });
+    }
+});
+
+admin.delete('/room-types/:id', async (req, res) => {
+    const { id } = req.params;
+    try {
+        await prisma.roomType.delete({ where: { id } });
+        return res.status(204).send();
+    } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : 'Cannot delete room type';
+        return res.status(400).json({ error: message });
+    }
 });
 
 // Rooms
@@ -71,7 +168,7 @@ admin.post('/rooms', async (req, res) => {
             data: {
                 roomNumber: String(roomNumber),
                 floor: typeof floor === 'number' ? floor : Number(floor ?? 1),
-                status: (status ?? 'AVAILABLE') as RoomStatus,
+                status: (status ?? 'AVAILABLE') as RoomStatusType,
                 roomTypeId: String(roomTypeId),
             },
             include: { roomType: true },
@@ -101,7 +198,7 @@ admin.patch('/rooms/:id', async (req, res) => {
             data: {
                 roomNumber: typeof roomNumber === 'string' ? roomNumber : undefined,
                 floor: typeof floor === 'number' ? floor : floor != null ? Number(floor) : undefined,
-                status: typeof status === 'string' ? (status as RoomStatus) : undefined,
+                status: typeof status === 'string' ? (status as RoomStatusType) : undefined,
                 roomTypeId: typeof roomTypeId === 'string' ? roomTypeId : undefined,
             },
             include: { roomType: true },
@@ -136,19 +233,20 @@ app.use('/api/admin', admin);
 
 // Customer-facing: list room types (what the web calls "rooms")
 // Query params supported by the web UI:
-// - minPrice, maxPrice, capacity, roomTypes (comma-separated by name), sortBy
+// - minPrice, maxPrice, capacity, roomTypes (comma-separated by name), location, sortBy
 app.get('/api/rooms', async (req, res) => {
     const minPrice = typeof req.query.minPrice === 'string' ? Number(req.query.minPrice) : undefined;
     const maxPrice = typeof req.query.maxPrice === 'string' ? Number(req.query.maxPrice) : undefined;
     const capacity = typeof req.query.capacity === 'string' ? Number(req.query.capacity) : undefined;
     const roomTypes = typeof req.query.roomTypes === 'string' ? req.query.roomTypes : undefined;
+    const location = typeof req.query.location === 'string' ? req.query.location : undefined;
     const sortBy = typeof req.query.sortBy === 'string' ? req.query.sortBy : 'price-asc';
 
-    const where: Prisma.RoomTypeWhereInput = { isActive: true };
+    const where: PrismaTypes.RoomTypeWhereInput = { isActive: true };
 
     // basePrice filtering
     if (!Number.isNaN(minPrice as number) || !Number.isNaN(maxPrice as number)) {
-        const basePrice: Prisma.IntFilter = {};
+        const basePrice: PrismaTypes.IntFilter = {};
         if (typeof minPrice === 'number' && !Number.isNaN(minPrice)) basePrice.gte = minPrice;
         if (typeof maxPrice === 'number' && !Number.isNaN(maxPrice)) basePrice.lte = maxPrice;
         where.basePrice = basePrice;
@@ -164,7 +262,12 @@ app.get('/api/rooms', async (req, res) => {
         where.name = { in: roomTypes.split(',').map((s) => s.trim()).filter(Boolean) };
     }
 
-    let orderBy: Prisma.RoomTypeOrderByWithRelationInput = { basePrice: 'asc' };
+    // filter by location
+    if (location) {
+        where.location = location;
+    }
+
+    let orderBy: PrismaTypes.RoomTypeOrderByWithRelationInput = { basePrice: 'asc' };
     switch (sortBy) {
         case 'price-desc':
             orderBy = { basePrice: 'desc' };
@@ -188,17 +291,19 @@ app.get('/api/rooms', async (req, res) => {
     });
 
     // Map room-service schema -> web expects fields like pricePerNight/capacity/bedCount/etc.
+    // Mark room types with available rooms and basePrice >= 2000000 as "featured"
     const data = types.map((t) => ({
         id: t.id,
         name: t.name,
         description: t.description,
         pricePerNight: t.basePrice,
         capacity: t.maxGuests,
+        location: t.location,
         bedCount: 1,
         size: null,
         amenities: t.amenities,
         images: t.images,
-        featured: false,
+        featured: t.rooms.length > 0 && t.basePrice >= 2000000,
         available: t.isActive,
         rooms: t.rooms,
         createdAt: t.createdAt,
@@ -225,16 +330,41 @@ app.get('/api/rooms/:id', async (req, res) => {
             description: t.description,
             pricePerNight: t.basePrice,
             capacity: t.maxGuests,
+            location: t.location,
             bedCount: 1,
             size: null,
             amenities: t.amenities,
             images: t.images,
-            featured: false,
+            featured: t.rooms.length > 0 && t.basePrice >= 2000000,
             available: t.isActive,
             rooms: t.rooms,
             createdAt: t.createdAt,
             updatedAt: t.updatedAt,
         },
+    });
+});
+
+// Lookup physical rooms by IDs (used by frontend to enrich booking data)
+app.post('/api/rooms/by-ids', async (req, res) => {
+    const { ids } = req.body ?? {};
+    if (!Array.isArray(ids) || ids.length === 0) {
+        return res.json({ data: [] });
+    }
+    const rooms = await prisma.room.findMany({
+        where: { id: { in: ids } },
+        include: { roomType: true },
+    });
+    res.json({
+        data: rooms.map((r) => ({
+            id: r.id,
+            roomNumber: r.roomNumber,
+            roomType: {
+                id: r.roomType.id,
+                name: r.roomType.name,
+                images: r.roomType.images ?? [],
+                description: r.roomType.description ?? '',
+            },
+        })),
     });
 });
 

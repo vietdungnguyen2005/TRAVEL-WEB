@@ -23,7 +23,11 @@ COPY services ./services
 COPY apps ./apps
 
 # 3. Install all workspace deps from root
-RUN npm ci
+RUN npm ci --legacy-peer-deps
+
+# Build workspace packages needed at runtime
+RUN npm -w @travel-web/contracts run build \
+	&& npm -w @travel-web/shared run build
 
 # 4. Compile
 RUN npm -w api-gateway run build
@@ -32,11 +36,14 @@ RUN npm -w api-gateway run build
 FROM node:20-alpine
 WORKDIR /app
 
+COPY --from=builder /app/packages/contracts                   ./packages/contracts
+COPY --from=builder /app/packages/shared                      ./packages/shared
 COPY --from=builder /app/services/api-gateway/dist         ./services/api-gateway/dist
 COPY --from=builder /app/services/api-gateway/package.json ./services/api-gateway/package.json
+COPY --from=builder /app/services/api-gateway/node_modules ./services/api-gateway/node_modules
 COPY --from=builder /app/node_modules                      ./node_modules
 
 WORKDIR /app/services/api-gateway
 ENV NODE_ENV=production
 EXPOSE 4000
-CMD ["node", "dist/main.js"]
+CMD ["node", "dist/services/api-gateway/src/main.js"]

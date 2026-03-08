@@ -63,8 +63,9 @@ export default function HeroImagesPage() {
         attachAccessToken: true,
       });
       if (response.ok) {
-        const data = await response.json();
-        setHeroImages(data);
+        const json = await response.json();
+        const items = Array.isArray(json) ? json : json?.data ?? [];
+        setHeroImages(items);
       }
     } catch (error) {
       console.error("Error fetching hero images:", error);
@@ -151,6 +152,7 @@ export default function HeroImagesPage() {
     try {
       const response = await gatewayFetch(`/api/admin/hero-images/${image.id}`, {
         method: "PUT",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ ...image, active: !image.active }),
         attachAccessToken: true,
       });
@@ -173,6 +175,7 @@ export default function HeroImagesPage() {
     try {
       const response = await gatewayFetch(`/api/admin/hero-images/${image.id}`, {
         method: "PUT",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ ...image, order: newOrder }),
         attachAccessToken: true,
       });

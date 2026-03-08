@@ -7,4 +7,5 @@ export type RequestWithAuth = Request & {
     auth?: AuthContext;
 };
 export declare function requireAuthForPaths(paths: string[]): (req: Request, res: Response, next: NextFunction) => Promise<void | Response<any, Record<string, any>>>;
+export declare function requireAdminForPaths(paths: string[]): (req: Request, res: Response, next: NextFunction) => void | Response<any, Record<string, any>>;
 //# sourceMappingURL=auth.middleware.d.ts.map

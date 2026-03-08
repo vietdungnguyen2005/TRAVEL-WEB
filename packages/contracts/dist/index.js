@@ -19,6 +19,7 @@ __exportStar(require("./booking"), exports);
 __exportStar(require("./rooms"), exports);
 __exportStar(require("./payments"), exports);
 __exportStar(require("./reviews"), exports);
+__exportStar(require("./events"), exports);
 // Export CreateBookingSchema for external usage
 var booking_1 = require("./booking");
 Object.defineProperty(exports, "CreateBookingSchema", { enumerable: true, get: function () { return booking_1.CreateBookingSchema; } });

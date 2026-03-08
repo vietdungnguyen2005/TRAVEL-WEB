@@ -6,7 +6,6 @@ import { Card } from "@/components/ui/card";
 import { X, Upload, Loader2, Image as ImageIcon } from "lucide-react";
 import Image from "next/image";
 import { toast } from "sonner";
-import { gatewayFetch } from "@/lib/gateway-client";
 
 interface ImageUploadProps {
   value: string[];
@@ -53,11 +52,10 @@ export function ImageUpload({
           const formData = new FormData();
           formData.append("file", file);
 
-          const response = await gatewayFetch("/api/upload/image", {
+          // Upload goes directly to Next.js API route (not through gateway)
+          const response = await fetch("/api/upload/image", {
             method: "POST",
             body: formData,
-            headers: {},
-            attachAccessToken: true,
           });
 
           if (!response.ok) {

@@ -4,10 +4,15 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.requireAuthForPaths = requireAuthForPaths;
+exports.requireAdminForPaths = requireAdminForPaths;
 const jsonwebtoken_1 = __importDefault(require("jsonwebtoken"));
 const axios_1 = __importDefault(require("axios"));
 const crypto_1 = require("crypto");
 const services_config_1 = require("../config/services.config");
+function getStringClaim(payload, key) {
+    const value = payload[key];
+    return typeof value === 'string' ? value : undefined;
+}
 const jwksCache = {
     fetchedAtMs: 0,
     pemByKid: new Map(),
@@ -108,8 +113,8 @@ function requireAuthForPaths(paths) {
             if (typeof verified === 'string')
                 return res.status(401).json({ error: 'Unauthorized' });
             const userId = typeof verified.sub === 'string' ? verified.sub : undefined;
-            const role = typeof verified.role === 'string' ? verified.role : undefined;
-            const typ = typeof verified.typ === 'string' ? verified.typ : undefined;
+            const role = getStringClaim(verified, 'role');
+            const typ = getStringClaim(verified, 'typ');
             if (!userId || !role)
                 return res.status(401).json({ error: 'Unauthorized' });
             if (typ && typ !== 'access')
@@ -120,6 +125,18 @@ function requireAuthForPaths(paths) {
         catch {
             return res.status(401).json({ error: 'Unauthorized' });
         }
+    };
+}
+function requireAdminForPaths(paths) {
+    return function adminGuard(req, res, next) {
+        const isAdminPath = paths.some((p) => req.path === p || req.path.startsWith(p));
+        if (!isAdminPath)
+            return next();
+        const role = req.auth?.role;
+        if (role !== 'ADMIN') {
+            return res.status(403).json({ error: 'Forbidden: admin access required' });
+        }
+        return next();
     };
 }
 //# sourceMappingURL=auth.middleware.js.map

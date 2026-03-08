@@ -54,9 +54,9 @@ export function BookingItem({ booking }: BookingItemProps) {
   const handlePayment = async () => {
     setPaying(true);
     try {
-      const response = await gatewayFetch("/api/payments/create-checkout", {
+      const response = await gatewayFetch("/api/payments/create-payment-url", {
         method: "POST",
-        body: JSON.stringify({ bookingId: booking.id }),
+        body: JSON.stringify({ bookingId: booking.id, amount: booking.totalPrice }),
         attachAccessToken: true,
       });
 
@@ -80,7 +80,7 @@ export function BookingItem({ booking }: BookingItemProps) {
       <CardContent className="pt-6">
         <div className="flex items-start justify-between mb-4">
           <div>
-            <h3 className="text-xl font-semibold">{booking.room.roomType.name}</h3>
+            <h3 className="text-xl font-semibold">{booking.room?.roomType?.name ?? "Phòng"}</h3>
             <p className="text-sm text-muted-foreground">
               Mã đặt phòng: {booking.id.slice(0, 8).toUpperCase()}
             </p>
@@ -139,10 +139,10 @@ export function BookingItem({ booking }: BookingItemProps) {
             <Link href={`/booking/success/${booking.id}`}>
               <Button variant="outline">Xem chi tiết</Button>
             </Link>
-            {booking.status === "CONFIRMED" && (
+            {(booking.status === "CONFIRMED" || booking.status === "ON_HOLD" || booking.status === "PENDING") && (
               <CancelBookingButton
                 bookingId={booking.id}
-                roomName={booking.room.roomType.name}
+                roomName={booking.room?.roomType?.name ?? "Phòng"}
               />
             )}
           </div>

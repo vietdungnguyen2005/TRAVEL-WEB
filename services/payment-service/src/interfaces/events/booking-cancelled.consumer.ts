@@ -1,10 +1,8 @@
 import { Logger, rabbitAssertTopology, rabbitConsumeWithRetry } from '@travel-web/shared';
 import type { EventMessage } from '@travel-web/contracts';
 
-import { getStripeClient } from '../../lib/stripe-client';
 import { createPrismaPaymentRepository } from '../../infrastructure/prisma/prisma-payment-repository';
 import { createRabbitEventPublisher } from '../../infrastructure/rabbitmq/rabbit-event-publisher';
-import { createStripeGateway } from '../../infrastructure/stripe/stripe-gateway';
 import { handleBookingCancelledRefund } from '../../application/usecases/handle-booking-cancelled-refund';
 import { prismaEventIdempotencyStore } from '../../infrastructure/idempotency/prisma-event-idempotency-store';
 
@@ -98,7 +96,6 @@ export async function startBookingCancelledConsumer() {
 
     const paymentsRepo = createPrismaPaymentRepository();
     const publisher = createRabbitEventPublisher();
-    const stripeGateway = createStripeGateway(getStripeClient());
 
     await rabbitConsumeWithRetry(
         {
@@ -147,7 +144,6 @@ export async function startBookingCancelledConsumer() {
                 await handleBookingCancelledRefund({
                     payments: paymentsRepo,
                     publisher,
-                    stripe: stripeGateway,
                     bookingId: payload.data.bookingId,
                     causationId: typeof messageId === 'string' ? messageId : undefined,
                     sourceRoutingKey: routingKey,

@@ -5,7 +5,7 @@ generator client {
   provider = "prisma-client-js"
   output   = "../node_modules/.prisma/payment-client"
   previewFeatures = ["multiSchema"]
-  binaryTargets = ["native", "windows"]
+  binaryTargets = ["native", "linux-musl-openssl-3.0.x"]
 }
 
 // Datasource configuration
@@ -34,10 +34,10 @@ model Payment {
   bookingId                 String   @unique
   userId                    String
   amount                    Float
-  currency                  String   @default("usd")
+  currency                  String   @default("vnd")
   status                    PaymentStatus @default(PENDING)
-  stripePaymentIntentId     String?
-  stripeCheckoutSessionId   String?
+  vnpTransactionNo          String?
+  vnpTxnRef                 String?
   metadata                  Json?
   createdAt                 DateTime @default(now())
   updatedAt                 DateTime @updatedAt

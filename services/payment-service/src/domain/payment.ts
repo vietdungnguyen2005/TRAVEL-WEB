@@ -17,8 +17,8 @@ export type Payment = {
     amount: number;
     currency: string;
     status: PaymentStatus;
-    stripeCheckoutSessionId: string | null;
-    stripePaymentIntentId: string | null;
+    vnpTxnRef: string | null;
+    vnpTransactionNo: string | null;
     metadata: unknown;
     createdAt: Date;
     updatedAt: Date;

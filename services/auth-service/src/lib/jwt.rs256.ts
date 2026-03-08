@@ -5,6 +5,8 @@ export type AccessTokenClaims = {
     sub: string;
     role: string;
     typ: 'access';
+    name?: string;
+    email?: string;
 };
 
 export type VerifiedAccessToken = JwtPayload & {
@@ -79,7 +81,7 @@ export function getPublicKeyPemOrThrow() {
     return pem;
 }
 
-export function signAccessToken(claims: { userId: string; role: string }) {
+export function signAccessToken(claims: { userId: string; role: string; name?: string; email?: string }) {
     const issuer = getJwtIssuer();
     const audience = getJwtAudience();
 
@@ -87,6 +89,8 @@ export function signAccessToken(claims: { userId: string; role: string }) {
         sub: claims.userId,
         role: claims.role,
         typ: 'access',
+        ...(claims.name ? { name: claims.name } : {}),
+        ...(claims.email ? { email: claims.email } : {}),
     };
 
     const privateKey = tryGetPrivateKeyPem();

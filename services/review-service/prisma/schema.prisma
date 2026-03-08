@@ -5,12 +5,12 @@ generator client {
   provider = "prisma-client-js"
   output   = "../node_modules/.prisma/review-client"
   previewFeatures = ["multiSchema"]
+  binaryTargets = ["native", "linux-musl-openssl-3.0.x"]
 }
 
 // Datasource configuration
 datasource db {
   provider = "postgresql"
-  binaryTargets = ["native", "windows"]
   url      = env("REVIEW_DATABASE_URL")
   schemas  = ["review"]
 }

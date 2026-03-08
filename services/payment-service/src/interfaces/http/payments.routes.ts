@@ -1,46 +1,46 @@
 import express from 'express';
-import type Stripe from 'stripe';
 import { requireRole, verifyJWT } from '@travel-web/shared';
 
 import { createPrismaPaymentRepository } from '../../infrastructure/prisma/prisma-payment-repository';
 import { createPrismaIdempotencyStore } from '../../infrastructure/prisma/prisma-idempotency-store';
 import { createRabbitEventPublisher } from '../../infrastructure/rabbitmq/rabbit-event-publisher';
-import { createStripeGateway } from '../../infrastructure/stripe/stripe-gateway';
+import { createVnpayGateway } from '../../infrastructure/vnpay/vnpay-gateway';
 
-import { createCheckout } from '../../application/usecases/create-checkout';
-import { verifyCheckout } from '../../application/usecases/verify-checkout';
+import { createPaymentUrl } from '../../application/usecases/create-payment-url';
+import { verifyVnpayReturn } from '../../application/usecases/verify-vnpay-return';
+import { handleVnpayIpn } from '../../application/usecases/handle-vnpay-ipn';
 import { confirmPayment } from '../../application/usecases/confirm-payment';
 import { refundRequest } from '../../application/usecases/refund-request';
 import { refundApprove, getIdempotencyKeyFromHeaders } from '../../application/usecases/refund-approve';
 import { refundReject } from '../../application/usecases/refund-reject';
 import { refundDirect } from '../../application/usecases/refund-direct';
-import { handleWebhookCheckoutSessionCompleted } from '../../application/usecases/handle-webhook-checkout-session-completed';
 
-export function createPaymentsRouter(deps: {
-    stripe: Stripe | null;
-    stripeWebhookSecret?: string;
-}) {
+export function createPaymentsRouter() {
     const router = express.Router();
 
     const paymentsRepo = createPrismaPaymentRepository();
     const idem = createPrismaIdempotencyStore();
     const publisher = createRabbitEventPublisher();
-    const stripeGateway = createStripeGateway(deps.stripe);
+    const vnpayGateway = createVnpayGateway();
 
-    router.post('/create-checkout', async (req, res, next) => {
+    // Create VNPay payment URL
+    router.post('/create-payment-url', async (req, res, next) => {
         try {
-            const { bookingId, userId, email, amount, currency = 'vnd' } = req.body || {};
+            const { bookingId, userId, amount, currency = 'vnd' } = req.body || {};
             const appUrl = process.env.APP_URL || 'http://localhost:3000';
-            const result = await createCheckout({
-                stripe: stripeGateway,
+            const ipAddress = (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim()
+                || req.socket.remoteAddress
+                || '127.0.0.1';
+
+            const result = await createPaymentUrl({
+                vnpay: vnpayGateway,
                 payments: paymentsRepo,
                 input: {
                     bookingId,
                     userId,
-                    email,
                     amount: Number(amount),
-                    currency,
                     appUrl,
+                    ipAddress,
                 },
             });
             return res.json(result);
@@ -49,23 +49,41 @@ export function createPaymentsRouter(deps: {
         }
     });
 
-    router.post('/verify', async (req, res, next) => {
+    // VNPay return URL handler (frontend calls this after redirect back)
+    router.post('/vnpay-return', async (req, res, next) => {
         try {
-            const { sessionId } = req.body || {};
-            const result = await verifyCheckout({
-                stripe: stripeGateway,
+            const params = req.body || {};
+            const result = await verifyVnpayReturn({
+                vnpay: vnpayGateway,
                 payments: paymentsRepo,
                 publisher,
-                sessionId: String(sessionId || ''),
+                params,
             });
-
             if (!result.ok) return res.status(400).json({ error: result.error, bookingId: result.bookingId });
-            return res.json({ success: true, bookingId: result.bookingId, paymentIntentId: result.paymentIntentId });
+            return res.json({ success: true, bookingId: result.bookingId, vnpTransactionNo: result.vnpTransactionNo });
         } catch (err) {
             return next(err);
         }
     });
 
+    // VNPay IPN callback (server-to-server from VNPay, NO auth required)
+    router.get('/vnpay-ipn', async (req, res, next) => {
+        try {
+            const params = req.query as Record<string, string>;
+            const result = await handleVnpayIpn({
+                vnpay: vnpayGateway,
+                idempotency: idem,
+                payments: paymentsRepo,
+                publisher,
+                params,
+            });
+            return res.json(result);
+        } catch (err) {
+            return next(err);
+        }
+    });
+
+    // Cash payment confirmation (unchanged)
     router.post('/confirm', async (req, res, next) => {
         try {
             const { bookingId, userId, paymentMethod = 'CASH' } = req.body || {};
@@ -168,40 +186,6 @@ export function createPaymentsRouter(deps: {
             });
 
             return res.status(result.status).json(result.body);
-        } catch (err) {
-            return next(err);
-        }
-    });
-
-    // Stripe webhook must use raw body. This route assumes the app-level JSON middleware is skipped for this path.
-    router.post('/webhook', express.raw({ type: 'application/json' }), async (req, res, next) => {
-        try {
-            if (!deps.stripe || !deps.stripeWebhookSecret) return res.status(500).send('Stripe webhook not configured');
-
-            const signature = req.headers['stripe-signature'];
-            if (!signature || typeof signature !== 'string') return res.status(400).send('No signature');
-
-            let event: Stripe.Event;
-            try {
-                event = deps.stripe.webhooks.constructEvent(req.body, signature, deps.stripeWebhookSecret);
-            } catch (err) {
-                const message = err instanceof Error ? err.message : 'Unknown error';
-                return res.status(400).send(`Webhook Error: ${message}`);
-            }
-
-            if (event.type === 'checkout.session.completed') {
-                const session = event.data.object as Stripe.Checkout.Session;
-                const result = await handleWebhookCheckoutSessionCompleted({
-                    idempotency: idem,
-                    payments: paymentsRepo,
-                    publisher,
-                    stripeEventId: event.id,
-                    session,
-                });
-                return res.status(result.status).json(result.body);
-            }
-
-            return res.json({ received: true });
         } catch (err) {
             return next(err);
         }

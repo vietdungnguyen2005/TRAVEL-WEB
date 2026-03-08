@@ -65,10 +65,14 @@ function extractAccessTokenFromHeaders(headers) {
     return cookieToken;
 }
 function decodeJwtUser(payload) {
+    const getStringClaim = (key) => {
+        const value = payload[key];
+        return typeof value === 'string' ? value : undefined;
+    };
     return {
         id: typeof payload.sub === 'string' ? payload.sub : undefined,
-        role: typeof payload.role === 'string' ? payload.role : undefined,
-        email: typeof payload.email === 'string' ? payload.email : undefined,
+        role: getStringClaim('role'),
+        email: getStringClaim('email'),
     };
 }
 function verifyJwtToken(token) {

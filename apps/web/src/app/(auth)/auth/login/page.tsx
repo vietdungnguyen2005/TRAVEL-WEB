@@ -60,6 +60,8 @@ export default function LoginPage() {
       } else {
         router.push("/dashboard");
       }
+      // Force a full RSC refresh so all server components (including MainLayout/Navbar)
+      // re-read the newly-set access_token cookie.
       router.refresh();
     } catch {
       toast.error("Lỗi hệ thống", {

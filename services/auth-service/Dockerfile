@@ -23,22 +23,31 @@ COPY services ./services
 COPY apps ./apps
 
 # 3. Install all workspace deps from root (resolves @travel-web/*)
-RUN npm ci
+RUN npm ci --legacy-peer-deps
+
+# Build workspace packages needed at runtime
+RUN npm -w @travel-web/contracts run build \
+	&& npm -w @travel-web/shared run build
 
 # 4. Generate Prisma client then compile
 RUN npx prisma generate --schema=./services/auth-service/prisma/schema.prisma
-RUN npm -w auth-service run build
+RUN npm -w @travel-web/auth-service run build
 
 # Stage 2: Production runtime
 FROM node:20-alpine
 WORKDIR /app
 
+RUN apk add --no-cache openssl
+
+COPY --from=builder /app/packages/contracts                   ./packages/contracts
+COPY --from=builder /app/packages/shared                      ./packages/shared
 COPY --from=builder /app/services/auth-service/dist             ./services/auth-service/dist
 COPY --from=builder /app/services/auth-service/package.json     ./services/auth-service/package.json
+COPY --from=builder /app/services/auth-service/node_modules     ./services/auth-service/node_modules
 COPY --from=builder /app/node_modules                           ./node_modules
 COPY --from=builder /app/services/auth-service/node_modules/.prisma ./node_modules/.prisma
 
 WORKDIR /app/services/auth-service
 ENV NODE_ENV=production
 EXPOSE 3001
-CMD ["node", "dist/main.js"]
+CMD ["node", "dist/services/auth-service/src/index.js"]

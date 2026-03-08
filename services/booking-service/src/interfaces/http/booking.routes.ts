@@ -11,6 +11,7 @@ import { holdBooking } from '../../application/usecases/hold-booking';
 import { checkAvailability } from '../../application/usecases/check-availability';
 import { updateAdminBookingStatus } from '../../application/usecases/update-admin-booking-status';
 import { cancelBooking } from '../../application/usecases/cancel-booking';
+import { getUnavailableDates } from '../../application/usecases/get-unavailable-dates';
 
 export const bookingRouter = express.Router();
 
@@ -40,6 +41,21 @@ function allowUserIdFromQueryOrBody() {
     if (process.env.ALLOW_USER_ID_FALLBACK === 'true') return true;
     return process.env.NODE_ENV !== 'production';
 }
+
+// Public: get unavailable dates for a set of physical room IDs
+// No auth required — used by calendar on room detail page
+bookingRouter.post('/unavailable-dates', async (req, res, next) => {
+    try {
+        const { roomIds } = req.body ?? {};
+        if (!Array.isArray(roomIds) || roomIds.length === 0) {
+            return res.json({ data: [] });
+        }
+        const dates = await getUnavailableDates({ bookings: bookingsRepo, roomIds });
+        res.json({ data: dates });
+    } catch (err) {
+        next(err);
+    }
+});
 
 // My bookings (used by web dashboard)
 bookingRouter.get('/my-bookings', async (req, res, next) => {
@@ -106,6 +122,29 @@ bookingRouter.patch('/admin/bookings/:id/status', verifyJWT, requireRole('ADMIN'
         });
 
         res.json({ success: true, booking: updated });
+    } catch (err) {
+        next(err);
+    }
+});
+
+// Get single booking by ID (used by payment page)
+// MUST be after all fixed GET routes to avoid matching /my-bookings, /admin/bookings, etc.
+bookingRouter.get('/:id', async (req, res, next) => {
+    try {
+        const { id } = req.params;
+        const booking = await bookingsRepo.getById(id);
+
+        if (!booking) {
+            return res.status(404).json({ message: 'Booking not found' });
+        }
+
+        // Only allow owner or admin to view
+        const tokenUserId = getUserIdFromRequest(req);
+        if (tokenUserId && tokenUserId !== booking.userId) {
+            return res.status(403).json({ message: 'Forbidden' });
+        }
+
+        res.json(booking);
     } catch (err) {
         next(err);
     }
@@ -208,13 +247,15 @@ bookingRouter.post('/hold', async (req, res, next) => {
 });
 
 // Simple availability check (conflict detection against CONFIRMED/ON_HOLD)
+// Accepts roomId (single) or roomIds[] (tries each until one is free)
 bookingRouter.post('/check-availability', async (req, res, next) => {
-    const { roomId, checkIn, checkOut } = req.body;
+    const { roomId, roomIds, checkIn, checkOut } = req.body;
     try {
+        const ids: string[] = Array.isArray(roomIds) && roomIds.length > 0 ? roomIds : roomId ? [roomId] : [];
+        const cacheKey = `cache:booking:availability:${ids.sort().join(',')}:${String(checkIn)}:${String(checkOut)}`;
         const ttlSeconds = getNumberEnv('AVAILABILITY_CACHE_TTL_SECONDS', 15);
-        const key = `cache:booking:availability:${String(roomId)}:${String(checkIn)}:${String(checkOut)}`;
 
-        const cached = await redisGetJson<{ available: boolean }>(key);
+        const cached = await redisGetJson<{ available: boolean; availableRoomId: string | null }>(cacheKey);
         if (cached && typeof cached.available === 'boolean') {
             res.setHeader('x-cache', 'HIT');
             return res.json(cached);
@@ -222,13 +263,13 @@ bookingRouter.post('/check-availability', async (req, res, next) => {
 
         const result = await checkAvailability({
             bookings: bookingsRepo,
-            roomId,
+            roomIds: ids,
             checkIn: new Date(checkIn),
             checkOut: new Date(checkOut),
         });
 
         try {
-            await redisSetJson(key, result, ttlSeconds);
+            await redisSetJson(cacheKey, result, ttlSeconds);
         } catch {
             // ignore cache write errors
         }

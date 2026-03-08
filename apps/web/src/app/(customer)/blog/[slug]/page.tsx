@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { ClientLayout } from "@/components/layout/client-layout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { gatewayFetchServer } from "@/lib/gateway-server";
 
@@ -38,7 +37,7 @@ export default async function BlogDetailPage({
     const post = await getPost(slug);
 
     return (
-        <ClientLayout>
+        <>
             <div className="container mx-auto px-4 py-10">
                 <div className="mb-6">
                     <Link href="/blog" className="text-sm text-blue-600 hover:underline">
@@ -72,6 +71,6 @@ export default async function BlogDetailPage({
                     </Card>
                 )}
             </div>
-        </ClientLayout>
+        </>
     );
 }

@@ -110,8 +110,15 @@ function extractBearerToken(req: Request) {
     return cookieToken;
 }
 
-export function requireAuthForPaths(paths: string[]) {
+function getJwtSecret() {
+    return process.env.JWT_SECRET?.trim() || undefined;
+}
+
+export function requireAuthForPaths(paths: string[], publicExceptions: string[] = []) {
     return async function authMiddleware(req: Request, res: Response, next: NextFunction) {
+        // Skip auth for explicitly public paths
+        if (publicExceptions.some((p) => req.path === p || req.path.startsWith(p))) return next();
+
         const shouldProtect = paths.some((p) => req.path === p || req.path.startsWith(p));
         if (!shouldProtect) return next();
 
@@ -119,14 +126,29 @@ export function requireAuthForPaths(paths: string[]) {
         if (!token) return res.status(401).json({ error: 'Unauthorized' });
 
         try {
-            const publicKeyPem = await getPublicKeyPemForToken(token);
-            const verified = jwt.verify(token, publicKeyPem, {
-                algorithms: ['RS256'],
-                issuer: getIssuer(),
-                audience: getAudience(),
-            }) as JwtPayload | string;
+            let verified: JwtPayload | string | undefined;
 
-            if (typeof verified === 'string') return res.status(401).json({ error: 'Unauthorized' });
+            // Try RS256 first (production path with RSA keys / JWKS)
+            try {
+                const publicKeyPem = await getPublicKeyPemForToken(token);
+                verified = jwt.verify(token, publicKeyPem, {
+                    algorithms: ['RS256'],
+                    issuer: getIssuer(),
+                    audience: getAudience(),
+                }) as JwtPayload | string;
+            } catch {
+                // Fallback: HS256 (dev mode when RSA keys are not configured)
+                const secret = getJwtSecret();
+                if (secret) {
+                    verified = jwt.verify(token, secret, {
+                        algorithms: ['HS256'],
+                        issuer: getIssuer(),
+                        audience: getAudience(),
+                    }) as JwtPayload | string;
+                }
+            }
+
+            if (!verified || typeof verified === 'string') return res.status(401).json({ error: 'Unauthorized' });
 
             const userId = typeof verified.sub === 'string' ? verified.sub : undefined;
             const role = getStringClaim(verified, 'role');
@@ -140,5 +162,18 @@ export function requireAuthForPaths(paths: string[]) {
         } catch {
             return res.status(401).json({ error: 'Unauthorized' });
         }
+    };
+}
+
+export function requireAdminForPaths(paths: string[]) {
+    return function adminGuard(req: Request, res: Response, next: NextFunction) {
+        const isAdminPath = paths.some((p) => req.path === p || req.path.startsWith(p));
+        if (!isAdminPath) return next();
+
+        const role = (req as RequestWithAuth).auth?.role;
+        if (role !== 'ADMIN') {
+            return res.status(403).json({ error: 'Forbidden: admin access required' });
+        }
+        return next();
     };
 }

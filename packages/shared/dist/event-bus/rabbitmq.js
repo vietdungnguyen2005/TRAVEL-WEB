@@ -14,8 +14,12 @@ const logger_1 = require("../logger");
 const node_crypto_1 = require("node:crypto");
 const correlation_1 = require("../observability/correlation");
 const logger = new logger_1.Logger('RabbitMQ');
+function sleep(ms) {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+}
 let connection = null;
 let channel = null;
+let connecting = null;
 async function rabbitConnect(config) {
     const url = config?.url || process.env.RABBITMQ_URL;
     const exchange = config?.exchange || process.env.RABBITMQ_EXCHANGE || 'events';
@@ -23,24 +27,69 @@ async function rabbitConnect(config) {
     if (!url) {
         throw new Error('RABBITMQ_URL is not set');
     }
-    if (connection && channel)
+    if (connection && channel) {
+        await channel.assertExchange(exchange, 'topic', { durable: true });
+        await channel.assertExchange(dlxExchange, 'topic', { durable: true });
         return { connection, channel, url, exchange };
-    const conn = await amqplib_1.default.connect(url);
-    const ch = await conn.createChannel();
-    await ch.assertExchange(exchange, 'topic', { durable: true });
-    await ch.assertExchange(dlxExchange, 'topic', { durable: true });
-    connection = conn;
-    channel = ch;
-    conn.on('error', (err) => {
-        logger.error('RabbitMQ connection error', err);
-    });
-    conn.on('close', () => {
-        logger.warn('RabbitMQ connection closed');
-        connection = null;
-        channel = null;
-    });
-    logger.info('RabbitMQ connected', { url, exchange, dlxExchange });
-    return { connection, channel, url, exchange };
+    }
+    if (!connecting) {
+        connecting = (async () => {
+            const timeoutMsRaw = process.env.RABBITMQ_CONNECT_TIMEOUT_MS;
+            const timeoutMs = typeof timeoutMsRaw === 'string' && timeoutMsRaw.length > 0 ? Number(timeoutMsRaw) : 30000;
+            const start = Date.now();
+            let attempt = 0;
+            // eslint-disable-next-line no-constant-condition
+            while (true) {
+                attempt += 1;
+                try {
+                    const conn = await amqplib_1.default.connect(url);
+                    const ch = await conn.createChannel();
+                    connection = conn;
+                    channel = ch;
+                    conn.on('error', (err) => {
+                        logger.error('RabbitMQ connection error', err);
+                    });
+                    conn.on('close', () => {
+                        logger.warn('RabbitMQ connection closed');
+                        connection = null;
+                        channel = null;
+                    });
+                    logger.info('RabbitMQ connected', { url, dlxExchange });
+                    return { connection: conn, channel: ch };
+                }
+                catch (err) {
+                    const elapsed = Date.now() - start;
+                    const remaining = timeoutMs - elapsed;
+                    const error = err;
+                    if (!(Number.isFinite(timeoutMs) && timeoutMs > 0) || remaining <= 0) {
+                        logger.error('RabbitMQ connect failed (giving up)', err);
+                        throw err;
+                    }
+                    const backoffBaseMs = 250;
+                    const backoffMaxMs = 5000;
+                    const exp = Math.min(backoffMaxMs, backoffBaseMs * Math.pow(2, attempt - 1));
+                    const jitter = Math.floor(Math.random() * Math.min(250, exp));
+                    const waitMs = Math.min(remaining, exp + jitter);
+                    logger.warn('RabbitMQ connect failed; retrying', {
+                        attempt,
+                        waitMs,
+                        code: typeof error.code === 'string' ? error.code : undefined,
+                        message: typeof error.message === 'string' ? error.message : undefined,
+                    });
+                    await sleep(waitMs);
+                }
+            }
+        })();
+    }
+    try {
+        const { connection: conn, channel: ch } = await connecting;
+        await ch.assertExchange(exchange, 'topic', { durable: true });
+        await ch.assertExchange(dlxExchange, 'topic', { durable: true });
+        return { connection: conn, channel: ch, url, exchange };
+    }
+    finally {
+        connecting = null;
+    }
 }
 async function rabbitAssertTopology(topology) {
     const { channel: ch } = await rabbitConnect({ exchange: topology.exchange.name });
@@ -258,6 +307,20 @@ async function rabbitConsumeWithRetry(opts, handler) {
             // Publish into a retry queue (expected to have TTL + DLX back to main exchange).
             const retryRoutingKey = `${opts.queue}.retry.${delayMs}`;
             const content = raw.content;
+            try {
+                opts.onRetryScheduled?.({
+                    queue: opts.queue,
+                    routingKey: raw.fields.routingKey,
+                    messageId: typeof raw.properties.messageId === 'string' ? raw.properties.messageId : undefined,
+                    correlationId: typeof raw.properties.correlationId === 'string' ? raw.properties.correlationId : undefined,
+                    currentRetry,
+                    nextRetry,
+                    delayMs,
+                });
+            }
+            catch {
+                // never block message handling on metrics
+            }
             ch.publish(retryExchange, retryRoutingKey, content, {
                 persistent: true,
                 contentType: raw.properties.contentType || 'application/json',

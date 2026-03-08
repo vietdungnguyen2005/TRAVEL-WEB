@@ -34,6 +34,7 @@ app.use(logging_middleware_1.loggingMiddleware);
 app.use(routes_1.default);
 // Global error handler
 app.use((err, _req, res, _next) => {
+    void _next;
     if (err instanceof Error) {
         logger.error('unhandled_error', err);
     }

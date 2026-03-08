@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { format, differenceInDays } from "date-fns";
+import { useEffect, useState } from "react";
+import { format, differenceInDays, eachDayOfInterval, isSameDay } from "date-fns";
 import { Calendar } from "@/components/ui/calendar";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { CalendarIcon, Users } from "lucide-react";
+import { gatewayFetch } from "@/lib/gateway-client";
 
 interface BookingFormProps {
   roomTypeId: string;
@@ -17,6 +18,7 @@ interface BookingFormProps {
   capacity: number;
   onSubmit: (data: BookingData) => void;
   isSubmitting?: boolean;
+  roomIds?: string[];
 }
 
 export interface BookingData {
@@ -29,7 +31,7 @@ export interface BookingData {
   specialRequests?: string;
 }
 
-export function BookingForm({ roomTypeId, basePrice, capacity, onSubmit, isSubmitting = false }: BookingFormProps) {
+export function BookingForm({ roomTypeId, basePrice, capacity, onSubmit, isSubmitting = false, roomIds }: BookingFormProps) {
   void roomTypeId;
   const [checkIn, setCheckIn] = useState<Date>();
   const [checkOut, setCheckOut] = useState<Date>();
@@ -37,6 +39,42 @@ export function BookingForm({ roomTypeId, basePrice, capacity, onSubmit, isSubmi
   const [guestName, setGuestName] = useState("");
   const [guestEmail, setGuestEmail] = useState("");
   const [guestPhone, setGuestPhone] = useState("");
+  const [unavailableDates, setUnavailableDates] = useState<Date[]>([]);
+
+  // Fetch unavailable dates when roomIds are available
+  useEffect(() => {
+    if (!roomIds || roomIds.length === 0) return;
+
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await gatewayFetch("/api/bookings/unavailable-dates", {
+          method: "POST",
+          body: JSON.stringify({ roomIds }),
+        });
+        if (!res.ok || cancelled) return;
+        const json = await res.json();
+        const dates: Date[] = [];
+        for (const range of json.data ?? []) {
+          const start = new Date(range.checkIn);
+          const end = new Date(range.checkOut);
+          if (start < end) {
+            // Mark each day in the range as unavailable (except checkout day itself)
+            const days = eachDayOfInterval({ start, end: new Date(end.getTime() - 86400000) });
+            dates.push(...days);
+          }
+        }
+        if (!cancelled) setUnavailableDates(dates);
+      } catch {
+        // Silently fail — calendar will work without disabled dates
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [roomIds]);
+
+  const isDateUnavailable = (date: Date) => {
+    return unavailableDates.some((d) => isSameDay(d, date));
+  };
 
   const nights = checkIn && checkOut ? differenceInDays(checkOut, checkIn) : 0;
   const totalPrice = nights * basePrice;
@@ -47,7 +85,7 @@ export function BookingForm({ roomTypeId, basePrice, capacity, onSubmit, isSubmi
       alert("Please select check-in and check-out dates");
       return;
     }
-    
+
     onSubmit({
       checkIn,
       checkOut,
@@ -84,8 +122,12 @@ export function BookingForm({ roomTypeId, basePrice, capacity, onSubmit, isSubmi
                 <Calendar
                   mode="single"
                   selected={checkIn}
-                  onSelect={setCheckIn}
-                  disabled={(date) => date < new Date()}
+                  onSelect={(date) => {
+                    setCheckIn(date);
+                    // Reset checkout if it's before new checkin
+                    if (date && checkOut && date >= checkOut) setCheckOut(undefined);
+                  }}
+                  disabled={(date) => date < new Date() || isDateUnavailable(date)}
                   initialFocus
                 />
               </PopoverContent>
@@ -109,7 +151,7 @@ export function BookingForm({ roomTypeId, basePrice, capacity, onSubmit, isSubmi
                   mode="single"
                   selected={checkOut}
                   onSelect={setCheckOut}
-                  disabled={(date) => !checkIn || date <= checkIn}
+                  disabled={(date) => !checkIn || date <= checkIn || isDateUnavailable(date)}
                   initialFocus
                 />
               </PopoverContent>
@@ -137,7 +179,7 @@ export function BookingForm({ roomTypeId, basePrice, capacity, onSubmit, isSubmi
 
           <div className="space-y-4 pt-4 border-t">
             <h4 className="font-semibold">Guest Information</h4>
-            
+
             <div className="space-y-2">
               <Label>Full Name *</Label>
               <Input

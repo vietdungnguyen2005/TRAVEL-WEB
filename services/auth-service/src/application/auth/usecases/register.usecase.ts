@@ -80,7 +80,7 @@ export class RegisterUseCase {
             return { status: 'NEEDS_EMAIL_VERIFICATION', user };
         }
 
-        const accessToken = this.deps.jwt.signAccessToken({ userId: user.id, role: user.role });
+        const accessToken = this.deps.jwt.signAccessToken({ userId: user.id, role: user.role, name: user.name ?? undefined, email: user.email });
         const refresh = await this.deps.refreshTokens.issue({
             userId: user.id,
             ip: input.ip,

@@ -1,7 +1,0 @@
-{
-  "version": 3,
-  "sources": [],
-  "sections": [
-    {"offset": {"line": 4, "column": 0}, "map": {"version":3,"sources":["file:///D:/TRAVEL-WEB/apps/web/src/app/%28auth%29/auth/logout/page.tsx"],"sourcesContent":["\"use client\";\r\n\r\nimport { useEffect } from \"react\";\r\nimport { useRouter } from \"next/navigation\";\r\nimport { toast } from \"sonner\";\r\n\r\nfunction clearCookie(name: string) {\r\n    // Clear for common paths; keep it simple.\r\n    document.cookie = `${name}=; Path=/; Max-Age=0; SameSite=Lax`;\r\n}\r\n\r\nexport default function LogoutPage() {\r\n    const router = useRouter();\r\n\r\n    useEffect(() => {\r\n        clearCookie(\"access_token\");\r\n        toast.success(\"Đã đăng xuất\");\r\n        router.replace(\"/auth/login\");\r\n        router.refresh();\r\n    }, [router]);\r\n\r\n    return null;\r\n}\r\n"],"names":[],"mappings":";;;;AAEA;AACA;AACA;;AAJA;;;;AAMA,SAAS,YAAY,IAAY;IAC7B,0CAA0C;IAC1C,SAAS,MAAM,GAAG,GAAG,KAAK,kCAAkC,CAAC;AACjE;AAEe,SAAS;;IACpB,MAAM,SAAS,IAAA,kJAAS;IAExB,IAAA,0KAAS;gCAAC;YACN,YAAY;YACZ,oJAAK,CAAC,OAAO,CAAC;YACd,OAAO,OAAO,CAAC;YACf,OAAO,OAAO;QAClB;+BAAG;QAAC;KAAO;IAEX,OAAO;AACX;GAXwB;;QACL,kJAAS;;;KADJ"}},
-    {"offset": {"line": 49, "column": 0}, "map": {"version":3,"sources":["file:///D:/TRAVEL-WEB/node_modules/next/navigation.js"],"sourcesContent":["module.exports = require('./dist/client/components/navigation')\n"],"names":[],"mappings":"AAAA,OAAO,OAAO","ignoreList":[0]}}]
-}

@@ -3,12 +3,12 @@ import type { Payment, PaymentStatus } from '../../domain/payment';
 export type PaymentRepository = {
     findByBookingId(bookingId: string): Promise<Payment | null>;
 
-    upsertCheckoutSession(input: {
+    upsertPaymentUrl(input: {
         bookingId: string;
         userId: string;
         amount: number;
         currency: string;
-        stripeCheckoutSessionId: string;
+        vnpTxnRef: string;
         metadata: unknown;
     }): Promise<Payment>;
 
@@ -20,7 +20,7 @@ export type PaymentRepository = {
 
     markCompletedByBookingId(input: {
         bookingId: string;
-        stripePaymentIntentId?: string;
+        vnpTransactionNo?: string;
     }): Promise<void>;
 
     updateStatusByBookingId(input: {

@@ -45,11 +45,18 @@ export function createPrismaBookingRepository(): BookingRepository {
             const row = await prisma.booking.findFirst({
                 where: {
                     roomId: query.roomId,
-                    status: { in: ['CONFIRMED', 'ON_HOLD'] },
                     OR: [
-                        { checkIn: { gte: query.checkIn, lt: query.checkOut } },
-                        { checkOut: { gt: query.checkIn, lte: query.checkOut } },
-                        { AND: [{ checkIn: { lte: query.checkIn } }, { checkOut: { gte: query.checkOut } }] },
+                        { status: 'CONFIRMED' },
+                        { status: 'ON_HOLD', holdExpiresAt: { gt: new Date() } },
+                    ],
+                    AND: [
+                        {
+                            OR: [
+                                { checkIn: { gte: query.checkIn, lt: query.checkOut } },
+                                { checkOut: { gt: query.checkIn, lte: query.checkOut } },
+                                { AND: [{ checkIn: { lte: query.checkIn } }, { checkOut: { gte: query.checkOut } }] },
+                            ],
+                        },
                     ],
                 },
             });
@@ -94,6 +101,32 @@ export function createPrismaBookingRepository(): BookingRepository {
         async getById(id: string) {
             const row = await prisma.booking.findUnique({ where: { id } });
             return row ? mapBooking(row as unknown as Record<string, unknown>) : null;
+        },
+
+        async findExpiredOnHold(now: Date) {
+            const rows = await prisma.booking.findMany({
+                where: {
+                    status: 'ON_HOLD',
+                    holdExpiresAt: { lte: now },
+                },
+            });
+            return rows.map(mapBooking);
+        },
+
+        async findActiveBookingsForRooms(roomIds: string[]) {
+            if (roomIds.length === 0) return [];
+            const rows = await prisma.booking.findMany({
+                where: {
+                    roomId: { in: roomIds },
+                    checkOut: { gte: new Date() },
+                    OR: [
+                        { status: 'CONFIRMED' },
+                        { status: 'ON_HOLD', holdExpiresAt: { gt: new Date() } },
+                    ],
+                },
+                orderBy: { checkIn: 'asc' },
+            });
+            return rows.map(mapBooking);
         },
     };
 }

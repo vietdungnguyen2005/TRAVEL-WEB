@@ -8,9 +8,6 @@ const requiredEnvVars = [
 const optionalEnvVars = [
   "GOOGLE_CLIENT_ID",
   "GOOGLE_CLIENT_SECRET",
-  "STRIPE_SECRET_KEY",
-  "NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY",
-  "STRIPE_WEBHOOK_SECRET",
   "CLOUDINARY_API_KEY",
   "CLOUDINARY_API_SECRET",
   "NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME",
@@ -18,9 +15,6 @@ const optionalEnvVars = [
   "FROM_EMAIL",
   "NEXT_PUBLIC_APP_URL",
   "NEXT_PUBLIC_APP_NAME",
-  "VNPAY_TMN_CODE",
-  "VNPAY_HASH_SECRET",
-  "VNPAY_URL",
 ] as const;
 
 export function validateEnv() {

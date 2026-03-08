@@ -8,10 +8,16 @@ const discovery_config_1 = require("../config/discovery.config");
 const service_resolver_1 = require("../discovery/service-resolver");
 const metrics_1 = require("../lib/metrics");
 const router = (0, express_1.Router)();
+// VNPay IPN callback – no auth required (server-to-server from VNPay)
+router.use('/api/payments/vnpay-ipn', proxy_middleware_1.proxyMiddleware.payments);
 // JWT protection (verify at gateway, forward user context via x-user-* headers)
 router.use((0, auth_middleware_1.requireAuthForPaths)([
     '/api/bookings',
     '/api/payments',
+    '/api/admin',
+]));
+// Admin role guard – runs AFTER auth so req.auth is already set
+router.use((0, auth_middleware_1.requireAdminForPaths)([
     '/api/admin',
 ]));
 // Proxy routes

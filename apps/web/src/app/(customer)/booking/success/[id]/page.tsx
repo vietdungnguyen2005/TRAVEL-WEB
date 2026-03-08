@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { use, useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -18,9 +18,7 @@ import {
   ArrowRight
 } from "lucide-react";
 import { format } from "date-fns";
-import Image from "next/image";
 import Link from "next/link";
-import { ClientLayout } from "@/components/layout/client-layout";
 import { gatewayFetch } from "@/lib/gateway-client";
 
 interface BookingData {
@@ -33,15 +31,12 @@ interface BookingData {
   status: string;
   paymentStatus: string;
   paymentMethod: string;
-  room: {
+  room?: {
     id: string;
     roomNumber: string;
     roomType: {
       id: string;
       name: string;
-      description: string;
-      images: string[];
-      pricePerNight: number;
     };
   };
   guestName?: string;
@@ -49,16 +44,16 @@ interface BookingData {
   guestPhone?: string;
 }
 
-export default function BookingSuccessPage({ params }: { params: { id: string } }) {
-  const { id } = params;
+export default function BookingSuccessPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = use(params);
   const router = useRouter();
   const [booking, setBooking] = useState<BookingData | null>(null);
   const [loading, setLoading] = useState(true);
 
   const fetchBooking = useCallback(async () => {
     try {
-      // booking-service doesn't expose /api/booking/:id. Use my-bookings and find the booking.
-      const response = await gatewayFetch("/api/bookings/my-bookings", {
+      // Fetch booking by ID
+      const response = await gatewayFetch(`/api/bookings/${id}`, {
         method: "GET",
         attachAccessToken: true,
         cache: "no-store",
@@ -72,12 +67,27 @@ export default function BookingSuccessPage({ params }: { params: { id: string } 
         throw new Error("Failed to fetch booking");
       }
 
-      const list = (await response.json()) as unknown;
-      const data = Array.isArray(list)
-        ? list.find((b) => (b as { id?: string } | null)?.id === id)
-        : null;
-      if (!data) throw new Error("Booking not found");
-      setBooking(data as BookingData);
+      const data = (await response.json()) as BookingData;
+
+      // Enrich with room details from room-service
+      if (data.roomId) {
+        try {
+          const roomRes = await gatewayFetch("/api/rooms/by-ids", {
+            method: "POST",
+            body: JSON.stringify({ ids: [data.roomId] }),
+          });
+          if (roomRes.ok) {
+            const roomData = (await roomRes.json()) as { data?: { id: string; roomNumber: string; roomType: { id: string; name: string } }[] };
+            if (roomData.data?.[0]) {
+              data.room = roomData.data[0];
+            }
+          }
+        } catch {
+          // Room enrichment is optional — continue without it
+        }
+      }
+
+      setBooking(data);
     } catch (err) {
       console.error("Error fetching booking:", err);
     } finally {
@@ -102,7 +112,7 @@ export default function BookingSuccessPage({ params }: { params: { id: string } 
 
   if (loading) {
     return (
-      <ClientLayout>
+      <>
         <div className="container mx-auto px-4 py-16">
           <Card>
             <CardContent className="flex items-center justify-center py-16">
@@ -113,13 +123,13 @@ export default function BookingSuccessPage({ params }: { params: { id: string } 
             </CardContent>
           </Card>
         </div>
-      </ClientLayout>
+      </>
     );
   }
 
   if (!booking) {
     return (
-      <ClientLayout>
+      <>
         <div className="container mx-auto px-4 py-16">
           <Card>
             <CardContent className="py-16 text-center">
@@ -130,15 +140,16 @@ export default function BookingSuccessPage({ params }: { params: { id: string } 
             </CardContent>
           </Card>
         </div>
-      </ClientLayout>
+      </>
     );
   }
 
   const nights = calculateNights();
-  const pricePerNight = Number(booking.room.roomType.pricePerNight);
+  const totalPrice = Number(booking.totalPrice);
+  const pricePerNight = nights > 0 ? totalPrice / nights : totalPrice;
 
   return (
-    <ClientLayout>
+    <>
       <div className="container mx-auto px-4 py-8">
         <div className="max-w-4xl mx-auto">
           <div className="text-center mb-8">
@@ -158,18 +169,12 @@ export default function BookingSuccessPage({ params }: { params: { id: string } 
             <CardContent className="pt-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
-                  {booking.room.roomType.images[0] && (
-                    <div className="relative h-48 rounded-lg overflow-hidden mb-4">
-                      <Image
-                        src={booking.room.roomType.images[0]}
-                        alt={booking.room.roomType.name}
-                        fill
-                        className="object-cover"
-                      />
-                    </div>
+                  {booking.room?.roomType && (
+                    <h3 className="font-semibold text-xl mb-1">{booking.room.roomType.name}</h3>
                   )}
-                  <h3 className="font-semibold text-xl mb-1">{booking.room.roomType.name}</h3>
-                  <p className="text-muted-foreground mb-4">Room {booking.room.roomNumber}</p>
+                  {booking.room?.roomNumber && (
+                    <p className="text-muted-foreground mb-4">Room {booking.room.roomNumber}</p>
+                  )}
 
                   <div className="space-y-2 text-sm">
                     <div className="flex justify-between py-2 border-b">
@@ -302,6 +307,6 @@ export default function BookingSuccessPage({ params }: { params: { id: string } 
           </div>
         </div>
       </div>
-    </ClientLayout>
+    </>
   );
 }

@@ -11,7 +11,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Separator } from "@/components/ui/separator";
 import { User, Mail, Phone, Lock, Upload, Loader2 } from "lucide-react";
 import { toast } from "sonner";
-import { ClientLayout } from "@/components/layout/client-layout";
 import { gatewayFetch } from "@/lib/gateway-client";
 
 interface ProfileData {
@@ -205,8 +204,7 @@ export default function ProfilePage() {
   };
 
   return (
-    <ClientLayout>
-      <div className="container mx-auto px-4 py-8">
+    <div className="container mx-auto px-4 py-8">
         <div className="max-w-4xl mx-auto">
           <h1 className="text-3xl font-bold mb-6">Thông tin cá nhân</h1>
 
@@ -416,6 +414,6 @@ export default function ProfilePage() {
           </div>
         </div>
       </div>
-    </ClientLayout>
+    </div>
   );
 }

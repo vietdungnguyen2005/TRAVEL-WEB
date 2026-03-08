@@ -18,26 +18,37 @@ import { gatewayFetch } from "@/lib/gateway-client";
 
 interface Booking {
   id: string;
-  checkInDate: string;
-  checkOutDate: string;
+  checkIn?: string;
+  checkOut?: string;
+  checkInDate?: string;
+  checkOutDate?: string;
   numberOfGuests: number;
   totalPrice: number;
   status: string;
-  paymentMethod: string;
-  paymentStatus: string;
-  specialRequests: string | null;
+  paymentMethod?: string;
+  paymentStatus?: string;
+  specialRequests?: string | null;
   createdAt: string;
-  user: {
+  userId?: string;
+  roomId?: string;
+  user?: {
     name: string | null;
     email: string;
     phone: string | null;
   };
-  room: {
+  room?: {
     roomNumber: string;
     roomType: {
       name: string;
     };
   };
+}
+
+function getCheckIn(b: Booking) {
+  return b.checkInDate || b.checkIn || "";
+}
+function getCheckOut(b: Booking) {
+  return b.checkOutDate || b.checkOut || "";
 }
 
 function formatCurrency(amount: number) {
@@ -247,9 +258,11 @@ export default function BookingsManagement() {
                     <Badge className={getStatusColor(booking.status)}>
                       {getStatusText(booking.status)}
                     </Badge>
-                    <Badge variant="outline">
-                      {getPaymentStatusText(booking.paymentStatus)}
-                    </Badge>
+                    {booking.paymentStatus && (
+                      <Badge variant="outline">
+                        {getPaymentStatusText(booking.paymentStatus)}
+                      </Badge>
+                    )}
                   </div>
                 </div>
               </CardHeader>
@@ -262,20 +275,28 @@ export default function BookingsManagement() {
                       Thông tin khách hàng
                     </h4>
                     <div className="space-y-2 text-sm">
-                      <p className="flex items-center gap-2">
-                        <span className="text-gray-500">Tên:</span>
-                        <span className="font-medium">
-                          {booking.user.name || "Chưa cập nhật"}
-                        </span>
-                      </p>
-                      <p className="flex items-center gap-2">
-                        <Mail className="w-4 h-4 text-gray-400" />
-                        <span>{booking.user.email}</span>
-                      </p>
-                      {booking.user.phone && (
-                        <p className="flex items-center gap-2">
-                          <Phone className="w-4 h-4 text-gray-400" />
-                          <span>{booking.user.phone}</span>
+                      {booking.user ? (
+                        <>
+                          <p className="flex items-center gap-2">
+                            <span className="text-gray-500">Tên:</span>
+                            <span className="font-medium">
+                              {booking.user.name || "Chưa cập nhật"}
+                            </span>
+                          </p>
+                          <p className="flex items-center gap-2">
+                            <Mail className="w-4 h-4 text-gray-400" />
+                            <span>{booking.user.email}</span>
+                          </p>
+                          {booking.user.phone && (
+                            <p className="flex items-center gap-2">
+                              <Phone className="w-4 h-4 text-gray-400" />
+                              <span>{booking.user.phone}</span>
+                            </p>
+                          )}
+                        </>
+                      ) : (
+                        <p className="text-gray-500">
+                          User ID: {booking.userId?.slice(0, 8) || "N/A"}
                         </p>
                       )}
                     </div>
@@ -291,16 +312,20 @@ export default function BookingsManagement() {
                       <p className="flex items-center gap-2">
                         <span className="text-gray-500">Phòng:</span>
                         <span className="font-medium">
-                          {booking.room.roomType.name} - Phòng {booking.room.roomNumber}
+                          {booking.room
+                            ? `${booking.room.roomType.name} - Phòng ${booking.room.roomNumber}`
+                            : `Room ID: ${booking.roomId?.slice(0, 8) || "N/A"}`}
                         </span>
                       </p>
-                      <p className="flex items-center gap-2">
-                        <Calendar className="w-4 h-4 text-gray-400" />
-                        <span>
-                          {format(new Date(booking.checkInDate), "dd/MM/yyyy")} -{" "}
-                          {format(new Date(booking.checkOutDate), "dd/MM/yyyy")}
-                        </span>
-                      </p>
+                      {(getCheckIn(booking) || getCheckOut(booking)) && (
+                        <p className="flex items-center gap-2">
+                          <Calendar className="w-4 h-4 text-gray-400" />
+                          <span>
+                            {getCheckIn(booking) ? format(new Date(getCheckIn(booking)), "dd/MM/yyyy") : "?"} -{" "}
+                            {getCheckOut(booking) ? format(new Date(getCheckOut(booking)), "dd/MM/yyyy") : "?"}
+                          </span>
+                        </p>
+                      )}
                       <p className="flex items-center gap-2">
                         <User className="w-4 h-4 text-gray-400" />
                         <span>{booking.numberOfGuests} khách</span>

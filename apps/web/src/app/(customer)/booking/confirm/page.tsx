@@ -1,9 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useBookingStore } from "@/store/booking-store";
-import { ClientLayout } from "@/components/layout/client-layout";
 import { BookingSummary } from "@/components/booking/booking-summary";
 import { HoldTimer } from "@/components/booking/hold-timer";
 import { Button } from "@/components/ui/button";
@@ -26,6 +25,7 @@ export default function BookingConfirmPage() {
   const [holdBookingId, setHoldBookingId] = useState<string | null>(null);
   const [expiresAt, setExpiresAt] = useState<Date | null>(null);
   const [processingPayment, setProcessingPayment] = useState(false);
+  const holdCalledRef = useRef(false);
 
   const createHoldBooking = useCallback(async (roomId: string) => {
     if (!bookingData) return;
@@ -65,15 +65,15 @@ export default function BookingConfirmPage() {
       setLoading(true);
       setError(null);
 
+      // Send all available roomIds so booking-service can find one without conflicts
+      const roomIds: string[] = bookingData.roomIds ?? (bookingData.roomId ? [bookingData.roomId] : []);
+
       const response = await gatewayFetch("/api/bookings/check-availability", {
         method: "POST",
         body: JSON.stringify({
-          // booking-service expects physical roomId, not roomTypeId.
-          // At this stage we use the pre-selected roomId from the availability step.
-          roomId: bookingData.roomId,
+          roomIds,
           checkIn: bookingData.checkIn,
           checkOut: bookingData.checkOut,
-          // booking-service uses numberOfGuests
           numberOfGuests: bookingData.guests,
         }),
       });
@@ -87,14 +87,13 @@ export default function BookingConfirmPage() {
       }
 
       const available = Boolean((data as any)?.available);
+      const availableRoomId = (data as any)?.availableRoomId ?? bookingData.roomId;
       setAvailabilityChecked(true);
       setRoomAvailable(available);
-
-      // booking-service check-availability responds with { available: boolean }
       setAssignedRoomNumber(null);
 
       if (available) {
-        await createHoldBooking(bookingData.roomId);
+        await createHoldBooking(availableRoomId);
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to check availability");
@@ -108,6 +107,9 @@ export default function BookingConfirmPage() {
       router.push("/rooms");
       return;
     }
+
+    if (holdCalledRef.current) return;
+    holdCalledRef.current = true;
 
     void checkAvailability();
   }, [bookingData, router, checkAvailability]);
@@ -140,7 +142,7 @@ export default function BookingConfirmPage() {
   );
 
   return (
-    <ClientLayout>
+    <>
       <div className="container mx-auto px-4 py-8">
         <h1 className="text-3xl font-bold mb-8">Confirm Your Booking</h1>
 
@@ -258,6 +260,6 @@ export default function BookingConfirmPage() {
           </div>
         </div>
       </div>
-    </ClientLayout>
+    </>
   );
 }

@@ -21,6 +21,7 @@ import {
   Area,
   AreaChart,
 } from "recharts";
+import { gatewayFetch } from "@/lib/gateway-client";
 
 interface MonthlyRevenue {
   month: string;
@@ -46,6 +47,7 @@ function formatCurrency(amount: number) {
 export default function AnalyticsPage() {
   const [stats, setStats] = useState<RevenueStats | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [period, setPeriod] = useState("6"); // months
 
   useEffect(() => {
@@ -53,12 +55,20 @@ export default function AnalyticsPage() {
     (async () => {
       try {
         setLoading(true);
-        const response = await fetch(`/api/admin/analytics?months=${period}`);
-        if (!response.ok) return;
+        setError(null);
+        const response = await gatewayFetch(`/api/admin/analytics?months=${period}`, {
+          method: "GET",
+          attachAccessToken: true,
+        });
+        if (!response.ok) {
+          if (!cancelled) setError(`Lỗi ${response.status}: Không thể tải dữ liệu từ máy chủ`);
+          return;
+        }
         const data = await response.json();
         if (!cancelled) setStats(data);
-      } catch (error) {
-        console.error("Error fetching analytics:", error);
+      } catch (err) {
+        console.error("Error fetching analytics:", err);
+        if (!cancelled) setError("Không thể kết nối đến máy chủ. Vui lòng kiểm tra dịch vụ đang chạy.");
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -435,7 +445,7 @@ export default function AnalyticsPage() {
       ) : (
         <Card>
           <CardContent className="py-12 text-center">
-            <p className="text-gray-500">Không thể tải dữ liệu thống kê</p>
+            <p className="text-gray-500">{error || "Không thể tải dữ liệu thống kê"}</p>
           </CardContent>
         </Card>
       )}

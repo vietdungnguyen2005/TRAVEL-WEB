@@ -7,7 +7,7 @@ import { ReviewsList } from "@/components/reviews/reviews-list";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
-import { type LucideIcon, Users, Bed, Maximize, Wifi, Tv, Wind, Coffee, CheckCircle } from "lucide-react";
+import { type LucideIcon, Users, Bed, Maximize, Wifi, Tv, Wind, Coffee, CheckCircle, MapPin } from "lucide-react";
 
 interface PageProps {
   params: {
@@ -60,6 +60,12 @@ export default async function RoomDetailPage({ params }: PageProps) {
               <div className="flex items-start justify-between mb-4">
                 <div>
                   <h1 className="text-3xl font-bold mb-2">{roomType.name}</h1>
+                  {roomType.location && (
+                    <div className="flex items-center gap-1.5 mb-2 text-muted-foreground">
+                      <MapPin className="h-4 w-4" />
+                      <span>{roomType.location}</span>
+                    </div>
+                  )}
 
                   <div className="flex items-center gap-4 text-gray-600">
                     <div className="flex items-center gap-1">
@@ -164,6 +170,7 @@ export default async function RoomDetailPage({ params }: PageProps) {
               roomTypeId={roomType.id}
               basePrice={Number(roomType.pricePerNight)}
               capacity={roomType.capacity}
+              roomIds={(roomType.rooms as { id: string }[])?.map((r) => r.id) ?? []}
             />
           </div>
         </div>

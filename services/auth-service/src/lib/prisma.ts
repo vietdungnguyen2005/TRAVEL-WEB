@@ -1,8 +1,17 @@
-import { PrismaClient } from '../../node_modules/.prisma/auth-client';
+import path from 'path';
+
+import { createRequire } from 'module';
+import type { PrismaClient as GeneratedPrismaClient } from '../../node_modules/.prisma/auth-client';
+
+const generatedClientPath = path.join(process.cwd(), 'node_modules', '.prisma', 'auth-client');
+const requireFromHere = createRequire(__filename);
+const { PrismaClient } = requireFromHere(generatedClientPath) as unknown as {
+    PrismaClient: new (options?: unknown) => GeneratedPrismaClient;
+};
 
 // Singleton pattern cho Prisma Client (tránh tạo nhiều connection trong dev mode)
 const globalForPrisma = globalThis as unknown as {
-    prisma: PrismaClient | undefined;
+	prisma: GeneratedPrismaClient | undefined;
 };
 
 // Prefer per-service DB url, fallback to shared DATABASE_URL
@@ -14,14 +23,14 @@ if (!process.env.AUTH_DATABASE_URL && !process.env.DATABASE_URL) {
 // (Auth-service schema now uses DATABASE_URL; this keeps backward compatibility if AUTH_DATABASE_URL is used.)
 const databaseUrl = process.env.AUTH_DATABASE_URL ?? process.env.DATABASE_URL;
 
-export const prisma: PrismaClient =
-    globalForPrisma.prisma ??
-    new PrismaClient({
-        datasources: databaseUrl ? { db: { url: databaseUrl } } : undefined,
-        log: process.env.NODE_ENV === 'development' ? ['query', 'error', 'warn'] : ['error'],
-    });
+export const prisma: GeneratedPrismaClient =
+	globalForPrisma.prisma ??
+	new PrismaClient({
+		datasources: databaseUrl ? { db: { url: databaseUrl } } : undefined,
+		log: process.env.NODE_ENV === 'development' ? ['query', 'error', 'warn'] : ['error'],
+	});
 
 // Ensure stable typing when importing PrismaClient from a generated output path
-export type AuthPrismaClient = PrismaClient;
+export type AuthPrismaClient = GeneratedPrismaClient;
 
 if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = prisma;

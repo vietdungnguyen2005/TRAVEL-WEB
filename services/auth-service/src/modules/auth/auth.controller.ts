@@ -98,7 +98,7 @@ export async function register(req: Request, res: Response) {
         });
     }
 
-    const accessToken = signAccessToken({ userId: user.id, role: user.role });
+    const accessToken = signAccessToken({ userId: user.id, role: user.role, name: user.name ?? undefined, email: user.email });
     const refresh = await issueRefreshToken({
         userId: user.id,
         ip: req.ip,
@@ -146,7 +146,7 @@ export async function login(req: Request, res: Response) {
         return res.status(401).json({ message: 'Email hoặc mật khẩu không đúng' });
     }
 
-    const accessToken = signAccessToken({ userId: user.id, role: user.role });
+    const accessToken = signAccessToken({ userId: user.id, role: user.role, name: user.name ?? undefined, email: user.email });
     const refresh = await issueRefreshToken({
         userId: user.id,
         ip: req.ip,
@@ -215,7 +215,7 @@ export async function refresh(req: Request, res: Response) {
         return res.status(401).json({ message: 'Unauthorized' });
     }
 
-    const accessToken = signAccessToken({ userId: user.id, role: user.role });
+    const accessToken = signAccessToken({ userId: user.id, role: user.role, name: user.name ?? undefined, email: user.email });
     setAuthCookie(res, accessToken);
     setRefreshCookie(res, rotated.refresh.token);
 
