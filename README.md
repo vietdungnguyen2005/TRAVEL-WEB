@@ -48,7 +48,7 @@ aws sts get-caller-identity
 
 ## Kiến trúc tổng quan
 
-![Architecture](D:\my-ai-platform\diagram.png)
+![Architecture](diagram.png)
 
 ---
 
