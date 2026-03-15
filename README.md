@@ -48,48 +48,7 @@ aws sts get-caller-identity
 
 ## Kiến trúc tổng quan
 
-```
-Internet
-    │
-    ▼
-┌─────────────────────────────────────────────────────────┐
-│  AWS VPC (10.0.0.0/16)                                  │
-│  ┌──────────────┐    ┌──────────────────────────────┐   │
-│  │  Public       │    │  Private Subnets              │   │
-│  │  Subnets      │    │                              │   │
-│  │  ┌──────┐     │    │  ┌─────────────────────┐     │   │
-│  │  │ NAT  │     │    │  │  EKS Cluster (1.30)  │     │   │
-│  │  │ GW   │     │    │  │                     │     │   │
-│  │  └──────┘     │    │  │  ┌─────────────┐    │     │   │
-│  │  ┌──────┐     │    │  │  │ Nginx       │    │     │   │
-│  │  │ NLB  │◄────┼────┼──│  │ Ingress     │    │     │   │
-│  │  └──────┘     │    │  │  └──────┬──────┘    │     │   │
-│  └──────────────┘    │  │         │           │     │   │
-│                       │  │    ┌────┴────┐      │     │   │
-│                       │  │    ▼         ▼      │     │   │
-│                       │  │ Backend   Frontend  │     │   │
-│                       │  │ (FastAPI) (Streamlit)│     │   │
-│                       │  │    │                │     │   │
-│                       │  │    ├── Kafka (Strimzi)    │   │
-│                       │  │    ├── Flink              │   │
-│                       │  │    ├── Prometheus+Grafana  │   │
-│                       │  │    ├── OTel Demo           │   │
-│                       │  │    └── ArgoCD              │   │
-│                       │  └─────────────────────┘     │   │
-│                       │                              │   │
-│                       │  ┌─────────────┐             │   │
-│                       │  │ RDS Postgres │             │   │
-│                       │  │ (Private)    │             │   │
-│                       │  └─────────────┘             │   │
-│                       └──────────────────────────────┘   │
-│                                                         │
-│  VPC Endpoints: Bedrock Runtime, S3                     │
-└─────────────────────────────────────────────────────────┘
-         │                        │
-         ▼                        ▼
-  Amazon Bedrock            Qdrant Cloud
-  (Llama-3, Titan)          (Vector DB)
-```
+![Architecture](D:\my-ai-platform\diagram.png)
 
 ---
 
