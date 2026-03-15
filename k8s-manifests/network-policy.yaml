@@ -1,0 +1,109 @@
+---
+# Network Policy to allow only necessary traffic
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: backend-network-policy
+  namespace: ai-platform
+spec:
+  podSelector:
+    matchLabels:
+      app: ai-platform
+      component: backend
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  # Allow traffic from frontend
+  - from:
+    - podSelector:
+        matchLabels:
+          app: ai-platform
+          component: frontend
+    ports:
+    - protocol: TCP
+      port: 80
+  # Allow traffic from nginx proxy
+  - from:
+    - podSelector:
+        matchLabels:
+          app: ai-platform
+          component: nginx
+    ports:
+    - protocol: TCP
+      port: 80
+  egress:
+  # Allow DNS
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          name: kube-system
+    - podSelector:
+        matchLabels:
+          k8s-app: kube-dns
+    ports:
+    - protocol: UDP
+      port: 53
+  # Allow HTTPS to external APIs (Bedrock, Qdrant)
+  - to:
+    - namespaceSelector: {}
+    ports:
+    - protocol: TCP
+      port: 443
+  # Allow HTTP for external APIs
+  - to:
+    - namespaceSelector: {}
+    ports:
+    - protocol: TCP
+      port: 80
+
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: frontend-network-policy
+  namespace: ai-platform
+spec:
+  podSelector:
+    matchLabels:
+      app: ai-platform
+      component: frontend
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  # Allow traffic from LoadBalancer/Nginx
+  - from:
+    - podSelector:
+        matchLabels:
+          app: ai-platform
+          component: nginx
+    ports:
+    - protocol: TCP
+      port: 8501
+  # Allow traffic from anywhere (LoadBalancer)
+  - from: []
+    ports:
+    - protocol: TCP
+      port: 8501
+  egress:
+  # Allow DNS
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          name: kube-system
+    - podSelector:
+        matchLabels:
+          k8s-app: kube-dns
+    ports:
+    - protocol: UDP
+      port: 53
+  # Allow connection to backend
+  - to:
+    - podSelector:
+        matchLabels:
+          app: ai-platform
+          component: backend
+    ports:
+    - protocol: TCP
+      port: 80

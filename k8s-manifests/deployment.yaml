@@ -1,0 +1,221 @@
+---
+# Backend Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend-deployment
+  namespace: ai-platform
+  labels:
+    app: ai-platform
+    component: backend
+spec:
+  replicas: 2
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      app: ai-platform
+      component: backend
+  template:
+    metadata:
+      labels:
+        app: ai-platform
+        component: backend
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "80"
+        prometheus.io/path: "/metrics"
+    spec:
+      serviceAccountName: ai-agent-sa
+      containers:
+      - name: backend
+        image: BACKEND_IMAGE_PLACEHOLDER  # Will be replaced by CI/CD
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 80
+          name: http
+          protocol: TCP
+        env:
+        # --- LLM Provider ---
+        - name: LLM_PROVIDER
+          value: "bedrock"
+        - name: BEDROCK_MODEL_ID
+          value: "meta.llama3-70b-instruct-v1:0"
+        - name: AWS_REGION
+          value: "ap-southeast-1"
+        # --- Embeddings ---
+        - name: EMBEDDING_PROVIDER
+          value: "bedrock"
+        - name: BEDROCK_EMBEDDING_MODEL
+          value: "amazon.titan-embed-text-v2:0"
+        - name: EMBED_DIM
+          value: "1024"
+        # --- Qdrant Cloud ---
+        - name: QDRANT_URL
+          value: "https://02fbd500-006b-4c7c-8487-3e173ce0563f.eu-central-1-0.aws.cloud.qdrant.io"
+        - name: QDRANT_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: ai-platform-secrets
+              key: qdrant-api-key
+        - name: QDRANT_COLLECTION
+          value: "documents"
+        # --- RDS PostgreSQL ---
+        - name: RDS_HOST
+          value: "RDS_ENDPOINT_PLACEHOLDER"
+        - name: RDS_PORT
+          value: "5432"
+        - name: RDS_DBNAME
+          value: "aiplatform"
+        - name: RDS_USER
+          value: "aiplatform_admin"
+        - name: RDS_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: ai-platform-secrets
+              key: rds-password
+        # --- Kafka ---
+        - name: KAFKA_BOOTSTRAP_SERVERS
+          value: "kafka-cluster-kafka-bootstrap.kafka.svc.cluster.local:9092"
+        - name: KAFKA_TOPICS
+          value: "app-logs,otel-traces,otel-metrics,processed-events"
+        - name: KAFKA_GROUP_ID
+          value: "ai-agent-consumer"
+        resources:
+          requests:
+            cpu: 250m
+            memory: 512Mi
+          limits:
+            cpu: 1000m
+            memory: 2Gi
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 80
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 80
+          initialDelaySeconds: 10
+          periodSeconds: 5
+          timeoutSeconds: 3
+          failureThreshold: 3
+
+---
+# Backend Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: backend-service
+  namespace: ai-platform
+  labels:
+    app: ai-platform
+    component: backend
+spec:
+  type: ClusterIP
+  selector:
+    app: ai-platform
+    component: backend
+  ports:
+  - name: http
+    port: 80
+    targetPort: 80
+    protocol: TCP
+  sessionAffinity: None
+
+---
+# Frontend Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frontend-deployment
+  namespace: ai-platform
+  labels:
+    app: ai-platform
+    component: frontend
+spec:
+  replicas: 2
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      app: ai-platform
+      component: frontend
+  template:
+    metadata:
+      labels:
+        app: ai-platform
+        component: frontend
+    spec:
+      containers:
+      - name: frontend
+        image: FRONTEND_IMAGE_PLACEHOLDER  # Will be replaced by CI/CD
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 8501
+          name: http
+          protocol: TCP
+        env:
+        - name: BACKEND_URL
+          value: "http://backend-service:80"
+        resources:
+          requests:
+            cpu: 250m
+            memory: 512Mi
+          limits:
+            cpu: 500m
+            memory: 1Gi
+        livenessProbe:
+          httpGet:
+            path: /_stcore/health
+            port: 8501
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /_stcore/health
+            port: 8501
+          initialDelaySeconds: 10
+          periodSeconds: 5
+          timeoutSeconds: 3
+          failureThreshold: 3
+
+---
+# Frontend Service (LoadBalancer)
+apiVersion: v1
+kind: Service
+metadata:
+  name: frontend-service
+  namespace: ai-platform
+  labels:
+    app: ai-platform
+    component: frontend
+  annotations:
+    service.beta.kubernetes.io/aws-load-balancer-type: "nlb"
+    service.beta.kubernetes.io/aws-load-balancer-cross-zone-load-balancing-enabled: "true"
+spec:
+  type: LoadBalancer
+  selector:
+    app: ai-platform
+    component: frontend
+  ports:
+  - name: http
+    port: 80
+    targetPort: 8501
+    protocol: TCP
+  sessionAffinity: ClientIP
+  sessionAffinityConfig:
+    clientIP:
+      timeoutSeconds: 3600

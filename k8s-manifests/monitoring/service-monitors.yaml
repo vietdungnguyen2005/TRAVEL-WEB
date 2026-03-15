@@ -1,0 +1,61 @@
+# ============================================================================
+# ServiceMonitors — Cho Prometheus tự động scrape metrics
+# ============================================================================
+
+# --- Kafka Metrics (Strimzi JMX) ---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: kafka-metrics
+  namespace: monitoring
+  labels:
+    release: monitoring
+spec:
+  namespaceSelector:
+    matchNames: [kafka]
+  selector:
+    matchLabels:
+      strimzi.io/cluster: ai-platform-kafka
+  endpoints:
+    - port: tcp-prometheus
+      interval: 30s
+      path: /metrics
+
+---
+# --- Flink Metrics ---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: flink-metrics
+  namespace: monitoring
+  labels:
+    release: monitoring
+spec:
+  namespaceSelector:
+    matchNames: [flink]
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: flink
+  endpoints:
+    - port: metrics
+      interval: 30s
+      path: /metrics
+
+---
+# --- OTel Collector Prometheus Exporter ---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: otel-collector-metrics
+  namespace: monitoring
+  labels:
+    release: monitoring
+spec:
+  namespaceSelector:
+    matchNames: [otel-demo]
+  selector:
+    matchLabels:
+      app.kubernetes.io/component: opentelemetry-collector
+  endpoints:
+    - port: prometheus
+      interval: 30s

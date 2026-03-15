@@ -1,0 +1,222 @@
+# ============================================================================
+# kube-prometheus-stack — Prometheus + Grafana + AlertManager
+# ============================================================================
+# Cài đặt:
+#   helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+#   helm repo update
+#   helm install monitoring prometheus-community/kube-prometheus-stack \
+#     --namespace monitoring \
+#     -f k8s-manifests/monitoring/values.yaml \
+#     --wait --timeout 10m
+# ============================================================================
+
+# --- Prometheus ---
+prometheus:
+  prometheusSpec:
+    # Resources cho t3.medium
+    resources:
+      requests:
+        cpu: 200m
+        memory: 512Mi
+      limits:
+        cpu: "1"
+        memory: 2Gi
+
+    # Retention
+    retention: 7d
+    retentionSize: 5GB
+
+    # Scrape tất cả ServiceMonitors trong mọi namespace
+    serviceMonitorSelectorNilUsesHelmValues: false
+    podMonitorSelectorNilUsesHelmValues: false
+
+    # Storage — PVC cho data persistence
+    storageSpec:
+      volumeClaimTemplate:
+        spec:
+          storageClassName: gp2
+          accessModes: ["ReadWriteOnce"]
+          resources:
+            requests:
+              storage: 10Gi
+
+    # Thêm scrape configs cho Kafka, Flink, OTel
+    additionalScrapeConfigs:
+      # Kafka metrics (JMX Exporter từ Strimzi)
+      - job_name: kafka-metrics
+        kubernetes_sd_configs:
+          - role: pod
+            namespaces:
+              names: [kafka]
+        relabel_configs:
+          - source_labels: [__meta_kubernetes_pod_label_strimzi_io_cluster]
+            action: keep
+            regex: ai-platform-kafka
+          - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_port]
+            action: replace
+            target_label: __address__
+            regex: (.+)
+            replacement: "${1}:9404"
+
+      # Flink metrics
+      - job_name: flink-metrics
+        kubernetes_sd_configs:
+          - role: pod
+            namespaces:
+              names: [flink]
+        relabel_configs:
+          - source_labels: [__meta_kubernetes_pod_label_app]
+            action: keep
+            regex: ai-platform-flink.*
+
+      # OTel Collector metrics
+      - job_name: otel-collector
+        kubernetes_sd_configs:
+          - role: service
+            namespaces:
+              names: [otel-demo]
+        relabel_configs:
+          - source_labels: [__meta_kubernetes_service_name]
+            action: keep
+            regex: .*collector.*
+          - source_labels: [__meta_kubernetes_service_port_name]
+            action: keep
+            regex: prometheus
+
+      # AI Platform Backend
+      - job_name: ai-platform-backend
+        kubernetes_sd_configs:
+          - role: pod
+            namespaces:
+              names: [default]
+        relabel_configs:
+          - source_labels: [__meta_kubernetes_pod_label_app]
+            action: keep
+            regex: backend
+          - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_port]
+            action: replace
+            target_label: __address__
+            regex: (.+)
+            replacement: "${1}:8000"
+
+# --- Grafana ---
+grafana:
+  enabled: true
+
+  adminUser: admin
+  adminPassword: admin  # ⚠️ Đổi password sau khi deploy
+
+  # Service type: LoadBalancer để truy cập từ trình duyệt
+  service:
+    type: LoadBalancer
+    port: 80
+    annotations:
+      service.beta.kubernetes.io/aws-load-balancer-type: nlb
+      service.beta.kubernetes.io/aws-load-balancer-scheme: internet-facing
+
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+  # Persistence
+  persistence:
+    enabled: true
+    storageClassName: gp2
+    size: 5Gi
+
+  # Timezone
+  env:
+    TZ: Asia/Ho_Chi_Minh
+
+  # --- Pre-built Dashboards ---
+  dashboardProviders:
+    dashboardproviders.yaml:
+      apiVersion: 1
+      providers:
+        - name: custom
+          orgId: 1
+          folder: "AI Platform"
+          type: file
+          disableDeletion: false
+          editable: true
+          options:
+            path: /var/lib/grafana/dashboards/custom
+
+  # Dashboard tải từ Grafana.com
+  dashboards:
+    custom:
+      # Kafka Overview (Strimzi)
+      strimzi-kafka:
+        gnetId: 11285
+        revision: 1
+        datasource: Prometheus
+
+      # Kubernetes Cluster Overview
+      k8s-cluster:
+        gnetId: 7249
+        revision: 1
+        datasource: Prometheus
+
+      # Node Exporter Full
+      node-exporter:
+        gnetId: 1860
+        revision: 37
+        datasource: Prometheus
+
+      # Flink Dashboard
+      flink:
+        gnetId: 14911
+        revision: 1
+        datasource: Prometheus
+
+  # Thêm datasources
+  additionalDataSources:
+    # Jaeger cho distributed tracing
+    - name: Jaeger
+      type: jaeger
+      url: http://otel-demo-jaeger-query.otel-demo.svc.cluster.local:16686
+      access: proxy
+      isDefault: false
+
+  # Grafana.ini config
+  grafana.ini:
+    server:
+      root_url: "%(protocol)s://%(domain)s/"
+    auth.anonymous:
+      enabled: false
+    security:
+      allow_embedding: true
+
+# --- AlertManager ---
+alertmanager:
+  enabled: true
+  alertmanagerSpec:
+    resources:
+      requests:
+        cpu: 50m
+        memory: 64Mi
+      limits:
+        cpu: 200m
+        memory: 256Mi
+
+# --- Node Exporter (metrics từ EC2 nodes) ---
+nodeExporter:
+  enabled: true
+
+# --- kube-state-metrics (metrics từ K8s objects) ---
+kubeStateMetrics:
+  enabled: true
+
+# --- Tắt các thành phần không cần ---
+kubeControllerManager:
+  enabled: false # Không truy cập được trên EKS managed
+kubeScheduler:
+  enabled: false # Không truy cập được trên EKS managed
+kubeEtcd:
+  enabled: false # Không truy cập được trên EKS managed
+kubeProxy:
+  enabled: false # Managed by EKS

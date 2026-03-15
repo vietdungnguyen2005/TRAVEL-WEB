@@ -1,0 +1,43 @@
+# ============================================================================
+# Namespaces — Phân vùng logic cho các thành phần
+# ============================================================================
+
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: kafka
+  labels:
+    app.kubernetes.io/part-of: data-pipeline
+    purpose: streaming
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: flink
+  labels:
+    app.kubernetes.io/part-of: data-pipeline
+    purpose: stream-processing
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: monitoring
+  labels:
+    app.kubernetes.io/part-of: observability
+    purpose: monitoring
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: otel-demo
+  labels:
+    app.kubernetes.io/part-of: observability
+    purpose: opentelemetry-demo
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ai-platform
+  labels:
+    app.kubernetes.io/part-of: ai-platform
+    purpose: ai-agent-and-frontend

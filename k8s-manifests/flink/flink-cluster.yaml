@@ -1,0 +1,109 @@
+# ============================================================================
+# Apache Flink — Stream Processing trên Kubernetes
+# ============================================================================
+# Flink Operator quản lý Flink cluster (JobManager + TaskManager) trên K8s.
+# Cài Flink Kubernetes Operator bằng Helm:
+#   helm repo add flink-operator https://downloads.apache.org/flink/flink-kubernetes-operator-1.9.0/
+#   helm repo update
+#   helm install flink-operator flink-operator/flink-kubernetes-operator \
+#     --namespace flink \
+#     --set webhook.create=false \
+#     --wait
+# ============================================================================
+
+apiVersion: flink.apache.org/v1beta1
+kind: FlinkDeployment
+metadata:
+  name: ai-platform-flink
+  namespace: flink
+  labels:
+    app.kubernetes.io/name: flink
+    app.kubernetes.io/part-of: data-pipeline
+spec:
+  image: flink:1.19-java17
+  flinkVersion: v1_19
+  flinkConfiguration:
+    # --- Checkpointing (fault tolerance) ---
+    state.checkpoints.dir: file:///flink-data/checkpoints
+    state.savepoints.dir: file:///flink-data/savepoints
+    execution.checkpointing.interval: "60000"      # 60 giây
+    execution.checkpointing.min-pause: "30000"
+    execution.checkpointing.timeout: "600000"       # 10 phút
+    state.backend: hashmap
+
+    # --- Networking ---
+    rest.port: "8081"
+    taskmanager.numberOfTaskSlots: "2"
+
+    # --- Memory tuning cho t3.medium ---
+    jobmanager.memory.process.size: 1024m
+    taskmanager.memory.process.size: 1536m
+
+    # --- Kafka connector config ---
+    # Pipeline sẽ đọc từ Kafka topic và xử lý stream
+  serviceAccount: flink
+
+  # --- JobManager: điều phối jobs ---
+  jobManager:
+    resource:
+      memory: 1024m
+      cpu: 0.5
+
+  # --- TaskManager: thực thi xử lý dữ liệu ---
+  taskManager:
+    replicas: 1 # Tăng lên khi cần scale
+    resource:
+      memory: 1536m
+      cpu: 0.5
+
+---
+# ============================================================================
+# ServiceAccount cho Flink (cần quyền tạo pods)
+# ============================================================================
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: flink
+  namespace: flink
+  labels:
+    app.kubernetes.io/name: flink
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: flink-role
+  namespace: flink
+rules:
+  - apiGroups: [""]
+    resources: ["pods", "configmaps", "services"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  - apiGroups: ["apps"]
+    resources: ["deployments"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: flink-role-binding
+  namespace: flink
+subjects:
+  - kind: ServiceAccount
+    name: flink
+    namespace: flink
+roleRef:
+  kind: Role
+  name: flink-role
+  apiGroup: rbac.authorization.k8s.io
+
+---
+# ============================================================================
+# Flink Job: Kafka → Flink Processing Pipeline (Example)
+# ============================================================================
+# Job này đọc từ Kafka topic "app-logs", xử lý, và ghi ra "processed-events".
+# Trong thực tế, bạn sẽ build JAR riêng cho job logic.
+# Đây là session cluster sẵn sàng nhận jobs qua REST API.
+# ============================================================================
+# Submit job example:
+#   kubectl port-forward svc/ai-platform-flink-rest 8081:8081 -n flink
+#   curl http://localhost:8081/overview
+# ============================================================================

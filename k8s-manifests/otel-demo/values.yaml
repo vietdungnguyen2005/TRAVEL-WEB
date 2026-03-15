@@ -1,0 +1,216 @@
+# ============================================================================
+# OpenTelemetry Demo — Helm Values
+# ============================================================================
+# Cài đặt:
+#   helm repo add open-telemetry https://open-telemetry.github.io/opentelemetry-helm-charts
+#   helm repo update
+#   helm install otel-demo open-telemetry/opentelemetry-demo \
+#     --namespace otel-demo \
+#     -f k8s-manifests/otel-demo/values.yaml \
+#     --wait --timeout 10m
+# ============================================================================
+# OTel Demo tự sinh ra logs, traces, metrics giả lập từ 10+ microservices
+# (webstore, cart, checkout, payment, shipping, currency, product catalog, v.v.)
+# Mục đích: có dữ liệu thật để test pipeline Kafka → Flink → Grafana
+# ============================================================================
+
+default:
+  # Giảm resources cho dev (mặc định OTel demo khá tốn)
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      cpu: 200m
+      memory: 256Mi
+
+  env:
+    - name: OTEL_RESOURCE_ATTRIBUTES
+      value: "deployment.environment=dev"
+
+# --- OpenTelemetry Collector: thu thập traces/metrics/logs ---
+opentelemetry-collector:
+  enabled: true
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+  config:
+    exporters:
+      # Gửi metrics sang Prometheus
+      prometheus:
+        endpoint: "0.0.0.0:8889"
+        resource_to_telemetry_conversion:
+          enabled: true
+
+      # Gửi data sang Kafka cho pipeline
+      kafka/logs:
+        brokers:
+          - ai-platform-kafka-kafka-bootstrap.kafka.svc.cluster.local:9092
+        topic: app-logs
+        encoding: otlp_json
+
+      kafka/traces:
+        brokers:
+          - ai-platform-kafka-kafka-bootstrap.kafka.svc.cluster.local:9092
+        topic: otel-traces
+        encoding: otlp_json
+
+      # Logging cho debug
+      debug:
+        verbosity: basic
+
+    receivers:
+      otlp:
+        protocols:
+          grpc:
+            endpoint: "0.0.0.0:4317"
+          http:
+            endpoint: "0.0.0.0:4318"
+
+    processors:
+      batch:
+        timeout: 5s
+        send_batch_size: 1024
+      memory_limiter:
+        check_interval: 5s
+        limit_mib: 400
+        spike_limit_mib: 100
+
+    service:
+      pipelines:
+        traces:
+          receivers: [otlp]
+          processors: [memory_limiter, batch]
+          exporters: [debug, kafka/traces]
+        metrics:
+          receivers: [otlp]
+          processors: [memory_limiter, batch]
+          exporters: [prometheus]
+        logs:
+          receivers: [otlp]
+          processors: [memory_limiter, batch]
+          exporters: [debug, kafka/logs]
+
+# --- Jaeger: xem distributed traces ---
+jaeger:
+  enabled: true
+  allInOne:
+    resources:
+      requests:
+        cpu: 50m
+        memory: 128Mi
+      limits:
+        cpu: 250m
+        memory: 512Mi
+
+# --- Prometheus (demo built-in — nhỏ, chỉ cho OTel metrics) ---
+prometheus:
+  enabled: false # Dùng kube-prometheus-stack riêng (Phase 4)
+
+# --- Grafana (demo built-in — tắt, dùng stack riêng) ---
+grafana:
+  enabled: false # Dùng kube-prometheus-stack riêng (Phase 4)
+
+# ---------------------------------------------------------------------------
+# Microservices của demo — giảm replicas và resources cho dev
+# ---------------------------------------------------------------------------
+
+components:
+  accountingService:
+    enabled: true
+    resources:
+      requests: { cpu: 30m, memory: 64Mi }
+      limits: { cpu: 100m, memory: 128Mi }
+
+  adService:
+    enabled: true
+    resources:
+      requests: { cpu: 50m, memory: 128Mi }
+      limits: { cpu: 200m, memory: 256Mi }
+
+  cartService:
+    enabled: true
+    resources:
+      requests: { cpu: 30m, memory: 64Mi }
+      limits: { cpu: 100m, memory: 128Mi }
+
+  checkoutService:
+    enabled: true
+    resources:
+      requests: { cpu: 30m, memory: 64Mi }
+      limits: { cpu: 100m, memory: 128Mi }
+
+  currencyService:
+    enabled: true
+    resources:
+      requests: { cpu: 30m, memory: 64Mi }
+      limits: { cpu: 100m, memory: 128Mi }
+
+  emailService:
+    enabled: true
+    resources:
+      requests: { cpu: 30m, memory: 64Mi }
+      limits: { cpu: 100m, memory: 128Mi }
+
+  frauddetectionService:
+    enabled: true
+    resources:
+      requests: { cpu: 30m, memory: 64Mi }
+      limits: { cpu: 100m, memory: 128Mi }
+
+  frontend:
+    enabled: true
+    resources:
+      requests: { cpu: 50m, memory: 128Mi }
+      limits: { cpu: 200m, memory: 256Mi }
+
+  frontendProxy:
+    enabled: true
+    resources:
+      requests: { cpu: 30m, memory: 64Mi }
+      limits: { cpu: 100m, memory: 128Mi }
+
+  loadgenerator:
+    enabled: true # Tự động tạo traffic giả lập
+    resources:
+      requests: { cpu: 50m, memory: 128Mi }
+      limits: { cpu: 200m, memory: 256Mi }
+
+  paymentService:
+    enabled: true
+    resources:
+      requests: { cpu: 30m, memory: 64Mi }
+      limits: { cpu: 100m, memory: 128Mi }
+
+  productCatalogService:
+    enabled: true
+    resources:
+      requests: { cpu: 30m, memory: 64Mi }
+      limits: { cpu: 100m, memory: 128Mi }
+
+  quoteService:
+    enabled: true
+    resources:
+      requests: { cpu: 30m, memory: 64Mi }
+      limits: { cpu: 100m, memory: 128Mi }
+
+  recommendationService:
+    enabled: true
+    resources:
+      requests: { cpu: 50m, memory: 128Mi }
+      limits: { cpu: 200m, memory: 256Mi }
+
+  shippingService:
+    enabled: true
+    resources:
+      requests: { cpu: 30m, memory: 64Mi }
+      limits: { cpu: 100m, memory: 128Mi }
+
+  # Kafka service — tắt vì dùng Strimzi Kafka riêng
+  kafka:
+    enabled: false

@@ -1,0 +1,98 @@
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+venv/
+ENV/
+env/
+
+# Terraform
+*.tfstate
+*.tfstate.*
+.terraform/
+.terraform.lock.hcl
+terraform.tfvars
+*.tfplan
+tfplan
+
+# Test results
+stress-test-results-*.json
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Logs
+*.log
+logs/
+
+# Docker
+docker-compose.override.yml
+
+# Documents (if sensitive)
+docs/*.pdf
+docs/*.docx
+# Keep sample files
+!docs/sample-*.txt
+!docs/README.md
+
+# AWS
+.aws/
+*.pem
+
+# Node modules (if using React later)
+node_modules/
+
+# Streamlit
+.streamlit/secrets.toml
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Coverage
+htmlcov/
+.coverage
+.coverage.*
+coverage.xml
+*.cover
+
+# Testing
+.pytest_cache/
+.tox/
+
+# OS
+Thumbs.db
+
+# Deployment & Security
+security-reports/
+stress-test-k6.js
+stress-test-results-*.json
+k8s-manifests/deployment-temp.yaml
+k8s-manifests/*-temp.yaml
+route53-change-batch.json

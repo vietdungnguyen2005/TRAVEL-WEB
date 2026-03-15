@@ -1,0 +1,53 @@
+# ============================================================================
+# Ingress — Route traffic from Nginx Ingress Controller to app services
+# ============================================================================
+# Flow: Internet → NLB → Nginx Ingress Controller → backend / frontend
+# ============================================================================
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: ai-platform-ingress
+  namespace: ai-platform
+  labels:
+    app: ai-platform
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-body-size: "50m"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "120"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "120"
+spec:
+  ingressClassName: nginx
+  rules:
+  - http:
+      paths:
+      # Backend API — /api prefix
+      - path: /api
+        pathType: Prefix
+        backend:
+          service:
+            name: backend-service
+            port:
+              number: 80
+      # Health check
+      - path: /health
+        pathType: Exact
+        backend:
+          service:
+            name: backend-service
+            port:
+              number: 80
+      # Metrics
+      - path: /metrics
+        pathType: Exact
+        backend:
+          service:
+            name: backend-service
+            port:
+              number: 80
+      # Frontend — catch-all
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: frontend-service
+            port:
+              number: 80
