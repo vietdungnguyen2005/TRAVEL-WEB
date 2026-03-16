@@ -80,6 +80,8 @@ function signAccessToken(claims) {
         sub: claims.userId,
         role: claims.role,
         typ: 'access',
+        ...(claims.name ? { name: claims.name } : {}),
+        ...(claims.email ? { email: claims.email } : {}),
     };
     const privateKey = tryGetPrivateKeyPem();
     if (privateKey) {

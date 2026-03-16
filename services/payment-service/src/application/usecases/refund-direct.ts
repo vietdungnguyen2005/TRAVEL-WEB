@@ -33,6 +33,14 @@ export async function refundDirect(deps: {
         return { status: 200, body };
     }
 
+    // Only COMPLETED or REFUND_REQUESTED payments can be directly refunded
+    const refundableStatuses = ['COMPLETED', 'REFUND_REQUESTED', 'REFUND_APPROVED'];
+    if (!refundableStatuses.includes(payment.status)) {
+        const body = { error: `Cannot refund payment with status ${payment.status}` };
+        await deps.idempotency.saveResponse('refund', deps.idemKey, 400, body);
+        return { status: 400, body };
+    }
+
     await deps.payments.updateRefundMetadataByBookingId({
         bookingId: deps.bookingId,
         status: 'REFUNDED',

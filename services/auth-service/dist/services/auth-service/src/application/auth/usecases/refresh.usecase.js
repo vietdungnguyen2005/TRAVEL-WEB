@@ -17,7 +17,7 @@ class RefreshUseCase {
         const user = await this.deps.users.findById(rotated.userId);
         if (!user)
             throw new auth_errors_1.AuthError('Unauthorized', 'UNAUTHORIZED');
-        const accessToken = this.deps.jwt.signAccessToken({ userId: user.id, role: user.role });
+        const accessToken = this.deps.jwt.signAccessToken({ userId: user.id, role: user.role, name: user.name ?? undefined, email: user.email });
         return {
             accessToken,
             refreshToken: rotated.refresh.token,

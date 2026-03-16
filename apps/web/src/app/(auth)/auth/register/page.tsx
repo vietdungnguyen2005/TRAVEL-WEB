@@ -170,12 +170,12 @@ export default function RegisterPage() {
                   placeholder="••••••••"
                   className="pl-10"
                   required
-                  minLength={6}
+                  minLength={8}
                   disabled={loading}
                 />
               </div>
               <p className="text-xs text-muted-foreground">
-                Ít nhất 6 ký tự
+                Ít nhất 8 ký tự
               </p>
             </div>
 
@@ -190,7 +190,7 @@ export default function RegisterPage() {
                   placeholder="••••••••"
                   className="pl-10"
                   required
-                  minLength={6}
+                  minLength={8}
                   disabled={loading}
                 />
               </div>

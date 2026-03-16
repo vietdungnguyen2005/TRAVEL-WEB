@@ -6,12 +6,14 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = __importDefault(require("express"));
 const cors_1 = __importDefault(require("cors"));
 const prisma_1 = __importDefault(require("./lib/prisma"));
-const shared_1 = require("@travel-web/shared");
-const load_env_profile_1 = require("../../../infra/scripts/load-env-profile");
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const shared = require('@travel-web/shared');
+const { createCorrelationIdMiddleware, loadEnvProfile, requireRole, verifyJWT, } = shared;
 // Load root env + selected profile env (.env.docker/.env.supabase)
 // In docker-compose, env can also be injected by the container; this won't override existing vars.
-(0, load_env_profile_1.loadEnvProfile)({ cwd: process.cwd().split('/services/')[0] });
+loadEnvProfile({ cwd: process.cwd().split(/[/\\]services[/\\]/)[0] || process.cwd() });
 const app = (0, express_1.default)();
+app.use(createCorrelationIdMiddleware());
 app.use(express_1.default.json());
 app.use((0, cors_1.default)({
     origin: true,
@@ -20,7 +22,7 @@ app.use((0, cors_1.default)({
 app.get('/health', (_req, res) => {
     res.status(200).json({ ok: true, service: 'blog-service' });
 });
-const requireAdmin = [shared_1.verifyJWT, (0, shared_1.requireRole)('ADMIN')];
+const requireAdmin = [verifyJWT, requireRole('ADMIN')];
 // Public: list published posts
 app.get('/api/blog/posts', async (_req, res) => {
     const posts = await prisma_1.default.post.findMany({
@@ -113,4 +115,6 @@ const port = Number(process.env.PORT || 3008);
 app.listen(port, () => {
     console.log(`Blog service running on port ${port}`);
 });
+// Disable RabbitMQ
+process.env.DISABLE_RABBITMQ = 'true';
 //# sourceMappingURL=index.js.map

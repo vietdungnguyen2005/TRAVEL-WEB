@@ -1,18 +1,28 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
+/** Paths that do NOT require an access_token cookie. */
+const PUBLIC_PREFIXES = [
+    "/",          // homepage (exact)
+    "/about",
+    "/contact",
+    "/rooms",
+    "/faq",
+    "/privacy",
+    "/terms",
+    "/blog",      // blog is public content
+    "/auth",      // login / register / forgot-password
+    "/_next",
+    "/favicon",
+    "/public",
+    "/api",       // Next.js API routes handle their own auth
+];
+
 function isPublicPath(pathname: string) {
-    // Public pages
-    if (pathname === "/" || pathname.startsWith("/about") || pathname.startsWith("/contact")) return true;
-    if (pathname.startsWith("/rooms") || pathname.startsWith("/faq") || pathname.startsWith("/privacy") || pathname.startsWith("/terms")) return true;
-
-    // Auth pages
-    if (pathname.startsWith("/auth")) return true;
-
-    // Static/next internals
-    if (pathname.startsWith("/_next") || pathname.startsWith("/favicon") || pathname.startsWith("/public")) return true;
-
-    return false;
+    if (pathname === "/") return true;
+    return PUBLIC_PREFIXES.some(
+        (prefix) => prefix !== "/" && pathname.startsWith(prefix),
+    );
 }
 
 export function middleware(req: NextRequest) {
@@ -25,9 +35,8 @@ export function middleware(req: NextRequest) {
     // Protect dashboard/admin routes (and any other non-public pages)
     const token = req.cookies.get("access_token")?.value;
     if (!token) {
-        const loginUrl = req.nextUrl.clone();
-        loginUrl.pathname = "/auth/login";
-        loginUrl.search = `?redirect=${encodeURIComponent(pathname + search)}`;
+        const redirectTo = encodeURIComponent(pathname + search);
+        const loginUrl = new URL(`/auth/login?redirect=${redirectTo}`, req.url);
         return NextResponse.redirect(loginUrl);
     }
 

@@ -15,6 +15,8 @@ router.use((0, auth_middleware_1.requireAuthForPaths)([
     '/api/bookings',
     '/api/payments',
     '/api/admin',
+], [
+    '/api/bookings/unavailable-dates',
 ]));
 // Admin role guard – runs AFTER auth so req.auth is already set
 router.use((0, auth_middleware_1.requireAdminForPaths)([

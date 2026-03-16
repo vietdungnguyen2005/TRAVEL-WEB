@@ -1,5 +1,5 @@
 import express from 'express';
-import { consulRegisterService, createCorrelationIdMiddleware } from '@travel-web/shared';
+import { consulRegisterService, createCorrelationIdMiddleware, createErrorHandler } from '@travel-web/shared';
 import path from 'path';
 import { createRequire } from 'module';
 import type { Prisma as PrismaTypes, RoomStatus as RoomStatusType } from '../node_modules/.prisma/room-client';
@@ -26,6 +26,8 @@ app.use(createCorrelationIdMiddleware());
 app.use(express.json());
 
 app.get('/health', (req, res) => res.send('Room service healthy'));
+
+const VALID_ROOM_STATUSES: string[] = ['AVAILABLE', 'OCCUPIED', 'MAINTENANCE'];
 
 // Admin endpoints (mounted under /api/admin/* by API Gateway)
 const admin = express.Router();
@@ -55,13 +57,23 @@ admin.post('/room-types', async (req, res) => {
     const { name, description, pricePerNight, maxGuests, location, amenities, images, isActive } = req.body ?? {};
     if (!name) return res.status(400).json({ error: 'name is required' });
 
+    const price = typeof pricePerNight === 'number' ? pricePerNight : Number(pricePerNight ?? 0);
+    if (!price || price <= 0) return res.status(400).json({ error: 'pricePerNight must be a positive number' });
+
+    const guests = typeof maxGuests === 'number' ? maxGuests : Number(maxGuests ?? 2);
+    if (guests < 1) return res.status(400).json({ error: 'maxGuests must be at least 1' });
+
+    // Check duplicate name
+    const existing = await prisma.roomType.findFirst({ where: { name: String(name) } });
+    if (existing) return res.status(409).json({ error: 'Room type with this name already exists' });
+
     try {
         const created = await prisma.roomType.create({
             data: {
                 name: String(name),
                 description: description ? String(description) : '',
-                basePrice: typeof pricePerNight === 'number' ? pricePerNight : Number(pricePerNight ?? 0),
-                maxGuests: typeof maxGuests === 'number' ? maxGuests : Number(maxGuests ?? 2),
+                basePrice: price,
+                maxGuests: guests,
                 location: typeof location === 'string' ? location : 'Hà Nội',
                 amenities: Array.isArray(amenities) ? amenities : [],
                 images: Array.isArray(images) ? images : [],
@@ -84,13 +96,25 @@ admin.post('/room-types', async (req, res) => {
         });
     } catch (err: unknown) {
         const message = err instanceof Error ? err.message : 'Cannot create room type';
-        return res.status(400).json({ error: message });
+        // Hide internal Prisma error details
+        const safeMessage = message.includes('prisma') || message.includes('Prisma') ? 'Cannot create room type' : message;
+        return res.status(400).json({ error: safeMessage });
     }
 });
 
 admin.patch('/room-types/:id', async (req, res) => {
     const { id } = req.params;
     const { name, description, pricePerNight, maxGuests, location, amenities, images, isActive } = req.body ?? {};
+
+    // Validate pricePerNight if provided
+    if (pricePerNight !== undefined && (typeof pricePerNight !== 'number' || pricePerNight <= 0)) {
+        return res.status(400).json({ error: 'pricePerNight must be a positive number' });
+    }
+
+    // Validate maxGuests if provided
+    if (maxGuests !== undefined && (typeof maxGuests !== 'number' || maxGuests < 1)) {
+        return res.status(400).json({ error: 'maxGuests must be at least 1' });
+    }
 
     try {
         const updated = await prisma.roomType.update({
@@ -122,18 +146,33 @@ admin.patch('/room-types/:id', async (req, res) => {
         });
     } catch (err: unknown) {
         const message = err instanceof Error ? err.message : 'Cannot update room type';
-        return res.status(400).json({ error: message });
+        if (message.includes('Record to update not found')) {
+            return res.status(404).json({ error: 'Room type not found' });
+        }
+        const safeMessage = message.includes('prisma') || message.includes('Prisma') ? 'Cannot update room type' : message;
+        return res.status(400).json({ error: safeMessage });
     }
 });
 
 admin.delete('/room-types/:id', async (req, res) => {
     const { id } = req.params;
     try {
+        // Check if room type has associated rooms
+        const roomCount = await prisma.room.count({ where: { roomTypeId: id } });
+        if (roomCount > 0) {
+            return res.status(400).json({
+                error: `Cannot delete room type: ${roomCount} room(s) are still using this type. Remove or reassign them first.`,
+            });
+        }
         await prisma.roomType.delete({ where: { id } });
         return res.status(204).send();
     } catch (err: unknown) {
         const message = err instanceof Error ? err.message : 'Cannot delete room type';
-        return res.status(400).json({ error: message });
+        if (message.includes('Record to delete does not exist')) {
+            return res.status(404).json({ error: 'Room type not found' });
+        }
+        const safeMessage = message.includes('prisma') || message.includes('Prisma') ? 'Cannot delete room type' : message;
+        return res.status(400).json({ error: safeMessage });
     }
 });
 
@@ -163,6 +202,19 @@ admin.post('/rooms', async (req, res) => {
     const { roomNumber, floor, status, roomTypeId } = req.body ?? {};
     if (!roomNumber || !roomTypeId) return res.status(400).json({ error: 'roomNumber and roomTypeId are required' });
 
+    // Verify room type exists
+    const roomType = await prisma.roomType.findUnique({ where: { id: String(roomTypeId) } });
+    if (!roomType) return res.status(400).json({ error: 'Invalid roomTypeId: room type not found' });
+
+    // Check duplicate roomNumber
+    const existingRoom = await prisma.room.findUnique({ where: { roomNumber: String(roomNumber) } });
+    if (existingRoom) return res.status(409).json({ error: `Room number '${roomNumber}' already exists` });
+
+    // Validate status if provided
+    if (status && !VALID_ROOM_STATUSES.includes(status)) {
+        return res.status(400).json({ error: `Invalid status. Allowed: ${VALID_ROOM_STATUSES.join(', ')}` });
+    }
+
     try {
         const created = await prisma.room.create({
             data: {
@@ -184,13 +236,19 @@ admin.post('/rooms', async (req, res) => {
         });
     } catch (err: unknown) {
         const message = err instanceof Error ? err.message : 'Cannot create room';
-        return res.status(400).json({ error: message });
+        const safeMessage = message.includes('prisma') || message.includes('Prisma') ? 'Cannot create room' : message;
+        return res.status(400).json({ error: safeMessage });
     }
 });
 
 admin.patch('/rooms/:id', async (req, res) => {
     const { id } = req.params;
     const { roomNumber, floor, status, roomTypeId } = req.body ?? {};
+
+    // Validate status if provided
+    if (status && !VALID_ROOM_STATUSES.includes(status)) {
+        return res.status(400).json({ error: `Invalid status. Allowed: ${VALID_ROOM_STATUSES.join(', ')}` });
+    }
 
     try {
         const updated = await prisma.room.update({
@@ -214,18 +272,43 @@ admin.patch('/rooms/:id', async (req, res) => {
         });
     } catch (err: unknown) {
         const message = err instanceof Error ? err.message : 'Cannot update room';
-        return res.status(400).json({ error: message });
+        if (message.includes('Record to update not found')) {
+            return res.status(404).json({ error: 'Room not found' });
+        }
+        const safeMessage = message.includes('prisma') || message.includes('Prisma') ? 'Cannot update room' : message;
+        return res.status(400).json({ error: safeMessage });
     }
 });
 
 admin.delete('/rooms/:id', async (req, res) => {
     const { id } = req.params;
     try {
+        // Check if the room has active bookings (PENDING, ON_HOLD, CONFIRMED)
+        try {
+            const activeBookings = await prisma.$queryRawUnsafe<{ count: bigint }[]>(
+                `SELECT COUNT(*) as count FROM booking.bookings
+                 WHERE "roomId" = $1 AND status IN ('PENDING', 'ON_HOLD', 'CONFIRMED')`,
+                id,
+            );
+            const count = Number(activeBookings[0]?.count ?? 0);
+            if (count > 0) {
+                return res.status(400).json({
+                    error: `Cannot delete room: ${count} active booking(s) exist. Cancel or complete them first.`,
+                });
+            }
+        } catch {
+            // If cross-schema query fails, skip booking check (booking schema may not exist)
+        }
+
         await prisma.room.delete({ where: { id } });
         return res.status(204).send();
     } catch (err: unknown) {
         const message = err instanceof Error ? err.message : 'Cannot delete room';
-        return res.status(400).json({ error: message });
+        if (message.includes('Record to delete does not exist')) {
+            return res.status(404).json({ error: 'Room not found' });
+        }
+        const safeMessage = message.includes('prisma') || message.includes('Prisma') ? 'Cannot delete room' : message;
+        return res.status(400).json({ error: safeMessage });
     }
 });
 
@@ -241,6 +324,23 @@ app.get('/api/rooms', async (req, res) => {
     const roomTypes = typeof req.query.roomTypes === 'string' ? req.query.roomTypes : undefined;
     const location = typeof req.query.location === 'string' ? req.query.location : undefined;
     const sortBy = typeof req.query.sortBy === 'string' ? req.query.sortBy : 'price-asc';
+    const page = typeof req.query.page === 'string' ? Math.max(1, Number(req.query.page)) : undefined;
+    const limit = typeof req.query.limit === 'string' ? Math.min(100, Math.max(1, Number(req.query.limit))) : undefined;
+
+    // ── Date-based availability filter ──
+    const checkInRaw = typeof req.query.checkIn === 'string' ? req.query.checkIn : undefined;
+    const checkOutRaw = typeof req.query.checkOut === 'string' ? req.query.checkOut : undefined;
+    let checkInDate: Date | undefined;
+    let checkOutDate: Date | undefined;
+
+    if (checkInRaw && checkOutRaw) {
+        const ci = new Date(checkInRaw);
+        const co = new Date(checkOutRaw);
+        if (!isNaN(ci.getTime()) && !isNaN(co.getTime()) && co > ci) {
+            checkInDate = ci;
+            checkOutDate = co;
+        }
+    }
 
     const where: PrismaTypes.RoomTypeWhereInput = { isActive: true };
 
@@ -252,9 +352,9 @@ app.get('/api/rooms', async (req, res) => {
         where.basePrice = basePrice;
     }
 
-    // capacity -> maxGuests
+    // capacity -> maxGuests (always use gte so a search for 3 guests also shows 4/6 guest rooms)
     if (typeof capacity === 'number' && !Number.isNaN(capacity)) {
-        where.maxGuests = capacity >= 4 ? { gte: 4 } : capacity;
+        where.maxGuests = { gte: capacity };
     }
 
     // filter by names
@@ -262,9 +362,9 @@ app.get('/api/rooms', async (req, res) => {
         where.name = { in: roomTypes.split(',').map((s) => s.trim()).filter(Boolean) };
     }
 
-    // filter by location
+    // filter by location (case-insensitive, partial match)
     if (location) {
-        where.location = location;
+        where.location = { contains: location, mode: 'insensitive' };
     }
 
     let orderBy: PrismaTypes.RoomTypeOrderByWithRelationInput = { basePrice: 'asc' };
@@ -284,19 +384,88 @@ app.get('/api/rooms', async (req, res) => {
             break;
     }
 
+    // When dates are provided, we must filter BEFORE pagination (date filtering is post-query),
+    // so fetch all matching types first, then paginate in-memory.
+    const hasDates = !!(checkInDate && checkOutDate);
+    const usePagination = typeof page === 'number' && !Number.isNaN(page) && typeof limit === 'number' && !Number.isNaN(limit);
+
+    // Count total (without date filter) for non-date pagination
+    const totalCount = await prisma.roomType.count({ where });
+
+    const paginationOpts: { skip?: number; take?: number } = {};
+    if (usePagination && !hasDates) {
+        // Only apply DB-level pagination when no date filtering is needed
+        paginationOpts.skip = (page! - 1) * limit!;
+        paginationOpts.take = limit!;
+    }
+
     const types = await prisma.roomType.findMany({
         where,
         orderBy,
+        ...paginationOpts,
         include: { rooms: { where: { status: 'AVAILABLE' } } },
     });
 
+    // ── Date-based availability: filter out room types with no available rooms ──
+    let filteredTypes = types;
+    if (hasDates && types.length > 0) {
+        // Collect all physical room IDs across all room types
+        const allRoomIds = types.flatMap((t) => t.rooms.map((r) => r.id));
+        const conflictSet = new Set<string>();
+
+        if (allRoomIds.length > 0) {
+            try {
+                const placeholders = allRoomIds.map((_, i) => `$${i + 3}`).join(',');
+                const conflictRows = await prisma.$queryRawUnsafe<{ roomId: string }[]>(
+                    `SELECT DISTINCT "roomId" FROM booking.bookings
+                     WHERE "roomId" IN (${placeholders})
+                       AND status IN ('CONFIRMED', 'ON_HOLD')
+                       AND "checkIn" < $1 AND "checkOut" > $2`,
+                    checkOutDate, checkInDate, ...allRoomIds,
+                );
+                for (const row of conflictRows) {
+                    conflictSet.add(row.roomId);
+                }
+            } catch (err) {
+                // If cross-schema query fails, skip date filter gracefully
+                console.warn('[room-service] Could not check booking conflicts for listing, falling back to status-only:', err);
+            }
+        }
+
+        if (conflictSet.size > 0) {
+            // For each room type, keep only rooms without conflicts
+            filteredTypes = types
+                .map((t) => ({
+                    ...t,
+                    rooms: t.rooms.filter((r) => !conflictSet.has(r.id)),
+                }))
+                .filter((t) => t.rooms.length > 0); // Remove room types with zero availability
+        }
+    }
+
+    // When dates are provided, apply pagination in-memory after date filtering
+    const dateFilteredTotal = filteredTypes.length;
+    if (usePagination && hasDates) {
+        const skip = (page! - 1) * limit!;
+        filteredTypes = filteredTypes.slice(skip, skip + limit!);
+    }
+
+    // Calculate nights for total price when dates are provided
+    const nights = hasDates
+        ? Math.max(1, Math.ceil((checkOutDate!.getTime() - checkInDate!.getTime()) / (1000 * 60 * 60 * 24)))
+        : null;
+
     // Map room-service schema -> web expects fields like pricePerNight/capacity/bedCount/etc.
     // Mark room types with available rooms and basePrice >= 2000000 as "featured"
-    const data = types.map((t) => ({
+    const data = filteredTypes.map((t) => ({
         id: t.id,
         name: t.name,
         description: t.description,
+        basePrice: t.basePrice,
         pricePerNight: t.basePrice,
+        totalPrice: nights ? t.basePrice * nights : null,
+        nights,
+        maxGuests: t.maxGuests,
         capacity: t.maxGuests,
         location: t.location,
         bedCount: 1,
@@ -304,13 +473,25 @@ app.get('/api/rooms', async (req, res) => {
         amenities: t.amenities,
         images: t.images,
         featured: t.rooms.length > 0 && t.basePrice >= 2000000,
-        available: t.isActive,
+        available: t.isActive && t.rooms.length > 0,
+        availableCount: t.rooms.length,
         rooms: t.rooms,
         createdAt: t.createdAt,
         updatedAt: t.updatedAt,
     }));
 
-    res.json({ data });
+    const responsePayload: { data: typeof data; pagination?: { page: number; limit: number; total: number; totalPages: number } } = { data };
+    if (usePagination) {
+        const effectiveTotal = hasDates ? dateFilteredTotal : totalCount;
+        responsePayload.pagination = {
+            page: page!,
+            limit: limit!,
+            total: effectiveTotal,
+            totalPages: Math.ceil(effectiveTotal / limit!),
+        };
+    }
+
+    res.json(responsePayload);
 });
 
 // Customer-facing: room type detail
@@ -328,7 +509,9 @@ app.get('/api/rooms/:id', async (req, res) => {
             id: t.id,
             name: t.name,
             description: t.description,
+            basePrice: t.basePrice,
             pricePerNight: t.basePrice,
+            maxGuests: t.maxGuests,
             capacity: t.maxGuests,
             location: t.location,
             bedCount: 1,
@@ -336,7 +519,8 @@ app.get('/api/rooms/:id', async (req, res) => {
             amenities: t.amenities,
             images: t.images,
             featured: t.rooms.length > 0 && t.basePrice >= 2000000,
-            available: t.isActive,
+            available: t.isActive && t.rooms.length > 0,
+            availableCount: t.rooms.length,
             rooms: t.rooms,
             createdAt: t.createdAt,
             updatedAt: t.updatedAt,
@@ -369,13 +553,31 @@ app.post('/api/rooms/by-ids', async (req, res) => {
 });
 
 // Customer-facing: availability check for a room type
-// Request body: { roomTypeId, checkIn, checkOut }
+// Request body: { roomTypeId, checkIn, checkOut, guests? }
 // Response shape matches web expectations: { available, availableRooms, totalPrice }
 app.post('/api/rooms/availability', async (req, res) => {
-    const { roomTypeId, checkIn, checkOut } = req.body ?? {};
+    const { roomTypeId, checkIn, checkOut, guests } = req.body ?? {};
 
     if (typeof roomTypeId !== 'string' || typeof checkIn !== 'string' || typeof checkOut !== 'string') {
         return res.status(400).json({ error: 'roomTypeId, checkIn, checkOut are required' });
+    }
+
+    const inDate = new Date(checkIn);
+    const outDate = new Date(checkOut);
+
+    if (isNaN(inDate.getTime()) || isNaN(outDate.getTime())) {
+        return res.status(400).json({ error: 'checkIn and checkOut must be valid dates' });
+    }
+
+    if (outDate <= inDate) {
+        return res.status(400).json({ error: 'checkOut must be after checkIn' });
+    }
+
+    // Reject past dates
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    if (inDate < today) {
+        return res.status(400).json({ error: 'checkIn must not be in the past' });
     }
 
     const roomType = await prisma.roomType.findUnique({
@@ -387,20 +589,49 @@ app.post('/api/rooms/availability', async (req, res) => {
         return res.status(404).json({ error: 'Room type not found' });
     }
 
-    // NOTE: booking-service has the authoritative availability check.
-    // For now, we return "available" based on having any AVAILABLE rooms.
-    // We'll tighten this by calling booking-service check-availability per room if/when needed.
-    const availableRooms = roomType.rooms;
+    // Validate guests count against maxGuests
+    if (guests !== undefined && guests !== null) {
+        const guestCount = typeof guests === 'number' ? guests : Number(guests);
+        if (isNaN(guestCount) || guestCount < 1) {
+            return res.status(400).json({ error: 'guests must be at least 1' });
+        }
+        if (guestCount > roomType.maxGuests) {
+            return res.status(400).json({ error: `guests (${guestCount}) exceeds maximum capacity (${roomType.maxGuests})` });
+        }
+    }
+
+    // Filter out rooms that have conflicting bookings (CONFIRMED or ON_HOLD)
+    let availableRooms = roomType.rooms;
+    if (availableRooms.length > 0) {
+        try {
+            const roomIds = availableRooms.map(r => r.id);
+            const placeholders = roomIds.map((_, i) => `$${i + 3}`).join(',');
+            const conflictRows = await prisma.$queryRawUnsafe<{ roomId: string }[]>(
+                `SELECT DISTINCT "roomId" FROM booking.bookings
+                 WHERE "roomId" IN (${placeholders})
+                   AND status IN ('CONFIRMED', 'ON_HOLD')
+                   AND "checkIn" < $1 AND "checkOut" > $2`,
+                outDate, inDate, ...roomIds,
+            );
+            const conflictSet = new Set(conflictRows.map(r => r.roomId));
+            availableRooms = availableRooms.filter(r => !conflictSet.has(r.id));
+        } catch (err) {
+            // If cross-schema query fails (e.g. booking schema not accessible),
+            // fall back to status-only check
+            console.warn('[room-service] Could not check booking conflicts, falling back to status-only:', err);
+        }
+    }
     const available = availableRooms.length > 0;
 
     // Basic pricing: basePrice * nights
-    const inDate = new Date(checkIn);
-    const outDate = new Date(checkOut);
     const nights = Math.max(1, Math.ceil((outDate.getTime() - inDate.getTime()) / (1000 * 60 * 60 * 24)));
     const totalPrice = roomType.basePrice * nights;
 
     return res.json({ available, availableRooms, totalPrice });
 });
+
+// Centralized error handling (catches Prisma errors, AppError, etc.)
+app.use(createErrorHandler('room-service'));
 
 app.listen(PORT, () => {
     console.log(`Room service running on port ${PORT}`);

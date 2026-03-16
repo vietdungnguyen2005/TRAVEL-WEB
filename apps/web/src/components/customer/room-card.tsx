@@ -22,6 +22,12 @@ interface RoomCardProps {
     location?: string;
     rating?: number;
     reviewCount?: number;
+    /** Number of rooms available for the selected dates (sent when checkIn/checkOut provided) */
+    availableCount?: number;
+    /** Total price for the entire stay (basePrice × nights, when dates provided) */
+    totalPrice?: number;
+    /** Number of nights (derived from checkIn/checkOut) */
+    nights?: number;
   };
   variant?: "grid" | "list";
 }
@@ -42,14 +48,16 @@ export function RoomCard({ room, variant = "grid" }: RoomCardProps) {
         <div className="flex flex-col md:flex-row">
           <div className="relative h-48 w-full md:h-48 md:w-64 shrink-0 overflow-hidden">
             <Image
-              src={images[0] || "/placeholder-room.jpg"}
+              src={images[0] || "/placeholder-room.svg"}
               alt={room.name}
               fill
               className="object-cover transition-transform duration-500 group-hover:scale-105"
               sizes="(max-width: 768px) 100vw, 256px"
               onError={(e) => {
                 const target = e.target as HTMLImageElement;
-                target.src = "/placeholder-room.jpg";
+                if (!target.src.endsWith("/placeholder-room.svg")) {
+                  target.src = "/placeholder-room.svg";
+                }
               }}
             />
             {room.featured && (
@@ -106,7 +114,24 @@ export function RoomCard({ room, variant = "grid" }: RoomCardProps) {
                 {Number(room.pricePerNight).toLocaleString("vi-VN")} VND
               </div>
               <div className="text-xs text-muted-foreground">/ đêm</div>
+              {typeof room.totalPrice === "number" && typeof room.nights === "number" && room.nights > 0 && (
+                <div className="mt-1 text-sm font-semibold text-foreground">
+                  Tổng {room.nights} đêm: {room.totalPrice.toLocaleString("vi-VN")} VND
+                </div>
+              )}
             </div>
+
+            {typeof room.availableCount === "number" && (
+              <Badge variant="secondary" className={
+                room.availableCount <= 2
+                  ? "bg-red-50 text-red-700 border-red-200"
+                  : "bg-green-50 text-green-700 border-green-200"
+              }>
+                {room.availableCount <= 2
+                  ? `Chỉ còn ${room.availableCount} phòng!`
+                  : `${room.availableCount} phòng trống`}
+              </Badge>
+            )}
 
             <Button asChild className="w-full md:w-auto bg-primary hover:bg-primary/90">
               <Link href={`/rooms/${room.id}`}>Xem tình trạng</Link>
@@ -121,14 +146,16 @@ export function RoomCard({ room, variant = "grid" }: RoomCardProps) {
     <Card className="group overflow-hidden hover:shadow-xl hover:-translate-y-1 transition-all duration-300">
       <div className="relative h-64 w-full overflow-hidden">
         <Image
-          src={images[0] || "/placeholder-room.jpg"}
+          src={images[0] || "/placeholder-room.svg"}
           alt={room.name}
           fill
           className="object-cover transition-transform duration-500 group-hover:scale-105"
           sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
           onError={(e) => {
             const target = e.target as HTMLImageElement;
-            target.src = '/placeholder-room.jpg';
+            if (!target.src.endsWith("/placeholder-room.svg")) {
+              target.src = "/placeholder-room.svg";
+            }
           }}
         />
         {/* Gradient overlay at bottom */}

@@ -77,6 +77,12 @@ app.get('/ready', async (_req, res) => {
     }
 });
 app.use('/api/payments', (0, payments_routes_1.createPaymentsRouter)());
+// Global error handler
+app.use((err, _req, res, _next) => {
+    console.error(err);
+    const message = err instanceof Error ? err.message : 'Internal Server Error';
+    res.status(500).json({ success: false, error: message });
+});
 app.listen(PORT, () => {
     console.log(`Payment Service running on port ${PORT}`);
     (0, booking_created_consumer_1.startBookingEventsConsumer)().catch((err) => console.error('Booking events consumer failed to start', err));

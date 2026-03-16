@@ -90,7 +90,7 @@ async function register(req, res) {
             verificationToken,
         });
     }
-    const accessToken = (0, jwt_rs256_1.signAccessToken)({ userId: user.id, role: user.role });
+    const accessToken = (0, jwt_rs256_1.signAccessToken)({ userId: user.id, role: user.role, name: user.name ?? undefined, email: user.email });
     const refresh = await (0, refresh_tokens_1.issueRefreshToken)({
         userId: user.id,
         ip: req.ip,
@@ -130,7 +130,7 @@ async function login(req, res) {
     if (!ok) {
         return res.status(401).json({ message: 'Email hoặc mật khẩu không đúng' });
     }
-    const accessToken = (0, jwt_rs256_1.signAccessToken)({ userId: user.id, role: user.role });
+    const accessToken = (0, jwt_rs256_1.signAccessToken)({ userId: user.id, role: user.role, name: user.name ?? undefined, email: user.email });
     const refresh = await (0, refresh_tokens_1.issueRefreshToken)({
         userId: user.id,
         ip: req.ip,
@@ -139,6 +139,7 @@ async function login(req, res) {
     setAuthCookie(res, accessToken);
     setRefreshCookie(res, refresh.token);
     const { password: _pw, ...safeUser } = user;
+    void _pw;
     return res.status(200).json({
         message: 'Đăng nhập thành công',
         accessToken,
@@ -188,7 +189,7 @@ async function refresh(req, res) {
         clearAuthCookies(res);
         return res.status(401).json({ message: 'Unauthorized' });
     }
-    const accessToken = (0, jwt_rs256_1.signAccessToken)({ userId: user.id, role: user.role });
+    const accessToken = (0, jwt_rs256_1.signAccessToken)({ userId: user.id, role: user.role, name: user.name ?? undefined, email: user.email });
     setAuthCookie(res, accessToken);
     setRefreshCookie(res, rotated.refresh.token);
     return res.status(200).json({ accessToken, user });

@@ -17,7 +17,6 @@ function mapAuthError(err, res) {
             return res.status(400).json({ error: 'expired token' });
         return res.status(400).json({ error: 'bad request' });
     }
-    // eslint-disable-next-line no-console
     console.error(err);
     return res.status(500).json({ error: 'Internal server error' });
 }

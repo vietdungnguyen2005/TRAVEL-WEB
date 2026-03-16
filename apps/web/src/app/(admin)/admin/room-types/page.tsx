@@ -344,7 +344,7 @@ export default function RoomTypesPage() {
                   <Input
                     id="pricePerNight"
                     type="number"
-                    min="0"
+                    min="1"
                     value={form.pricePerNight}
                     onChange={(e) =>
                       setForm({

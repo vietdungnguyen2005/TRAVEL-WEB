@@ -12,7 +12,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { ReviewForm } from "@/components/reviews/review-form";
-import { Star, Calendar, Home, AlertTriangle } from "lucide-react";
+import { Star, Calendar, Home, AlertTriangle, CheckCircle2 } from "lucide-react";
 import { format } from "date-fns";
 import { vi } from "date-fns/locale";
 import Image from "next/image";
@@ -21,9 +21,10 @@ import { gatewayFetch } from "@/lib/gateway-client";
 
 interface ReviewableBooking {
   id: string;
+  roomId?: string;
   checkIn: string;
   checkOut: string;
-  room: {
+  room?: {
     roomNumber: string;
     roomType: {
       id: string;
@@ -33,37 +34,92 @@ interface ReviewableBooking {
   };
 }
 
+interface ExistingReview {
+  id: string;
+  bookingId: string;
+  roomTypeId: string;
+  rating: number;
+  comment: string | null;
+  createdAt: string;
+}
+
 export default function MyReviewsPage() {
   const router = useRouter();
   const [bookings, setBookings] = useState<ReviewableBooking[]>([]);
+  const [existingReviews, setExistingReviews] = useState<ExistingReview[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedBooking, setSelectedBooking] = useState<ReviewableBooking | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
 
-  const fetchReviewableBookings = useCallback(async () => {
+  const fetchData = useCallback(async () => {
     try {
       setError(null);
-      const response = await gatewayFetch("/api/bookings/my-bookings", {
-        method: "GET",
-        attachAccessToken: true,
-      });
-      if (!response.ok) {
-        if (response.status === 401) {
+
+      // Fetch bookings and existing reviews in parallel
+      const [bookingsRes, reviewsRes] = await Promise.all([
+        gatewayFetch("/api/bookings/my-bookings", {
+          method: "GET",
+          attachAccessToken: true,
+        }),
+        gatewayFetch("/api/reviews/my", {
+          method: "GET",
+          attachAccessToken: true,
+        }),
+      ]);
+
+      if (!bookingsRes.ok) {
+        if (bookingsRes.status === 401) {
           router.push("/auth/login?redirect=/dashboard/reviews");
           return;
         }
         setError("Không thể tải danh sách đặt phòng. Vui lòng thử lại sau.");
         return;
       }
-      const data = await response.json();
-      const all = Array.isArray(data) ? data : data?.data ?? [];
+
+      const bookingsData = await bookingsRes.json();
+      const all = Array.isArray(bookingsData) ? bookingsData : bookingsData?.data ?? [];
+
+      // Get existing reviews
+      let reviews: ExistingReview[] = [];
+      if (reviewsRes.ok) {
+        const reviewsData = await reviewsRes.json();
+        reviews = Array.isArray(reviewsData) ? reviewsData : reviewsData?.data ?? [];
+      }
+      setExistingReviews(reviews);
+
       // Only show completed bookings (checked out) that can be reviewed
       const reviewable = all.filter(
         (b: any) =>
           b.status === "COMPLETED" ||
           (b.status === "CONFIRMED" && new Date(b.checkOut) < new Date())
       );
+
+      // Enrich bookings with room/roomType info
+      const roomIds = [...new Set(reviewable.map((b: any) => b.roomId).filter(Boolean))];
+      if (roomIds.length > 0) {
+        try {
+          const roomRes = await gatewayFetch("/api/rooms/by-ids", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ ids: roomIds }),
+            attachAccessToken: true,
+          });
+          if (roomRes.ok) {
+            const roomData = await roomRes.json();
+            const rooms = Array.isArray(roomData) ? roomData : roomData?.data ?? [];
+            const roomMap = new Map(rooms.map((r: any) => [r.id, r]));
+            for (const b of reviewable) {
+              if ((b as any).roomId && roomMap.has((b as any).roomId)) {
+                b.room = roomMap.get((b as any).roomId);
+              }
+            }
+          }
+        } catch {
+          // Room enrichment failed — continue with partial data
+        }
+      }
+
       setBookings(reviewable);
     } catch (err) {
       console.error("Error fetching reviewable bookings:", err);
@@ -74,8 +130,11 @@ export default function MyReviewsPage() {
   }, [router]);
 
   useEffect(() => {
-    void fetchReviewableBookings();
-  }, [fetchReviewableBookings]);
+    void fetchData();
+  }, [fetchData]);
+
+  // Set of bookingIds that already have reviews
+  const reviewedBookingIds = new Set(existingReviews.map((r) => r.bookingId));
 
   function handleReviewClick(booking: ReviewableBooking) {
     setSelectedBooking(booking);
@@ -85,8 +144,12 @@ export default function MyReviewsPage() {
   function handleReviewSuccess() {
     setDialogOpen(false);
     setSelectedBooking(null);
-    void fetchReviewableBookings();
+    void fetchData();
     alert("Cảm ơn bạn đã đánh giá! Đánh giá của bạn đã được ghi nhận.");
+  }
+
+  function getReviewForBooking(bookingId: string): ExistingReview | undefined {
+    return existingReviews.find((r) => r.bookingId === bookingId);
   }
 
   if (loading) {
@@ -122,7 +185,7 @@ export default function MyReviewsPage() {
             <CardContent className="py-8 text-center">
               <AlertTriangle className="w-10 h-10 text-yellow-500 mx-auto mb-3" />
               <p className="text-gray-600 mb-4">{error}</p>
-              <Button variant="outline" onClick={() => { setLoading(true); void fetchReviewableBookings(); }}>
+              <Button variant="outline" onClick={() => { setLoading(true); void fetchData(); }}>
                 Thử lại
               </Button>
             </CardContent>
@@ -146,62 +209,93 @@ export default function MyReviewsPage() {
           </Card>
         ) : !error && bookings.length > 0 ? (
           <div className="grid gap-6">
-            {bookings.map((booking) => (
-              <Card key={booking.id}>
-                <CardContent className="p-6">
-                  <div className="flex gap-6">
-                    {/* Room Image */}
-                    <div className="relative w-48 h-32 flex-shrink-0 rounded-lg overflow-hidden">
-                      {booking.room.roomType.images[0] ? (
-                        <Image
-                          src={booking.room.roomType.images[0]}
-                          alt={booking.room.roomType.name}
-                          fill
-                          className="object-cover"
-                        />
-                      ) : (
-                        <div className="w-full h-full bg-gray-200 flex items-center justify-center">
-                          <Home className="w-8 h-8 text-gray-400" />
-                        </div>
-                      )}
-                    </div>
+            {bookings.map((booking) => {
+              const existingReview = getReviewForBooking(booking.id);
+              const isReviewed = !!existingReview;
 
-                    {/* Booking Info */}
-                    <div className="flex-1">
-                      <h3 className="text-xl font-semibold mb-2">
-                        {booking.room.roomType.name}
-                      </h3>
-                      <p className="text-sm text-gray-500 mb-4">
-                        Phòng {booking.room.roomNumber}
-                      </p>
-
-                      <div className="flex items-center gap-6 text-sm text-gray-600 mb-4">
-                        <div className="flex items-center gap-2">
-                          <Calendar className="w-4 h-4" />
-                          <span>
-                            {format(new Date(booking.checkIn), "dd/MM/yyyy", {
-                              locale: vi,
-                            })}{" "}
-                            -{" "}
-                            {format(new Date(booking.checkOut), "dd/MM/yyyy", {
-                              locale: vi,
-                            })}
-                          </span>
-                        </div>
+              return (
+                <Card key={booking.id} className={isReviewed ? "border-green-200 bg-green-50/30" : ""}>
+                  <CardContent className="p-6">
+                    <div className="flex gap-6">
+                      {/* Room Image */}
+                      <div className="relative w-48 h-32 flex-shrink-0 rounded-lg overflow-hidden">
+                        {booking.room?.roomType?.images?.[0] ? (
+                          <Image
+                            src={booking.room.roomType.images[0]}
+                            alt={booking.room.roomType.name}
+                            fill
+                            className="object-cover"
+                          />
+                        ) : (
+                          <div className="w-full h-full bg-gray-200 flex items-center justify-center">
+                            <Home className="w-8 h-8 text-gray-400" />
+                          </div>
+                        )}
                       </div>
 
-                      <Button
-                        onClick={() => handleReviewClick(booking)}
-                        className="gap-2"
-                      >
-                        <Star className="w-4 h-4" />
-                        Viết đánh giá
-                      </Button>
+                      {/* Booking Info */}
+                      <div className="flex-1">
+                        <h3 className="text-xl font-semibold mb-2">
+                          {booking.room?.roomType?.name ?? "Phòng"}
+                        </h3>
+                        <p className="text-sm text-gray-500 mb-4">
+                          Phòng {booking.room?.roomNumber ?? "—"}
+                        </p>
+
+                        <div className="flex items-center gap-6 text-sm text-gray-600 mb-4">
+                          <div className="flex items-center gap-2">
+                            <Calendar className="w-4 h-4" />
+                            <span>
+                              {format(new Date(booking.checkIn), "dd/MM/yyyy", {
+                                locale: vi,
+                              })}{" "}
+                              -{" "}
+                              {format(new Date(booking.checkOut), "dd/MM/yyyy", {
+                                locale: vi,
+                              })}
+                            </span>
+                          </div>
+                        </div>
+
+                        {isReviewed ? (
+                          <div className="flex items-center gap-3">
+                            <div className="flex items-center gap-1">
+                              <CheckCircle2 className="w-4 h-4 text-green-600" />
+                              <span className="text-sm text-green-700 font-medium">Đã đánh giá</span>
+                            </div>
+                            <div className="flex items-center gap-1">
+                              {Array.from({ length: 5 }).map((_, i) => (
+                                <Star
+                                  key={i}
+                                  className={`w-4 h-4 ${
+                                    i < existingReview.rating
+                                      ? "text-yellow-400 fill-yellow-400"
+                                      : "text-gray-300"
+                                  }`}
+                                />
+                              ))}
+                            </div>
+                            {existingReview.comment && (
+                              <p className="text-sm text-gray-600 italic truncate max-w-md">
+                                &ldquo;{existingReview.comment}&rdquo;
+                              </p>
+                            )}
+                          </div>
+                        ) : (
+                          <Button
+                            onClick={() => handleReviewClick(booking)}
+                            className="gap-2"
+                          >
+                            <Star className="w-4 h-4" />
+                            Viết đánh giá
+                          </Button>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
+                  </CardContent>
+                </Card>
+              );
+            })}
           </div>
         ) : null}
 
@@ -217,7 +311,9 @@ export default function MyReviewsPage() {
             {selectedBooking && (
               <ReviewForm
                 bookingId={selectedBooking.id}
-                roomTypeName={selectedBooking.room.roomType.name}
+                roomTypeId={selectedBooking.room?.roomType?.id}
+                roomId={selectedBooking.roomId}
+                roomTypeName={selectedBooking.room?.roomType?.name ?? "phòng"}
                 onSuccess={handleReviewSuccess}
               />
             )}

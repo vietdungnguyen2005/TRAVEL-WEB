@@ -3,6 +3,8 @@ export type AccessTokenClaims = {
     sub: string;
     role: string;
     typ: 'access';
+    name?: string;
+    email?: string;
 };
 export type VerifiedAccessToken = JwtPayload & {
     sub: string;
@@ -18,6 +20,8 @@ export declare function getPublicKeyPemOrThrow(): string;
 export declare function signAccessToken(claims: {
     userId: string;
     role: string;
+    name?: string;
+    email?: string;
 }): string;
 export declare function verifyAccessTokenOrThrow(token: string): VerifiedAccessToken;
 export declare function getJwks(): {

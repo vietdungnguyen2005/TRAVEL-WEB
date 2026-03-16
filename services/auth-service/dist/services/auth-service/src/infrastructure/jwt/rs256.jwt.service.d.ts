@@ -4,6 +4,8 @@ export declare class Rs256JwtService implements JwtService {
     signAccessToken(input: {
         userId: string;
         role: Role;
+        name?: string;
+        email?: string;
     }): string;
 }
 //# sourceMappingURL=rs256.jwt.service.d.ts.map

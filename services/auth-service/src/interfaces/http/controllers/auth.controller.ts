@@ -58,15 +58,17 @@ function mapAuthError(err: unknown, res: Response) {
     if (err instanceof AuthError) {
         if (err.code === 'EMAIL_IN_USE') return res.status(409).json({ message: err.message });
         if (err.code === 'EMAIL_NOT_VERIFIED') return res.status(403).json({ message: err.message, code: 'EMAIL_NOT_VERIFIED' });
-        if (err.code === 'INVALID_CREDENTIALS') return res.status(401).json({ message: err.message });
+        if (err.code === 'INVALID_CREDENTIALS') return res.status(401).json({ message: err.message, code: 'INVALID_CREDENTIALS' });
         if (err.code === 'UNAUTHORIZED') return res.status(401).json({ message: 'Unauthorized' });
         return res.status(400).json({ message: err.message });
     }
 
     if (err instanceof Error) {
+        console.error('[AuthController] Unhandled error:', err.message, err.stack);
         return res.status(500).json({ message: 'Internal server error' });
     }
 
+    console.error('[AuthController] Unknown error:', err);
     return res.status(500).json({ message: 'Internal server error' });
 }
 
@@ -81,9 +83,9 @@ const deps = {
 };
 
 const registerSchema = z.object({
-    name: z.string().min(2).max(100).optional(),
+    name: z.string().min(2, 'Tên phải có ít nhất 2 ký tự').max(100),
     email: z.string().email(),
-    password: z.string().min(6),
+    password: z.string().min(8, 'Mật khẩu phải có ít nhất 8 ký tự'),
     phone: z.string().optional(),
 });
 
@@ -104,6 +106,7 @@ export async function register(req: Request, res: Response) {
             name: parsed.data.name,
             email: parsed.data.email,
             password: parsed.data.password,
+            phone: parsed.data.phone,
             ip: getClientIp(req),
             userAgent: getUserAgent(req),
             requireEmailVerification: requireEmailVerification(),
@@ -120,7 +123,7 @@ export async function register(req: Request, res: Response) {
         setAccessCookie(res, result.accessToken);
         setRefreshCookie(res, result.refreshToken);
 
-        return res.status(201).json({ message: 'Đăng ký thành công', accessToken: result.accessToken, user: result.user });
+        return res.status(201).json({ message: 'Đăng ký thành công', accessToken: result.accessToken, refreshToken: result.refreshToken, user: result.user });
     } catch (err) {
         return mapAuthError(err, res);
     }
@@ -145,7 +148,7 @@ export async function login(req: Request, res: Response) {
         setAccessCookie(res, result.accessToken);
         setRefreshCookie(res, result.refreshToken);
 
-        return res.status(200).json({ message: 'Đăng nhập thành công', accessToken: result.accessToken, user: result.user });
+        return res.status(200).json({ message: 'Đăng nhập thành công', accessToken: result.accessToken, refreshToken: result.refreshToken, user: result.user });
     } catch (err) {
         return mapAuthError(err, res);
     }
@@ -170,7 +173,7 @@ export async function refresh(req: Request, res: Response) {
         setAccessCookie(res, result.accessToken);
         setRefreshCookie(res, result.refreshToken);
 
-        return res.status(200).json({ accessToken: result.accessToken, user: result.user });
+        return res.status(200).json({ accessToken: result.accessToken, refreshToken: result.refreshToken, user: result.user });
     } catch (err) {
         clearAuthCookies(res);
         return mapAuthError(err, res);

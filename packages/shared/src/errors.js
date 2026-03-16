@@ -2,6 +2,9 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.UnauthorizedError = exports.ValidationError = exports.NotFoundError = exports.AppError = void 0;
 class AppError extends Error {
+    statusCode;
+    message;
+    code;
     constructor(statusCode, message, code) {
         super(message);
         this.statusCode = statusCode;

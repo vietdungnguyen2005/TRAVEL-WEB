@@ -9,8 +9,9 @@ import { requestIdMiddleware } from './middlewares/requestId.middleware';
 import routes from './routes';
 import { Logger } from '@travel-web/shared';
 
-// Load environment variables
+// Load own .env then root .env (root won't override existing keys)
 config();
+config({ path: require('path').resolve(__dirname, '../../../.env') });
 
 const app = express();
 const PORT = process.env.PORT || process.env.API_GATEWAY_PORT || 4000;

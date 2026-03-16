@@ -17,12 +17,14 @@ function hasAccessTokenCookie(): boolean {
 
 interface BookingFormClientProps {
   roomTypeId: string;
+  roomTypeName?: string;
   basePrice: number;
   capacity: number;
   roomIds?: string[];
+  roomTypeImage?: string;
 }
 
-export function BookingFormClient({ roomTypeId, basePrice, capacity, roomIds }: BookingFormClientProps) {
+export function BookingFormClient({ roomTypeId, roomTypeName, basePrice, capacity, roomIds, roomTypeImage }: BookingFormClientProps) {
   const router = useRouter();
   const setBookingData = useBookingStore((state) => state.setBookingData);
   const [isChecking, setIsChecking] = useState(false);
@@ -72,6 +74,8 @@ export function BookingFormClient({ roomTypeId, basePrice, capacity, roomIds }: 
       // Store booking data in Zustand
       setBookingData({
         roomTypeId,
+        roomTypeName: roomTypeName || roomTypeId,
+        roomTypeImage: roomTypeImage || null,
         roomId: result.availableRooms[0].id, // Use first available room
         roomIds: result.availableRooms.map((r: { id: string }) => r.id), // All available rooms for fallback
         checkIn: data.checkIn,

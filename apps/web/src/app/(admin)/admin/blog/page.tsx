@@ -64,6 +64,7 @@ export default function AdminBlogPage() {
     const [form, setForm] = useState<PostForm>(EMPTY_FORM);
     const [saving, setSaving] = useState(false);
     const [filter, setFilter] = useState<PostStatus | "ALL">("ALL");
+    const [searchQuery, setSearchQuery] = useState("");
 
     useEffect(() => {
         fetchPosts();
@@ -95,9 +96,16 @@ export default function AdminBlogPage() {
     }
 
     const filtered = useMemo(() => {
-        if (filter === "ALL") return posts;
-        return posts.filter((p) => p.status === filter);
-    }, [posts, filter]);
+        let result = posts;
+        if (filter !== "ALL") result = result.filter((p) => p.status === filter);
+        if (searchQuery.trim()) {
+            const q = searchQuery.toLowerCase();
+            result = result.filter(
+                (p) => p.title.toLowerCase().includes(q) || p.slug.toLowerCase().includes(q)
+            );
+        }
+        return result;
+    }, [posts, filter, searchQuery]);
 
     function openCreate() {
         setEditing(null);
@@ -202,6 +210,15 @@ export default function AdminBlogPage() {
                     </Button>
                     <Button onClick={openCreate}>Thêm bài</Button>
                 </div>
+            </div>
+
+            <div className="flex items-center gap-4">
+                <Input
+                    placeholder="Tìm theo tiêu đề hoặc slug..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="max-w-sm"
+                />
             </div>
 
             {loading ? (

@@ -38,6 +38,7 @@ export default function PaymentPage({ params }: { params: Promise<{ id: string }
   const { id } = use(params);
   const router = useRouter();
   const [booking, setBooking] = useState<BookingData | null>(null);
+  const [roomLabel, setRoomLabel] = useState<string>("");
   const [loading, setLoading] = useState(true);
   const [processing, setProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -70,6 +71,23 @@ export default function PaymentPage({ params }: { params: Promise<{ id: string }
       }
 
       setBooking(data as BookingData);
+
+      // Fetch room info to show room number/type instead of raw ID
+      try {
+        const roomRes = await gatewayFetch(`/api/rooms/by-ids`, {
+          method: "POST",
+          body: JSON.stringify({ ids: [data.roomId] }),
+        });
+        if (roomRes.ok) {
+          const roomData = await roomRes.json();
+          const room = roomData?.data?.[0];
+          if (room) {
+            setRoomLabel(`${room.roomType?.name || "Room"} - #${room.roomNumber}`);
+          }
+        }
+      } catch {
+        // Fallback: show shortened room ID
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to fetch booking");
     } finally {
@@ -143,6 +161,7 @@ export default function PaymentPage({ params }: { params: Promise<{ id: string }
         body: JSON.stringify({
           bookingId: booking.id,
           paymentMethod: "CASH",
+          amount: booking.totalPrice,
         }),
         attachAccessToken: true,
       });
@@ -179,7 +198,7 @@ export default function PaymentPage({ params }: { params: Promise<{ id: string }
             <CardContent className="flex items-center justify-center py-16">
               <div className="text-center">
                 <Loader2 className="h-12 w-12 animate-spin mx-auto mb-4 text-primary" />
-                <p className="text-lg">Loading payment information...</p>
+                <p className="text-lg">Đang tải thông tin thanh toán...</p>
               </div>
             </CardContent>
           </Card>
@@ -198,7 +217,7 @@ export default function PaymentPage({ params }: { params: Promise<{ id: string }
           </Alert>
           <div className="mt-4">
             <Button onClick={() => router.push("/rooms")}>
-              Back to Rooms
+              Quay lại danh sách phòng
             </Button>
           </div>
         </div>
@@ -307,7 +326,7 @@ export default function PaymentPage({ params }: { params: Promise<{ id: string }
               <CardContent className="space-y-4">
                 <div>
                   <h3 className="font-semibold text-lg">Đặt phòng</h3>
-                  <p className="text-sm text-muted-foreground">Mã phòng: {booking.roomId}</p>
+                  <p className="text-sm text-muted-foreground">{roomLabel || `Mã phòng: ${booking.roomId.substring(0, 8)}...`}</p>
                 </div>
 
                 <Separator />

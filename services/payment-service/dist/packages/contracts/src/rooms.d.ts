@@ -3,6 +3,7 @@ export type RoomResponse = {
     name: string;
     description: string;
     price: number;
+    location?: string;
     images: string[];
 };
 //# sourceMappingURL=rooms.d.ts.map

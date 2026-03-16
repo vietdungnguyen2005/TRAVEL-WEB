@@ -65,8 +65,6 @@ function getStatusColor(status: string) {
       return "bg-red-100 text-red-800 border-red-200";
     case "MAINTENANCE":
       return "bg-yellow-100 text-yellow-800 border-yellow-200";
-    case "CLEANING":
-      return "bg-blue-100 text-blue-800 border-blue-200";
     default:
       return "bg-gray-100 text-gray-800 border-gray-200";
   }
@@ -80,8 +78,6 @@ function getStatusText(status: string) {
       return "Đã đặt";
     case "MAINTENANCE":
       return "Bảo trì";
-    case "CLEANING":
-      return "Đang dọn";
     default:
       return status;
   }
@@ -267,7 +263,6 @@ export default function RoomsManagement() {
                 <SelectItem value="AVAILABLE">Sẵn sàng</SelectItem>
                 <SelectItem value="OCCUPIED">Đã đặt</SelectItem>
                 <SelectItem value="MAINTENANCE">Bảo trì</SelectItem>
-                <SelectItem value="CLEANING">Đang dọn</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -418,7 +413,6 @@ export default function RoomsManagement() {
                     <SelectItem value="AVAILABLE">Sẵn sàng</SelectItem>
                     <SelectItem value="OCCUPIED">Đã đặt</SelectItem>
                     <SelectItem value="MAINTENANCE">Bảo trì</SelectItem>
-                    <SelectItem value="CLEANING">Đang dọn</SelectItem>
                   </SelectContent>
                 </Select>
               </div>

@@ -6,14 +6,14 @@ import type { PaymentStatus } from '../../domain/payment';
 export async function confirmPayment(deps: {
     payments: PaymentRepository;
     publisher: EventPublisher;
-    input: { bookingId: string; userId?: string; paymentMethod?: string };
+    input: { bookingId: string; userId?: string; paymentMethod?: string; amount?: number };
 }) {
-    const { bookingId, userId, paymentMethod = 'CASH' } = deps.input;
+    const { bookingId, userId, paymentMethod = 'CASH', amount } = deps.input;
     if (!bookingId) throw new Error('bookingId is required');
 
     const resolvedUserId = userId ? String(userId) : 'unknown';
 
-    const status: PaymentStatus = paymentMethod === 'CASH' ? 'PENDING' : 'COMPLETED';
+    const status: PaymentStatus = 'COMPLETED';
 
     // Keep behavior: upsert record (simplified via updateStatusByBookingId; create if missing)
     const existing = await deps.payments.findByBookingId(bookingId);
@@ -22,7 +22,7 @@ export async function confirmPayment(deps: {
         await deps.payments.upsertPaymentUrl({
             bookingId,
             userId: resolvedUserId,
-            amount: 0,
+            amount: amount ?? 0,
             currency: 'vnd',
             vnpTxnRef: 'manual',
             metadata: { paymentMethod },

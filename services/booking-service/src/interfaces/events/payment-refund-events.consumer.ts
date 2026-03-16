@@ -23,6 +23,16 @@ type PaymentRefunded = {
     data: { bookingId: string };
 };
 
+type RefundRequested = {
+    type: 'RefundRequested';
+    bookingId: string;
+};
+
+type RefundRejected = {
+    type: 'RefundRejected';
+    bookingId: string;
+};
+
 function getEventType(payload: unknown): string | undefined {
     if (!payload || typeof payload !== 'object') return undefined;
     const p = payload as Record<string, unknown>;
@@ -47,6 +57,14 @@ function isRefundFailed(payload: unknown): payload is PaymentRefundFailed {
     const p = payload as Record<string, unknown>;
     const data = p.data && typeof p.data === 'object' ? (p.data as Record<string, unknown>) : undefined;
     return typeof data?.bookingId === 'string' && typeof data?.reason === 'string';
+}
+
+function isRefundRequested(payload: unknown): payload is RefundRequested {
+    return getEventType(payload) === 'RefundRequested' && typeof getBookingId(payload) === 'string';
+}
+
+function isRefundRejected(payload: unknown): payload is RefundRejected {
+    return getEventType(payload) === 'RefundRejected' && typeof getBookingId(payload) === 'string';
 }
 
 export async function startPaymentRefundEventsConsumer() {
@@ -80,6 +98,8 @@ export async function startPaymentRefundEventsConsumer() {
                 bindings: [
                     { exchange, routingKey: 'payment.paymentrefunded' },
                     { exchange, routingKey: 'payment.refund.failed' },
+                    { exchange, routingKey: 'payment.refundrequested' },
+                    { exchange, routingKey: 'payment.refundrejected' },
                 ],
             },
             {
@@ -122,7 +142,7 @@ export async function startPaymentRefundEventsConsumer() {
     await rabbitConsumeWithRetry(
         {
             queue,
-            bindingKeys: ['payment.paymentrefunded', 'payment.refund.failed'],
+                bindingKeys: ['payment.paymentrefunded', 'payment.refund.failed', 'payment.refundrequested', 'payment.refundrejected'],
             prefetch: 20,
             consumerTag: 'booking-service/payment-refund-events',
             enableRetry: true,
@@ -155,6 +175,17 @@ export async function startPaymentRefundEventsConsumer() {
             const endTimer = bookingRabbitConsumeDurationSeconds.startTimer({ queue, routingKey, eventType });
 
             const processOnce = async () => {
+                if (isRefundRequested(payload)) {
+                    await applyPaymentRefundEvent({
+                        uow: prismaUnitOfWork,
+                        bookings: bookingsRepo,
+                        bookingId,
+                        outcome: 'REFUND_REQUESTED',
+                    });
+                    logger.info('Booking payment marked REFUND_REQUESTED', { bookingId });
+                    return;
+                }
+
                 if (isRefunded(payload)) {
                     const updated = await applyPaymentRefundEvent({
                         uow: prismaUnitOfWork,
@@ -171,6 +202,17 @@ export async function startPaymentRefundEventsConsumer() {
                         }
                     }
                     logger.info('Booking payment marked REFUNDED', { bookingId });
+                    return;
+                }
+
+                if (isRefundRejected(payload)) {
+                    await applyPaymentRefundEvent({
+                        uow: prismaUnitOfWork,
+                        bookings: bookingsRepo,
+                        bookingId,
+                        outcome: 'REFUND_REJECTED',
+                    });
+                    logger.info('Booking payment marked REFUND_REJECTED', { bookingId });
                     return;
                 }
 

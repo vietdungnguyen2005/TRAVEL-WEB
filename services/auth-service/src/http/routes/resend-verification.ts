@@ -15,14 +15,16 @@ export async function resendVerificationEmailHandler(req: Request, res: Response
         }
 
         if (user.isVerified) {
-            return res.status(200).json({ success: true, alreadyVerified: true });
+            // Don't reveal verification status – same response as non-existent email
+            return res.status(200).json({ success: true });
         }
 
         const token = randomBytes(24).toString('hex');
         await prisma.user.update({ where: { id: user.id }, data: { verificationToken: token } });
 
-        // For production you'd email the token / verification link.
-        return res.status(200).json({ success: true, verificationToken: token });
+        // In production, send the token via email – never expose it in the HTTP response.
+        // TODO: send verification email with link
+        return res.status(200).json({ success: true });
     } catch (err) {
         console.error(err);
         return res.status(500).json({ error: 'Internal server error' });

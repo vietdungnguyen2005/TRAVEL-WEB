@@ -21,6 +21,14 @@ export default function BookingSuccessPage() {
 
     if (params.vnp_ResponseCode) {
       verifyVnpayPayment(params);
+    } else if (params.status === 'success' && params.booking_id) {
+      // Redirected from VNPay return handler or cash payment
+      setBookingDetails({
+        bookingId: params.booking_id,
+        vnpTransactionNo: params.txn_ref || null,
+        provider: params.provider || 'unknown',
+      });
+      setLoading(false);
     } else {
       setLoading(false);
     }
@@ -35,10 +43,11 @@ export default function BookingSuccessPage() {
         return;
       }
 
-      const response = await gatewayFetch("/api/payments/vnpay-return", {
+      const response = await gatewayFetch(`/api/payments/vnpay-return`, {
         method: "POST",
-        body: JSON.stringify(params),
         attachAccessToken: true,
+        body: JSON.stringify(params),
+        headers: { "Content-Type": "application/json" },
       });
 
       if (response.ok) {
@@ -159,7 +168,7 @@ export default function BookingSuccessPage() {
 
               <div className="flex gap-3">
                 <Button
-                  onClick={() => router.push("/dashboard/bookings")}
+                  onClick={() => router.push("/dashboard")}
                   className="flex-1"
                 >
                   <Calendar className="mr-2 h-4 w-4" />

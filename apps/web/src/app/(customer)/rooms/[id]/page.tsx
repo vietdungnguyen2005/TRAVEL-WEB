@@ -168,9 +168,11 @@ export default async function RoomDetailPage({ params }: PageProps) {
           <div className="lg:col-span-1">
             <BookingFormClient
               roomTypeId={roomType.id}
+              roomTypeName={roomType.name}
               basePrice={Number(roomType.pricePerNight)}
               capacity={roomType.capacity}
               roomIds={(roomType.rooms as { id: string }[])?.map((r) => r.id) ?? []}
+              roomTypeImage={roomType.images?.[0] || undefined}
             />
           </div>
         </div>

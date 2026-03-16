@@ -4,6 +4,7 @@ export type CreateUserInput = {
     email: string;
     passwordHash: string;
     name?: string | null;
+    phone?: string | null;
     role: Role;
     isVerified: boolean;
     verificationToken?: string | null;

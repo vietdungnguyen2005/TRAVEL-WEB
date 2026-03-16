@@ -25,35 +25,19 @@ interface PageProps {
 async function getRooms(searchParams: PageProps["searchParams"]) {
   const params = await searchParams;
   const {
+    checkIn,
+    checkOut,
     minPrice,
     maxPrice,
-    capacity,
+    capacity: capacityParam,
+    guests,
     roomTypes,
     location,
     sortBy = "price-asc",
   } = params;
 
-  const where: any = {
-    available: true,
-  };
-
-  if (minPrice || maxPrice) {
-    where.pricePerNight = {};
-    if (minPrice) where.pricePerNight.gte = parseFloat(minPrice);
-    if (maxPrice) where.pricePerNight.lte = parseFloat(maxPrice);
-  }
-
-  if (capacity && capacity !== "all") {
-    const capacityNum = parseInt(capacity);
-    where.capacity = capacityNum >= 4 ? { gte: 4 } : capacityNum;
-  }
-
-  if (roomTypes) {
-    const types = roomTypes.split(",");
-    where.name = {
-      in: types,
-    };
-  }
+  // Hero search sends "guests", filter sidebar sends "capacity" — unify them
+  const capacity = capacityParam || guests;
 
   try {
     const qs = new URLSearchParams();
@@ -63,6 +47,10 @@ async function getRooms(searchParams: PageProps["searchParams"]) {
     if (roomTypes) qs.set("roomTypes", roomTypes);
     if (location) qs.set("location", location);
     if (sortBy) qs.set("sortBy", sortBy);
+
+    // Forward check-in/out dates so backend filters by real availability
+    if (checkIn) qs.set("checkIn", checkIn);
+    if (checkOut) qs.set("checkOut", checkOut);
 
     const path = `/api/rooms${qs.toString() ? `?${qs.toString()}` : ""}`;
     const res = await gatewayFetch(path, { method: "GET", cache: "no-store" });

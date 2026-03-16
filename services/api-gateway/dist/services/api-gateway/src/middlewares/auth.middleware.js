@@ -95,8 +95,14 @@ function extractBearerToken(req) {
         .join('=');
     return cookieToken;
 }
-function requireAuthForPaths(paths) {
+function getJwtSecret() {
+    return process.env.JWT_SECRET?.trim() || undefined;
+}
+function requireAuthForPaths(paths, publicExceptions = []) {
     return async function authMiddleware(req, res, next) {
+        // Skip auth for explicitly public paths
+        if (publicExceptions.some((p) => req.path === p || req.path.startsWith(p)))
+            return next();
         const shouldProtect = paths.some((p) => req.path === p || req.path.startsWith(p));
         if (!shouldProtect)
             return next();
@@ -104,13 +110,28 @@ function requireAuthForPaths(paths) {
         if (!token)
             return res.status(401).json({ error: 'Unauthorized' });
         try {
-            const publicKeyPem = await getPublicKeyPemForToken(token);
-            const verified = jsonwebtoken_1.default.verify(token, publicKeyPem, {
-                algorithms: ['RS256'],
-                issuer: getIssuer(),
-                audience: getAudience(),
-            });
-            if (typeof verified === 'string')
+            let verified;
+            // Try RS256 first (production path with RSA keys / JWKS)
+            try {
+                const publicKeyPem = await getPublicKeyPemForToken(token);
+                verified = jsonwebtoken_1.default.verify(token, publicKeyPem, {
+                    algorithms: ['RS256'],
+                    issuer: getIssuer(),
+                    audience: getAudience(),
+                });
+            }
+            catch {
+                // Fallback: HS256 (dev mode when RSA keys are not configured)
+                const secret = getJwtSecret();
+                if (secret) {
+                    verified = jsonwebtoken_1.default.verify(token, secret, {
+                        algorithms: ['HS256'],
+                        issuer: getIssuer(),
+                        audience: getAudience(),
+                    });
+                }
+            }
+            if (!verified || typeof verified === 'string')
                 return res.status(401).json({ error: 'Unauthorized' });
             const userId = typeof verified.sub === 'string' ? verified.sub : undefined;
             const role = getStringClaim(verified, 'role');

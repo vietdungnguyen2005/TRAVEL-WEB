@@ -86,6 +86,16 @@ export async function startNotificationConsumers() {
             bindingKey: 'payment.refund.failed',
             consumerTag: 'notification-service/payment-refund-failed',
         },
+        {
+            queue: process.env.RABBITMQ_QUEUE_NOTIFICATION_PAYMENT_REFUND_REJECTED || 'notification-service.payment-refund-rejected',
+            bindingKey: 'payment.refundrejected',
+            consumerTag: 'notification-service/payment-refund-rejected',
+        },
+        {
+            queue: process.env.RABBITMQ_QUEUE_NOTIFICATION_REFUND_REQUESTED || 'notification-service.refund-requested',
+            bindingKey: 'payment.refundrequested',
+            consumerTag: 'notification-service/refund-requested',
+        },
     ] as const;
 
     const notificationsRepo = createPrismaNotificationRepository();

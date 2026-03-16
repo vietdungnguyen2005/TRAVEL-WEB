@@ -43,10 +43,12 @@ export function ImageGallery({ images, roomName }: ImageGalleryProps) {
           onError={(e) => {
             // Fallback to placeholder if image fails to load
             const target = e.target as HTMLImageElement;
-            target.src = '/placeholder-room.jpg';
+            if (!target.src.endsWith("/placeholder-room.svg")) {
+              target.src = "/placeholder-room.svg";
+            }
           }}
         />
-        
+
         {/* Navigation Arrows */}
         {images.length > 1 && (
           <>
@@ -97,7 +99,9 @@ export function ImageGallery({ images, roomName }: ImageGalleryProps) {
                 onError={(e) => {
                   // Fallback to placeholder if image fails to load
                   const target = e.target as HTMLImageElement;
-                  target.src = '/placeholder-room.jpg';
+                  if (!target.src.endsWith("/placeholder-room.svg")) {
+                    target.src = "/placeholder-room.svg";
+                  }
                 }}
               />
             </button>

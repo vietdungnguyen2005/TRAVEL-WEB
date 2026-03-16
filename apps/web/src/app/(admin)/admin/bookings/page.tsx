@@ -121,7 +121,9 @@ export default function BookingsManagement() {
         params.append("status", filter);
       }
 
-      const response = await gatewayFetch(`/api/admin/bookings?${params.toString()}`);
+      const response = await gatewayFetch(`/api/admin/bookings?${params.toString()}`, {
+        attachAccessToken: true,
+      });
       if (response.ok) {
         const data = await response.json();
         setBookings(data);
@@ -164,15 +166,20 @@ export default function BookingsManagement() {
       setUpdating(bookingId);
       const response = await gatewayFetch("/api/payments/refund-approve", {
         method: "POST",
+        headers: {
+          "Idempotency-Key": `refund-approve-${bookingId}-${Date.now()}`,
+        },
         body: JSON.stringify({ bookingId }),
         attachAccessToken: true,
       });
 
       if (!response.ok) {
-        alert("Không thể duyệt yêu cầu hoàn tiền");
+        const data = await response.json().catch(() => null);
+        alert(data?.error || "Không thể duyệt yêu cầu hoàn tiền");
         return;
       }
 
+      alert("Đã duyệt hoàn tiền thành công");
       await fetchBookings();
     } catch (error) {
       console.error("Error approving refund:", error);
@@ -187,15 +194,20 @@ export default function BookingsManagement() {
       setUpdating(bookingId);
       const response = await gatewayFetch("/api/payments/refund-reject", {
         method: "POST",
+        headers: {
+          "Idempotency-Key": `refund-reject-${bookingId}-${Date.now()}`,
+        },
         body: JSON.stringify({ bookingId }),
         attachAccessToken: true,
       });
 
       if (!response.ok) {
-        alert("Không thể từ chối yêu cầu hoàn tiền");
+        const data = await response.json().catch(() => null);
+        alert(data?.error || "Không thể từ chối yêu cầu hoàn tiền");
         return;
       }
 
+      alert("Đã từ chối yêu cầu hoàn tiền");
       await fetchBookings();
     } catch (error) {
       console.error("Error rejecting refund:", error);

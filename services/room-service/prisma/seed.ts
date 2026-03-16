@@ -77,7 +77,7 @@ async function main() {
             location: 'Huế',
             amenities: ['Wifi miễn phí', 'TV 65 inch', 'Điều hòa', 'Minibar cao cấp', 'Két an toàn', 'Bồn tắm Jacuzzi', 'Phòng khách riêng', 'Ban công rộng', 'Máy pha cà phê Nespresso', 'Dịch vụ phòng 24/7'],
             images: [
-                'https://images.unsplash.com/photo-1505691723518-36a5ac3b2a57?auto=format&fit=crop&w=1200&q=80',
+                'https://images.unsplash.com/photo-1631049307264-da0ec9d70304?auto=format&fit=crop&w=1200&q=80',
                 'https://images.unsplash.com/photo-1591088398332-8a7791972843?auto=format&fit=crop&w=1200&q=80',
             ],
         },

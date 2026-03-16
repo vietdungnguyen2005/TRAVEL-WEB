@@ -21,7 +21,6 @@ export default function BookingConfirmPage() {
   const [error, setError] = useState<string | null>(null);
   const [availabilityChecked, setAvailabilityChecked] = useState(false);
   const [roomAvailable, setRoomAvailable] = useState(false);
-  const [assignedRoomNumber, setAssignedRoomNumber] = useState<string | null>(null);
   const [holdBookingId, setHoldBookingId] = useState<string | null>(null);
   const [expiresAt, setExpiresAt] = useState<Date | null>(null);
   const [processingPayment, setProcessingPayment] = useState(false);
@@ -76,6 +75,7 @@ export default function BookingConfirmPage() {
           checkOut: bookingData.checkOut,
           numberOfGuests: bookingData.guests,
         }),
+        attachAccessToken: true,
       });
 
       const data = await response.json().catch(() => ({} as Record<string, unknown>));
@@ -90,7 +90,6 @@ export default function BookingConfirmPage() {
       const availableRoomId = (data as any)?.availableRoomId ?? bookingData.roomId;
       setAvailabilityChecked(true);
       setRoomAvailable(available);
-      setAssignedRoomNumber(null);
 
       if (available) {
         await createHoldBooking(availableRoomId);
@@ -127,7 +126,19 @@ export default function BookingConfirmPage() {
     router.push(`/booking/payment/${holdBookingId}`);
   };
 
-  const handleCancel = () => {
+  const handleCancel = async () => {
+    // Release the ON_HOLD booking server-side so the room becomes available again
+    if (holdBookingId) {
+      try {
+        await gatewayFetch(`/api/bookings/${holdBookingId}/cancel`, {
+          method: "POST",
+          attachAccessToken: true,
+        });
+      } catch (err) {
+        // Best-effort: if cancel fails, the hold will expire automatically
+        console.error("Failed to cancel hold booking:", err);
+      }
+    }
     clearBooking();
     router.push("/rooms");
   };
@@ -144,7 +155,7 @@ export default function BookingConfirmPage() {
   return (
     <>
       <div className="container mx-auto px-4 py-8">
-        <h1 className="text-3xl font-bold mb-8">Confirm Your Booking</h1>
+        <h1 className="text-3xl font-bold mb-8">Xác nhận đặt phòng</h1>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           <div className="lg:col-span-2 space-y-6">
@@ -153,7 +164,7 @@ export default function BookingConfirmPage() {
                 <CardContent className="flex items-center justify-center py-12">
                   <div className="text-center">
                     <Loader2 className="h-12 w-12 animate-spin mx-auto mb-4 text-primary" />
-                    <p className="text-lg">Checking availability...</p>
+                    <p className="text-lg">Đang kiểm tra phòng trống...</p>
                   </div>
                 </CardContent>
               </Card>
@@ -170,12 +181,12 @@ export default function BookingConfirmPage() {
               <Card>
                 <CardContent className="py-12 text-center">
                   <AlertTriangle className="h-16 w-16 text-yellow-500 mx-auto mb-4" />
-                  <h2 className="text-2xl font-bold mb-2">Room Not Available</h2>
+                  <h2 className="text-2xl font-bold mb-2">Phòng không còn trống</h2>
                   <p className="text-gray-600 mb-6">
-                    Sorry, this room is not available for your selected dates.
+                    Xin lỗi, phòng này không còn trống cho ngày bạn đã chọn.
                   </p>
                   <Button onClick={() => router.push("/rooms")}>
-                    View Other Rooms
+                    Xem phòng khác
                   </Button>
                 </CardContent>
               </Card>
@@ -187,13 +198,13 @@ export default function BookingConfirmPage() {
                   <CardHeader>
                     <CardTitle className="flex items-center gap-2">
                       <CheckCircle className="h-6 w-6 text-green-600" />
-                      Room Reserved
+                      Đã giữ phòng thành công
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-4">
                     <p>
-                      Great news! Room <strong>{assignedRoomNumber}</strong> has been
-                      reserved for you.
+                      Tin vui! Phòng (<strong>{bookingData?.roomTypeName || "Standard"}</strong>) đã được
+                      giữ cho bạn.
                     </p>
 
                     {expiresAt && (
@@ -204,9 +215,9 @@ export default function BookingConfirmPage() {
 
                     <Alert>
                       <AlertDescription>
-                        Please complete your payment within the time limit to confirm your
-                        booking. Your reservation will be automatically cancelled if payment
-                        is not received.
+                        Vui lòng hoàn tất thanh toán trong thời gian giữ phòng để xác nhận
+                        đặt phòng. Đặt phòng của bạn sẽ tự động bị hủy nếu không thanh toán
+                        kịp thời.
                       </AlertDescription>
                     </Alert>
                   </CardContent>
@@ -214,7 +225,7 @@ export default function BookingConfirmPage() {
 
                 <Card>
                   <CardHeader>
-                    <CardTitle>Payment Options</CardTitle>
+                    <CardTitle>Phương thức thanh toán</CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-4">
                     <Button
@@ -226,7 +237,7 @@ export default function BookingConfirmPage() {
                       {processingPayment && (
                         <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                       )}
-                      Proceed to Payment
+                      Tiến hành thanh toán
                     </Button>
 
                     <Button
@@ -235,7 +246,7 @@ export default function BookingConfirmPage() {
                       className="w-full"
                       disabled={processingPayment}
                     >
-                      Cancel Booking
+                      Hủy đặt phòng
                     </Button>
                   </CardContent>
                 </Card>
@@ -245,13 +256,13 @@ export default function BookingConfirmPage() {
 
           <div className="lg:col-span-1">
             <BookingSummary
-              roomName="Room Type"
-              roomImage="https://images.unsplash.com/photo-1611892440504-42a792e24d32?w=400"
+              roomName={bookingData.roomTypeName || "Room Type"}
+              roomImage={bookingData.roomTypeImage || "https://images.unsplash.com/photo-1611892440504-42a792e24d32?w=400"}
               checkIn={new Date(bookingData.checkIn)}
               checkOut={new Date(bookingData.checkOut)}
               guests={bookingData.guests}
               nights={nights}
-              pricePerNight={bookingData.totalPrice / nights}
+              pricePerNight={nights > 0 ? bookingData.totalPrice / nights : bookingData.totalPrice}
               totalPrice={bookingData.totalPrice}
               guestName={bookingData.guestName}
               guestEmail={bookingData.guestEmail}

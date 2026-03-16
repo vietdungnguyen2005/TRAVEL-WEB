@@ -12,6 +12,7 @@ export type RegisterInput = {
     name?: string;
     email: string;
     password: string;
+    phone?: string;
     role?: Role;
     ip?: string;
     userAgent?: string;
@@ -55,6 +56,7 @@ export class RegisterUseCase {
             email,
             passwordHash,
             name: input.name,
+            phone: input.phone,
             role: input.role ?? 'CUSTOMER',
             isVerified: mustVerify ? false : true,
             verificationToken: null,
@@ -70,12 +72,17 @@ export class RegisterUseCase {
             await this.deps.emailVerifications.upsertForUser({ userId: user.id, tokenHash, expiresAt });
 
             const web = this.deps.webAppUrl;
-            if (!web) {
-                throw new AuthError('Không thể gửi email xác thực lúc này', 'VALIDATION_ERROR');
+            if (web) {
+                const verifyUrl = `${web}/auth/verify-email?token=${encodeURIComponent(rawToken)}`;
+                try {
+                    await this.deps.email.sendVerificationEmail({ to: email, name: user.name ?? undefined, verifyUrl });
+                } catch (emailErr) {
+                    // Log but don't fail registration — user is already created
+                    console.error('[RegisterUseCase] Failed to send verification email:', emailErr instanceof Error ? emailErr.message : emailErr);
+                }
+            } else {
+                console.warn('[RegisterUseCase] WEB_APP_URL not configured, skipping verification email');
             }
-
-            const verifyUrl = `${web}/auth/verify-email?token=${encodeURIComponent(rawToken)}`;
-            await this.deps.email.sendVerificationEmail({ to: email, name: user.name ?? undefined, verifyUrl });
 
             return { status: 'NEEDS_EMAIL_VERIFICATION', user };
         }

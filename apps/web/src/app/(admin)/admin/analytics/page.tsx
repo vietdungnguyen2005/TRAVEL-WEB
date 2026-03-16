@@ -262,7 +262,7 @@ export default function AnalyticsPage() {
                   const maxRevenue = Math.max(
                     ...stats.monthlyData.map((d) => d.revenue)
                   );
-                  const percentage = (data.revenue / maxRevenue) * 100;
+                  const percentage = maxRevenue > 0 ? (data.revenue / maxRevenue) * 100 : 0;
 
                   return (
                     <div key={index} className="space-y-2">

@@ -2,6 +2,7 @@ import { createHash, randomBytes, timingSafeEqual } from 'crypto';
 import { prisma } from '../../../lib/prisma';
 import { getGoogleOauthConfig } from './google.config';
 import { signAccessToken as signJwt } from '../../../lib/jwt.rs256';
+import { issueRefreshToken } from '../../../lib/refresh-tokens';
 import type { Request, Response } from 'express';
 
 function base64Url(input: Buffer) {
@@ -215,6 +216,13 @@ export async function googleCallback(req: Request, res: Response) {
 
         const token = signJwt({ userId: user.id, role: user.role, name: user.name ?? undefined, email: user.email });
 
+        // Issue refresh token so OAuth users stay logged in after access token expires
+        const refresh = await issueRefreshToken({
+            userId: user.id,
+            ip: req.ip ?? undefined,
+            userAgent: req.headers['user-agent'] ?? undefined,
+        });
+
         // Clear transient cookies
         res.clearCookie('oauth_state', { path: '/' });
         res.clearCookie('oauth_code_verifier', { path: '/' });
@@ -228,6 +236,7 @@ export async function googleCallback(req: Request, res: Response) {
 
         const url = new URL(`${webBase}/auth/oauth/callback`);
         url.searchParams.set('token', token);
+        url.searchParams.set('refreshToken', refresh.token);
         url.searchParams.set('redirect', redirectPath);
         return res.redirect(url.toString());
     } catch (err) {

@@ -41,10 +41,14 @@ function getStatusColor(status: string) {
     switch (status) {
         case "PENDING":
             return "bg-yellow-100 text-yellow-800";
+        case "ON_HOLD":
+            return "bg-orange-100 text-orange-800";
         case "CONFIRMED":
             return "bg-green-100 text-green-800";
         case "COMPLETED":
             return "bg-blue-100 text-blue-800";
+        case "CHECKED_IN":
+            return "bg-indigo-100 text-indigo-800";
         case "CANCELLED":
             return "bg-red-100 text-red-800";
         default:
@@ -56,10 +60,14 @@ function getStatusText(status: string) {
     switch (status) {
         case "PENDING":
             return "Chờ xác nhận";
+        case "ON_HOLD":
+            return "Chờ thanh toán";
         case "CONFIRMED":
             return "Đã xác nhận";
         case "COMPLETED":
             return "Hoàn thành";
+        case "CHECKED_IN":
+            return "Đã nhận phòng";
         case "CANCELLED":
             return "Đã hủy";
         default:
@@ -223,10 +231,12 @@ export function AdminDashboardClient() {
                                         <div className="flex items-center gap-3">
                                             <div>
                                                 <p className="font-medium text-gray-900">
-                                                    {booking.user?.name || booking.user?.email}
+                                                    {booking.user?.name || booking.user?.email || `User: ${(booking.userId || '').slice(0, 8)}...`}
                                                 </p>
                                                 <p className="text-sm text-gray-500">
-                                                    {booking.room?.roomType?.name} - Phòng {booking.room?.roomNumber}
+                                                    {booking.room?.roomType?.name
+                                                        ? `${booking.room.roomType.name} - Phòng ${booking.room.roomNumber}`
+                                                        : `Room ID: ${(booking.roomId || '').slice(0, 8)}...`}
                                                 </p>
                                             </div>
                                         </div>

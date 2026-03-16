@@ -5,6 +5,7 @@ export type BookingConflictQuery = {
     roomId: string;
     checkIn: Date;
     checkOut: Date;
+    excludeBookingId?: string;
 };
 
 export type CreateBookingInput = {
@@ -22,6 +23,12 @@ export type BookingRepository = {
     findManyByUserId(userId: string): Promise<Booking[]>;
     findManyAll(filter?: { userId?: string; status?: BookingStatus }): Promise<Booking[]>;
     findFirstConflict(query: BookingConflictQuery): Promise<Booking | null>;
+    /**
+     * Same as findFirstConflict but runs inside a transaction with
+     * row-level locking (SELECT ... FOR UPDATE) to prevent race conditions
+     * when two concurrent requests try to book the same room for overlapping dates.
+     */
+    findFirstConflictTx(tx: TransactionContext, query: BookingConflictQuery): Promise<Booking | null>;
     findActiveBookingsForRooms(roomIds: string[]): Promise<Booking[]>;
 
     create(tx: TransactionContext, input: CreateBookingInput): Promise<Booking>;

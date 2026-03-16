@@ -10,6 +10,7 @@ const error_handler_1 = require("./http/middlewares/error-handler");
 const outbox_publisher_1 = __importDefault(require("./lib/outbox-publisher"));
 const payment_completed_consumer_1 = require("./interfaces/events/payment-completed.consumer");
 const payment_refund_events_consumer_1 = require("./interfaces/events/payment-refund-events.consumer");
+const expire_holds_1 = require("./schedulers/expire-holds");
 const metrics_1 = __importDefault(require("./lib/metrics"));
 const health_1 = require("./lib/health");
 const logger = new shared_1.Logger('BookingService');
@@ -35,6 +36,8 @@ app.listen(PORT, () => {
     // start consumer for payment.* events
     (0, payment_completed_consumer_1.startPaymentCompletedConsumer)().catch((err) => logger.error('Payment events consumer failed to start', err));
     (0, payment_refund_events_consumer_1.startPaymentRefundEventsConsumer)().catch((err) => logger.error('Payment refund events consumer failed to start', err));
+    // start scheduler to auto-expire ON_HOLD bookings
+    (0, expire_holds_1.startExpireHoldsScheduler)();
     if (process.env.SERVICE_DISCOVERY_MODE === 'consul') {
         (0, shared_1.consulRegisterService)({
             serviceName: 'bookingService',

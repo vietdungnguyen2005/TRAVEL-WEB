@@ -1,12 +1,19 @@
-import type { EventMessage } from '@travel-web/contracts';
 import type { VnpayGateway } from '../ports/vnpay-gateway';
 import type { PaymentRepository } from '../ports/payment-repository';
-import type { EventPublisher } from '../ports/event-publisher';
 
+/**
+ * Handles the VNPay browser-return (returnUrl) callback.
+ *
+ * **Important**: This handler intentionally does NOT publish events.
+ * The authoritative payment confirmation comes from the IPN callback
+ * (`handleVnpayIpn`), which has idempotency protection and is guaranteed
+ * to be called by VNPay's server. Publishing here would cause duplicate
+ * `PaymentCompleted` events because VNPay sends both the browser redirect
+ * and the IPN callback.
+ */
 export async function verifyVnpayReturn(deps: {
     vnpay: VnpayGateway;
     payments: PaymentRepository;
-    publisher: EventPublisher;
     params: Record<string, string>;
 }) {
     const result = deps.vnpay.verifyReturnParams(deps.params);
@@ -23,28 +30,15 @@ export async function verifyVnpayReturn(deps: {
         return { ok: false as const, bookingId: result.bookingId, error: `Payment not successful (code: ${result.responseCode})` };
     }
 
+    // Optimistically mark payment completed in DB.
+    // If the IPN arrives first, this is a no-op (already COMPLETED).
     await deps.payments.markCompletedByBookingId({
         bookingId: result.bookingId,
         vnpTransactionNo: result.vnpTransactionNo || undefined,
     });
 
-    const event: EventMessage<'PaymentCompleted', { bookingId: string; vnpTransactionNo?: string }> = {
-        id: `payment.completed:${result.bookingId}:${result.vnpTransactionNo || ''}`,
-        type: 'PaymentCompleted',
-        source: 'payment-service',
-        occurredAt: new Date().toISOString(),
-        version: 1,
-        correlationId: result.bookingId,
-        data: {
-            bookingId: result.bookingId,
-            vnpTransactionNo: result.vnpTransactionNo || undefined,
-        },
-    };
-
-    await deps.publisher.publish('payment.completed', event, {
-        messageId: event.id,
-        correlationId: result.bookingId,
-    });
+    // Do NOT publish PaymentCompleted event here — let handleVnpayIpn be the
+    // single source of truth for event publishing.
 
     return { ok: true as const, bookingId: result.bookingId, vnpTransactionNo: result.vnpTransactionNo };
 }

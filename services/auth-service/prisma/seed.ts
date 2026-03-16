@@ -25,12 +25,12 @@ import bcrypt from 'bcrypt';
 const prisma = new PrismaClient();
 
 const ADMIN_EMAIL = 'admin@travel.com';
-const ADMIN_PASSWORD = 'admin123';
+const ADMIN_PASSWORD = 'admin1234';
 const ADMIN_NAME = 'Admin User';
 
 const TEST_USERS = [
-  { email: 'user@travel.com', password: 'user123', name: 'Nguyen Van A', role: 'CUSTOMER' as const },
-  { email: 'customer@travel.com', password: 'customer123', name: 'Tran Thi B', role: 'CUSTOMER' as const },
+  { email: 'user@travel.com', password: 'user1234', name: 'Nguyen Van A', role: 'CUSTOMER' as const },
+  { email: 'customer@travel.com', password: 'customer1234', name: 'Tran Thi B', role: 'CUSTOMER' as const },
 ];
 
 async function main() {

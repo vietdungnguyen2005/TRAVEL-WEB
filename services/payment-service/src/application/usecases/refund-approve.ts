@@ -38,6 +38,13 @@ export async function refundApprove(deps: {
         return { status: 200, body };
     }
 
+    // Only REFUND_REQUESTED payments can be approved
+    if (payment.status !== 'REFUND_REQUESTED') {
+        const body = { error: `Cannot approve refund for payment with status ${payment.status}` };
+        await deps.idempotency.saveResponse('refund-approve', deps.idemKey, 400, body);
+        return { status: 400, body };
+    }
+
     await deps.payments.updateRefundMetadataByBookingId({
         bookingId: deps.bookingId,
         status: 'REFUNDED',

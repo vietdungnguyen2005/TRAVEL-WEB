@@ -55,6 +55,9 @@ export async function auth(): Promise<AuthSession | null> {
     const payload = parseJwtPayload(token);
     if (!payload) return null;
 
+    // Reject expired tokens
+    if (payload.exp && payload.exp * 1000 < Date.now()) return null;
+
     // Common JWT claim names. Keep flexible.
     const user: AppUser = {
         id: payload.sub || payload.id || payload.userId,

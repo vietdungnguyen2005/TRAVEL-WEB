@@ -63,7 +63,11 @@ export default function ProfilePage() {
     try {
       const response = await gatewayFetch("/api/user/profile", {
         method: "PUT",
-        body: JSON.stringify(profileData),
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: profileData.name,
+          phone: profileData.phone || null,
+        }),
         attachAccessToken: true,
       });
 
@@ -94,9 +98,9 @@ export default function ProfilePage() {
       return;
     }
 
-    if (passwordData.newPassword.length < 6) {
+    if (passwordData.newPassword.length < 8) {
       toast.error("Mật khẩu yếu", {
-        description: "Mật khẩu phải có ít nhất 6 ký tự",
+        description: "Mật khẩu phải có ít nhất 8 ký tự",
       });
       return;
     }
@@ -106,6 +110,7 @@ export default function ProfilePage() {
     try {
       const response = await gatewayFetch("/api/user/change-password", {
         method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           currentPassword: passwordData.currentPassword,
           newPassword: passwordData.newPassword,
@@ -115,7 +120,14 @@ export default function ProfilePage() {
 
       if (!response.ok) {
         const error = await response.json();
-        throw new Error(error.message || "Change password failed");
+        let errorMsg = error.message || "Change password failed";
+        if (error.details) {
+          const detailMsgs = Object.values(error.details).flat().filter(Boolean);
+          if (detailMsgs.length > 0) {
+            errorMsg = (detailMsgs as string[]).join(". ");
+          }
+        }
+        throw new Error(errorMsg);
       }
 
       toast.success("Đổi mật khẩu thành công!");
@@ -157,7 +169,7 @@ export default function ProfilePage() {
       const formData = new FormData();
       formData.append("file", file);
 
-      const response = await gatewayFetch("/api/upload/image", {
+      const response = await gatewayFetch("/api/user/avatar", {
         method: "POST",
         body: formData,
         // Let browser set multipart boundary.
@@ -177,6 +189,7 @@ export default function ProfilePage() {
       // Auto save avatar
       const updateResponse = await gatewayFetch("/api/user/profile", {
         method: "PUT",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ image: data.url }),
         attachAccessToken: true,
       });
@@ -414,6 +427,5 @@ export default function ProfilePage() {
           </div>
         </div>
       </div>
-    </div>
   );
 }

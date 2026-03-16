@@ -8,11 +8,13 @@ import { gatewayFetch } from "@/lib/gateway-client";
 
 interface ReviewFormProps {
   bookingId: string;
+  roomTypeId?: string;
+  roomId?: string;
   roomTypeName: string;
   onSuccess?: () => void;
 }
 
-export function ReviewForm({ bookingId, roomTypeName, onSuccess }: ReviewFormProps) {
+export function ReviewForm({ bookingId, roomTypeId, roomId, roomTypeName, onSuccess }: ReviewFormProps) {
   const [rating, setRating] = useState(0);
   const [hoveredRating, setHoveredRating] = useState(0);
   const [comment, setComment] = useState("");
@@ -33,8 +35,10 @@ export function ReviewForm({ bookingId, roomTypeName, onSuccess }: ReviewFormPro
     try {
       const response = await gatewayFetch("/api/reviews", {
         method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           bookingId,
+          roomTypeId: roomTypeId || roomId,
           rating,
           comment: comment.trim() || null,
         }),
@@ -42,8 +46,14 @@ export function ReviewForm({ bookingId, roomTypeName, onSuccess }: ReviewFormPro
       });
 
       if (!response.ok) {
-        const data = await response.json();
-        throw new Error(data.error || "Không thể gửi đánh giá");
+        let errorMessage = "Không thể gửi đánh giá";
+        try {
+          const data = await response.json();
+          errorMessage = data.error || errorMessage;
+        } catch {
+          // Response body is not valid JSON
+        }
+        throw new Error(errorMessage);
       }
 
       setRating(0);
@@ -102,10 +112,10 @@ export function ReviewForm({ bookingId, roomTypeName, onSuccess }: ReviewFormPro
           onChange={(e) => setComment(e.target.value)}
           placeholder="Chia sẻ trải nghiệm của bạn về phòng..."
           rows={4}
-          maxLength={500}
+          maxLength={2000}
         />
         <p className="text-xs text-gray-500 mt-1">
-          {comment.length}/500 ký tự
+          {comment.length}/2000 ký tự
         </p>
       </div>
 

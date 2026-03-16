@@ -19,10 +19,11 @@ import {
 
 interface CancelBookingButtonProps {
   bookingId: string;
-  roomName: string;
+  roomName?: string;
+  onSuccess?: () => void;
 }
 
-export function CancelBookingButton({ bookingId, roomName }: CancelBookingButtonProps) {
+export function CancelBookingButton({ bookingId, roomName, onSuccess }: CancelBookingButtonProps) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
 
@@ -41,10 +42,14 @@ export function CancelBookingButton({ bookingId, roomName }: CancelBookingButton
       }
 
       toast.success("Hủy đặt phòng thành công!", {
-        description: `Đặt phòng ${roomName} đã được hủy`
+        description: roomName ? `Đặt phòng ${roomName} đã được hủy` : "Đặt phòng đã được hủy"
       });
 
-      router.refresh();
+      if (onSuccess) {
+        onSuccess();
+      } else {
+        router.refresh();
+      }
     } catch (error: any) {
       toast.error("Hủy đặt phòng thất bại", {
         description: error.message || "Vui lòng thử lại sau"
@@ -65,7 +70,7 @@ export function CancelBookingButton({ bookingId, roomName }: CancelBookingButton
         <AlertDialogHeader>
           <AlertDialogTitle>Xác nhận hủy đặt phòng</AlertDialogTitle>
           <AlertDialogDescription>
-            Bạn có chắc chắn muốn hủy đặt phòng <strong>{roomName}</strong>?
+            Bạn có chắc chắn muốn hủy đặt phòng{roomName ? <> <strong>{roomName}</strong></> : ""}?
             <br />
             <br />
             Hành động này không thể hoàn tác. Vui lòng kiểm tra chính sách hủy phòng

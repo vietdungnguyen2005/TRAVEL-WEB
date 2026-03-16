@@ -7,13 +7,19 @@ import { gatewayFetch } from "@/lib/gateway-client";
 export function RefundRequestButton({
     bookingId,
     paymentStatus,
+    bookingStatus,
+    checkOut,
 }: {
     bookingId: string;
     paymentStatus: string;
+    bookingStatus?: string;
+    checkOut?: string;
 }) {
     const [loading, setLoading] = useState(false);
 
-    const eligible = paymentStatus === "PAID";
+    // Don't show refund button for completed or past bookings
+    const isPast = bookingStatus === "COMPLETED" || (checkOut && new Date(checkOut) < new Date());
+    const eligible = paymentStatus === "PAID" && !isPast;
     const alreadyRequested = paymentStatus === "REFUND_REQUESTED";
 
     if (!eligible && !alreadyRequested) return null;

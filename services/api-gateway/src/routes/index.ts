@@ -2,57 +2,111 @@ import { Router } from 'express';
 import { createClient } from 'redis';
 import { proxyMiddleware } from '../proxy/proxy.middleware';
 import { requireAuthForPaths, requireAdminForPaths } from '../middlewares/auth.middleware';
+import {
+    loginRateLimiter,
+    registerRateLimiter,
+    forgotPasswordRateLimiter,
+    refreshTokenRateLimiter,
+    oauthRateLimiter,
+} from '../middlewares/authRateLimit.middleware';
 import { discoveryConfig } from '../config/discovery.config';
 import { getServiceTarget } from '../discovery/service-resolver';
 import { register as metricsRegister } from '../lib/metrics';
 
 const router = Router();
 
-// VNPay IPN callback – no auth required (server-to-server from VNPay)
-router.use('/api/payments/vnpay-ipn', proxyMiddleware.payments);
+// ══════════════════════════════════════════════════════════════════════
+// API Versioning
+// ──────────────────────────────────────────────────────────────────────
+// Current version: v1
+//
+// Unversioned /api/* requests are rewritten to /api/v1/* for
+// backward compatibility.  When v2 is introduced, only the
+// versioned router below needs a companion; old callers keep
+// working until deprecation.
+// ══════════════════════════════════════════════════════════════════════
 
-// JWT protection (verify at gateway, forward user context via x-user-* headers)
-router.use(
-    requireAuthForPaths([
-        '/api/bookings',
-        '/api/payments',
-        '/api/admin',
-    ], [
-        '/api/bookings/unavailable-dates',
-    ])
-);
+/**
+ * Build the v1 API router.
+ *
+ * All business routes live here.  The outer `router` mounts this
+ * under both `/api/v1` (canonical) and `/api` (compat alias).
+ */
+function createV1Router(): Router {
+    const v1 = Router();
 
-// Admin role guard – runs AFTER auth so req.auth is already set
-router.use(
-    requireAdminForPaths([
-        '/api/admin',
-    ])
-);
+    // ── Auth-specific rate limiters (stricter than global) ──
+    v1.post('/auth/login', loginRateLimiter);
+    v1.post('/auth/register', registerRateLimiter);
+    v1.post('/auth/forgot-password', forgotPasswordRateLimiter);
+    v1.post('/auth/reset-password', forgotPasswordRateLimiter);
+    v1.post('/auth/refresh', refreshTokenRateLimiter);
+    v1.get('/auth/oauth/*', oauthRateLimiter);
 
-// Proxy routes
-router.use('/api/auth', proxyMiddleware.auth);
-router.use('/api/bookings', proxyMiddleware.bookings);
-router.use('/api/rooms', proxyMiddleware.rooms);
-router.use('/api/payments', proxyMiddleware.payments);
-router.use('/api/reviews', proxyMiddleware.reviews);
-router.use('/api/hero-images', proxyMiddleware.content);
-router.use('/api/blog', proxyMiddleware.blog);
+    // VNPay callbacks are excluded from auth via publicExceptions below
 
-// Admin (gateway-first): keep admin endpoints under /api/admin/* and forward to the owning service.
-// - users, analytics -> auth service
-// - rooms, room-types, hero-images -> room/content services
-// - bookings -> booking service
-router.use('/api/admin/users', proxyMiddleware.auth);
-router.use('/api/admin/stats', proxyMiddleware.auth);
-router.use('/api/admin/analytics', proxyMiddleware.auth);
-router.use('/api/admin/bookings', proxyMiddleware.bookingsAdmin);
-router.use('/api/admin/rooms', proxyMiddleware.rooms);
-router.use('/api/admin/room-types', proxyMiddleware.rooms);
-router.use('/api/admin/hero-images', proxyMiddleware.content);
-router.use('/api/admin/blog', proxyMiddleware.blog);
+    // JWT protection (verify at gateway, forward user context via x-user-* headers)
+    v1.use(
+        requireAuthForPaths([
+            '/bookings',
+            '/payments',
+            '/admin',
+            '/user',
+            '/test',
+        ], [
+            '/bookings/unavailable-dates',
+            '/payments/vnpay-ipn',
+            '/payments/vnpay-return',
+        ])
+    );
 
-// Health check endpoint
-router.get('/health', (req, res) => {
+    // Admin role guard – runs AFTER auth so req.auth is already set
+    v1.use(
+        requireAdminForPaths([
+            '/admin',
+            '/test',
+        ])
+    );
+
+    // ── Proxy routes ──
+    v1.use('/auth', proxyMiddleware.auth);
+    v1.use('/user', proxyMiddleware.auth);
+    v1.use('/bookings', proxyMiddleware.bookings);
+    v1.use('/rooms', proxyMiddleware.rooms);
+    v1.use('/payments', proxyMiddleware.payments);
+    v1.use('/reviews', proxyMiddleware.reviews);
+    v1.use('/hero-images', proxyMiddleware.content);
+    v1.use('/blog', proxyMiddleware.blog);
+
+    // Admin proxy routes
+    v1.use('/admin/users', proxyMiddleware.auth);
+    v1.use('/admin/stats', proxyMiddleware.auth);
+    v1.use('/admin/analytics', proxyMiddleware.auth);
+    v1.use('/admin/bookings', proxyMiddleware.bookingsAdmin);
+    v1.use('/admin/rooms', proxyMiddleware.rooms);
+    v1.use('/admin/room-types', proxyMiddleware.rooms);
+    v1.use('/admin/hero-images', proxyMiddleware.content);
+    v1.use('/admin/blog', proxyMiddleware.blog);
+    v1.use('/test', proxyMiddleware.notification);
+
+    return v1;
+}
+
+// ── Mount the v1 router ──
+
+// Canonical versioned path: /api/v1/*
+router.use('/api/v1', createV1Router());
+
+// Backward-compatible alias: /api/* → same v1 logic
+// Existing frontend & integrations keep working without changes.
+router.use('/api', createV1Router());
+
+// Static uploads (avatar images served by auth service) — not versioned
+router.use('/uploads', proxyMiddleware.auth);
+
+// ── Infrastructure endpoints (not versioned) ──
+
+router.get('/health', (_req, res) => {
     res.status(200).json({ success: true, data: 'API Gateway is healthy' });
 });
 
@@ -103,6 +157,16 @@ router.get('/discovery', async (_req, res) => {
         consulUrl: discoveryConfig.consulUrl,
         refreshMs: discoveryConfig.refreshMs,
         targets,
+    });
+});
+
+// API info / version discovery endpoint
+router.get('/api', (_req, res) => {
+    res.status(200).json({
+        service: 'travel-web-api',
+        versions: ['v1'],
+        currentVersion: 'v1',
+        documentation: '/api/v1',
     });
 });
 

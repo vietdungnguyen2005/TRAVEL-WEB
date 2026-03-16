@@ -14,14 +14,30 @@ function tryGetPrismaErrorCode(err: unknown): string | undefined {
 adminRouter.use(requireAuth, requireRole('ADMIN'));
 
 // GET /api/admin/users - list users (gateway forwards /api/admin/users here)
-adminRouter.get('/users', async (_req: Request, res: Response) => {
+adminRouter.get('/users', async (req: Request, res: Response) => {
     try {
+        const search = typeof req.query.search === 'string' ? req.query.search.trim() : '';
+        const roleFilter = typeof req.query.role === 'string' ? req.query.role.toUpperCase() : '';
+
+        const where: any = {};
+        if (search) {
+            where.OR = [
+                { email: { contains: search, mode: 'insensitive' } },
+                { name: { contains: search, mode: 'insensitive' } },
+            ];
+        }
+        if (roleFilter && ['ADMIN', 'CUSTOMER'].includes(roleFilter)) {
+            where.role = roleFilter;
+        }
+
         const users = await prisma.user.findMany({
+            where,
             orderBy: { createdAt: 'desc' },
             select: {
                 id: true,
                 email: true,
                 name: true,
+                phone: true,
                 role: true,
                 isVerified: true,
                 createdAt: true,
@@ -60,6 +76,11 @@ adminRouter.patch('/users/:userId/role', async (req: Request, res: Response) => 
     if (!role || !['ADMIN', 'CUSTOMER'].includes(role)) {
         return res.status(400).json({ message: 'role must be ADMIN or CUSTOMER' });
     }
+    // Prevent admin from demoting themselves
+    const currentUser = (req as any).user;
+    if (currentUser?.id === userId && role !== 'ADMIN') {
+        return res.status(400).json({ message: 'Không thể tự hạ quyền chính mình' });
+    }
     try {
         const user = await prisma.user.update({
             where: { id: userId },
@@ -83,6 +104,8 @@ adminRouter.get('/stats', async (_req: Request, res: Response) => {
         let totalRooms = 0;
         let revenueThisMonth = 0;
         let bookingsThisMonth = 0;
+        let revenueGrowth = 0;
+        let bookingGrowth = 0;
 
         try {
             const bookingStats = await prisma.$queryRawUnsafe<{ total: bigint; pending: bigint }[]>(
@@ -98,6 +121,7 @@ adminRouter.get('/stats', async (_req: Request, res: Response) => {
 
             const now = new Date();
             const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+            const lastMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
             const thisMonthStats = await prisma.$queryRawUnsafe<{ count: bigint; revenue: number }[]>(
                 `SELECT COUNT(*) as count, COALESCE(SUM("totalPrice"::float), 0) as revenue
                  FROM booking.bookings
@@ -108,6 +132,27 @@ adminRouter.get('/stats', async (_req: Request, res: Response) => {
                 bookingsThisMonth = Number(thisMonthStats[0].count);
                 revenueThisMonth = thisMonthStats[0].revenue || 0;
             }
+
+            // Calculate growth compared to last month
+            let lastMonthBookings = 0;
+            let lastMonthRevenue = 0;
+            try {
+                const lastMonthStats = await prisma.$queryRawUnsafe<{ count: bigint; revenue: number }[]>(
+                    `SELECT COUNT(*) as count, COALESCE(SUM("totalPrice"::float), 0) as revenue
+                     FROM booking.bookings
+                     WHERE "createdAt" >= $1 AND "createdAt" < $2 AND status != 'CANCELLED'`,
+                    lastMonthStart,
+                    monthStart,
+                );
+                if (lastMonthStats.length > 0) {
+                    lastMonthBookings = Number(lastMonthStats[0].count);
+                    lastMonthRevenue = lastMonthStats[0].revenue || 0;
+                }
+            } catch {
+                // ignore
+            }
+            revenueGrowth = lastMonthRevenue > 0 ? ((revenueThisMonth - lastMonthRevenue) / lastMonthRevenue) * 100 : 0;
+            bookingGrowth = lastMonthBookings > 0 ? ((bookingsThisMonth - lastMonthBookings) / lastMonthBookings) * 100 : 0;
         } catch {
             // booking schema may not exist yet
         }
@@ -123,16 +168,84 @@ adminRouter.get('/stats', async (_req: Request, res: Response) => {
             // room schema may not exist yet
         }
 
+        let recentBookings: any[] = [];
+        try {
+            const recentRows = await prisma.$queryRawUnsafe<any[]>(
+                `SELECT b.id, b."roomId", b."userId", b."checkIn", b."checkOut",
+                        b."numberOfGuests", b."totalPrice", b.status, b."createdAt"
+                 FROM booking.bookings b
+                 ORDER BY b."createdAt" DESC
+                 LIMIT 5`
+            );
+
+            // Enrich with user info from auth schema
+            const userIds = [...new Set(recentRows.map((r: any) => r.userId).filter(Boolean))];
+            const userMap = new Map<string, { name: string | null; email: string }>();
+            if (userIds.length > 0) {
+                const users = await prisma.user.findMany({
+                    where: { id: { in: userIds } },
+                    select: { id: true, name: true, email: true },
+                });
+                for (const u of users) {
+                    userMap.set(u.id, { name: u.name, email: u.email });
+                }
+            }
+
+            // Enrich with room info from room schema
+            const roomIds = [...new Set(recentRows.map((r: any) => r.roomId).filter(Boolean))];
+            const roomMap = new Map<string, { roomNumber: string; roomTypeName: string | null }>();
+            if (roomIds.length > 0) {
+                try {
+                    const placeholders = roomIds.map((_, i) => `$${i + 1}`).join(',');
+                    const rooms = await prisma.$queryRawUnsafe<any[]>(
+                        `SELECT r.id, r."roomNumber", rt.name as "roomTypeName"
+                         FROM room."Room" r
+                         LEFT JOIN room."RoomType" rt ON r."roomTypeId" = rt.id
+                         WHERE r.id IN (${placeholders})`,
+                        ...roomIds,
+                    );
+                    for (const rm of rooms) {
+                        roomMap.set(rm.id, { roomNumber: rm.roomNumber, roomTypeName: rm.roomTypeName });
+                    }
+                } catch {
+                    // room schema may not be accessible
+                }
+            }
+
+            recentBookings = recentRows.map((r: any) => {
+                const user = userMap.get(r.userId);
+                const room = roomMap.get(r.roomId);
+                return {
+                    id: r.id,
+                    roomId: r.roomId,
+                    userId: r.userId,
+                    checkIn: r.checkIn,
+                    checkOut: r.checkOut,
+                    numberOfGuests: Number(r.numberOfGuests),
+                    totalPrice: Number(r.totalPrice),
+                    status: r.status,
+                    createdAt: r.createdAt,
+                    user: user ? { name: user.name, email: user.email } : null,
+                    room: room ? {
+                        roomNumber: room.roomNumber,
+                        roomType: room.roomTypeName ? { name: room.roomTypeName } : null,
+                    } : null,
+                };
+            });
+        } catch {
+            // booking schema may not exist yet
+        }
+
         res.json({
             totalUsers,
             totalBookings,
             totalRooms,
             pendingBookings,
             revenueThisMonth,
-            revenueGrowth: 0,
+            revenueGrowth,
             bookingsThisMonth,
-            bookingGrowth: 0,
-            recentBookings: [],
+            bookingGrowth,
+            recentBookings,
         });
     } catch {
         res.status(500).json({ error: 'Failed to get stats' });

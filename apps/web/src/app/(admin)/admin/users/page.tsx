@@ -33,7 +33,7 @@ function getRoleColor(role: string) {
   switch (role) {
     case "ADMIN":
       return "bg-purple-100 text-purple-800 border-purple-200";
-    case "USER":
+    case "CUSTOMER":
       return "bg-blue-100 text-blue-800 border-blue-200";
     default:
       return "bg-gray-100 text-gray-800 border-gray-200";
@@ -44,7 +44,7 @@ function getRoleText(role: string) {
   switch (role) {
     case "ADMIN":
       return "Quản trị viên";
-    case "USER":
+    case "CUSTOMER":
       return "Người dùng";
     default:
       return role;
@@ -148,7 +148,7 @@ export default function UsersManagement() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="ALL">Tất cả vai trò</SelectItem>
-                <SelectItem value="USER">Người dùng</SelectItem>
+                <SelectItem value="CUSTOMER">Người dùng</SelectItem>
                 <SelectItem value="ADMIN">Quản trị viên</SelectItem>
               </SelectContent>
             </Select>
@@ -223,7 +223,7 @@ export default function UsersManagement() {
                       </div>
 
                       <div className="flex items-end justify-end">
-                        {user.role === "USER" ? (
+                        {user.role === "CUSTOMER" ? (
                           <Button
                             variant="outline"
                             size="sm"
@@ -238,7 +238,7 @@ export default function UsersManagement() {
                           <Button
                             variant="outline"
                             size="sm"
-                            onClick={() => updateUserRole(user.id, "USER")}
+                            onClick={() => updateUserRole(user.id, "CUSTOMER")}
                             disabled={updating === user.id}
                           >
                             {updating === user.id

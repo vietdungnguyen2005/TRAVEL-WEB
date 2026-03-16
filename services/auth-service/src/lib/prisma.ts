@@ -23,10 +23,18 @@ if (!process.env.AUTH_DATABASE_URL && !process.env.DATABASE_URL) {
 // (Auth-service schema now uses DATABASE_URL; this keeps backward compatibility if AUTH_DATABASE_URL is used.)
 const databaseUrl = process.env.AUTH_DATABASE_URL ?? process.env.DATABASE_URL;
 
+// Append connection_limit if not already set to avoid pool exhaustion on shared Supabase
+const finalUrl = (() => {
+	if (!databaseUrl) return undefined;
+	if (/connection_limit=/i.test(databaseUrl)) return databaseUrl;
+	const sep = databaseUrl.includes('?') ? '&' : '?';
+	return `${databaseUrl}${sep}connection_limit=2`;
+})();
+
 export const prisma: GeneratedPrismaClient =
 	globalForPrisma.prisma ??
 	new PrismaClient({
-		datasources: databaseUrl ? { db: { url: databaseUrl } } : undefined,
+		datasources: finalUrl ? { db: { url: finalUrl } } : undefined,
 		log: process.env.NODE_ENV === 'development' ? ['query', 'error', 'warn'] : ['error'],
 	});
 

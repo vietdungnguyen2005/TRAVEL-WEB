@@ -11,6 +11,26 @@ export async function confirmBookingFromPaymentCompleted(deps: {
     bookingId: string;
 }) {
     return deps.uow.transaction(async (tx) => {
+        // Fetch current booking to validate status before confirming
+        const existing = await deps.bookings.getById(deps.bookingId);
+        if (!existing) throw new Error(`Booking ${deps.bookingId} not found`);
+
+        // Only PENDING or ON_HOLD can be confirmed
+        if (existing.status !== 'PENDING' && existing.status !== 'ON_HOLD') {
+            throw new Error(`Cannot confirm booking in ${existing.status} status`);
+        }
+
+        // Check for room conflicts to prevent double-confirmation
+        const conflict = await deps.bookings.findFirstConflict({
+            roomId: existing.roomId,
+            checkIn: new Date(existing.checkIn),
+            checkOut: new Date(existing.checkOut),
+            excludeBookingId: deps.bookingId,
+        });
+        if (conflict) {
+            throw new Error(`Room conflict: another booking (${conflict.id}) already exists for these dates`);
+        }
+
         const updated = await deps.bookings.updateStatus(tx, {
             id: deps.bookingId,
             status: 'CONFIRMED',

@@ -26,7 +26,13 @@ function OAuthCallbackInner() {
 
         // Store token on the web origin so client-side calls can attach it.
         // Note: keep SameSite=Lax so regular navigation keeps it; no Domain set.
-        document.cookie = `access_token=${encodeURIComponent(token)}; Path=/; SameSite=Lax`;
+        document.cookie = `access_token=${encodeURIComponent(token)}; Path=/; Max-Age=900; SameSite=Lax`;
+
+        // Store refresh token if provided (for OAuth session persistence)
+        const refreshToken = params.get("refreshToken");
+        if (refreshToken) {
+            document.cookie = `refresh_token=${encodeURIComponent(refreshToken)}; Path=/; Max-Age=${7 * 24 * 3600}; SameSite=Lax`;
+        }
 
         // Navigate away ASAP so token isn't left in the address bar.
         router.replace(redirect);

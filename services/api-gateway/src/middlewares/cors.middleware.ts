@@ -1,8 +1,10 @@
 import cors from 'cors';
 
 function isAllowedDevOrigin(origin: string) {
-    // Allow loopback.
-    if (origin === 'http://localhost:3000' || origin === 'http://127.0.0.1:3000') return true;
+    // Allow any localhost / loopback origin (any port) during development.
+    // Covers http://localhost:*, http://127.0.0.1:*, http://[::1]:*
+    const loopback = /^https?:\/\/(?:localhost|127\.0\.0\.1|\[::1\])(:\d+)?$/;
+    if (loopback.test(origin)) return true;
 
     // Allow private LAN origins on the web dev port (so you can open the site from another device).
     // - 10.0.0.0/8
@@ -24,11 +26,18 @@ export const corsMiddleware = cors({
                 .split(',')
                 .map((s) => s.trim())
                 .filter(Boolean);
-            return envList.includes(origin) ? callback(null, true) : callback(new Error('Not allowed by CORS'));
+            if (envList.includes(origin)) return callback(null, true);
+            console.warn(`[CORS] Rejected origin: ${origin}`);
+            return callback(new Error('Not allowed by CORS'));
         }
 
         // In dev, allow localhost + private LAN so you can test via Wi-Fi/LAN.
-        return isAllowedDevOrigin(origin) ? callback(null, true) : callback(new Error('Not allowed by CORS'));
+        if (isAllowedDevOrigin(origin)) return callback(null, true);
+
+        // In dev, log the rejected origin for debugging but don't throw
+        // (just don't set CORS headers — the browser will block it).
+        console.warn(`[CORS] Rejected dev origin: ${origin}`);
+        return callback(null, false);
     },
     credentials: true,
 });

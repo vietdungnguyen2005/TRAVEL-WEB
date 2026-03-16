@@ -9,7 +9,6 @@ export type ResendVerificationInput = {
 
 export type ResendVerificationOutput = {
     success: true;
-    alreadyVerified?: true;
 };
 
 export class ResendVerificationUseCase {
@@ -29,7 +28,8 @@ export class ResendVerificationUseCase {
         // Don't reveal whether email exists
         if (!user) return { success: true };
 
-        if (user.isVerified) return { success: true, alreadyVerified: true };
+        // Don't reveal verification status – same response as non-existent email
+        if (user.isVerified) return { success: true };
 
         const rawToken = randomBytes(32).toString('hex');
         const tokenHash = createHash('sha256').update(rawToken).digest('hex');
@@ -42,7 +42,12 @@ export class ResendVerificationUseCase {
         const web = this.deps.webAppUrl;
         if (web) {
             const verifyUrl = `${web}/auth/verify-email?token=${encodeURIComponent(rawToken)}`;
-            await this.deps.email.sendVerificationEmail({ to: email, name: user.name ?? undefined, verifyUrl });
+            try {
+                await this.deps.email.sendVerificationEmail({ to: email, name: user.name ?? undefined, verifyUrl });
+            } catch (emailErr) {
+                // Log but don't fail — token is already saved, user can retry
+                console.error('[ResendVerificationUseCase] Failed to send verification email:', emailErr instanceof Error ? emailErr.message : emailErr);
+            }
         }
 
         return { success: true };

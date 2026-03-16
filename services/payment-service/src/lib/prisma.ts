@@ -7,13 +7,24 @@ const generatedClientPath = path.join(process.cwd(), 'node_modules', '.prisma', 
 const requireFromHere = createRequire(__filename);
 
 const { PrismaClient, Prisma } = requireFromHere(generatedClientPath) as unknown as {
-	PrismaClient: new () => GeneratedPrismaClient;
+	PrismaClient: new (opts?: Record<string, unknown>) => GeneratedPrismaClient;
 	Prisma: {
 		JsonNull: unknown;
 	};
 };
 
-const prisma: GeneratedPrismaClient = new PrismaClient();
+function buildDatasourceUrl(): string | undefined {
+	const raw = process.env.DATABASE_URL;
+	if (!raw) return undefined;
+	if (/connection_limit=/i.test(raw)) return raw;
+	const sep = raw.includes('?') ? '&' : '?';
+	return `${raw}${sep}connection_limit=2`;
+}
+
+const dsUrl = buildDatasourceUrl();
+const prisma: GeneratedPrismaClient = new PrismaClient(
+	dsUrl ? { datasources: { db: { url: dsUrl } } } : undefined,
+);
 
 export { Prisma };
 export default prisma;

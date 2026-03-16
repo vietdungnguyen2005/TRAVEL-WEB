@@ -7,9 +7,9 @@ import { signAccessToken, verifyAccessTokenOrThrow } from '../../lib/jwt.rs256';
 import { issueRefreshToken, rotateRefreshToken, revokeAllUserRefreshTokens } from '../../lib/refresh-tokens';
 
 const registerSchema = z.object({
-    name: z.string().min(2).max(100).optional(),
+    name: z.string().min(2, 'Tên phải có ít nhất 2 ký tự').max(100),
     email: z.string().email(),
-    password: z.string().min(6),
+    password: z.string().min(8, 'Mật khẩu phải có ít nhất 8 ký tự'),
     phone: z.string().optional(),
 });
 
@@ -94,7 +94,7 @@ export async function register(req: Request, res: Response) {
         return res.status(201).json({
             message: 'Đăng ký thành công. Vui lòng xác nhận email để kích hoạt tài khoản.',
             user,
-            verificationToken,
+            needsEmailVerification: true,
         });
     }
 
@@ -111,6 +111,7 @@ export async function register(req: Request, res: Response) {
     return res.status(201).json({
         message: 'Đăng ký thành công',
         accessToken,
+        refreshToken: refresh.token,
         user,
     });
 }
@@ -162,6 +163,7 @@ export async function login(req: Request, res: Response) {
     return res.status(200).json({
         message: 'Đăng nhập thành công',
         accessToken,
+        refreshToken: refresh.token,
         user: safeUser,
     });
 }

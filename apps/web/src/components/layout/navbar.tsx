@@ -217,7 +217,7 @@ export function Navbar({ user: userProp, variant = "solid" }: NavbarProps) {
                   </Link>
                 </DropdownMenuItem>
                 <DropdownMenuItem asChild>
-                  <Link href="/dashboard/bookings">
+                  <Link href="/dashboard">
                     <Calendar className="mr-2 h-4 w-4" />
                     <span>Đặt phòng của tôi</span>
                   </Link>
@@ -338,7 +338,7 @@ export function Navbar({ user: userProp, variant = "solid" }: NavbarProps) {
                       Tài khoản của tôi
                     </Link>
                     <Link
-                      href="/dashboard/bookings"
+                      href="/dashboard"
                       onClick={() => setMobileOpen(false)}
                       className="flex items-center gap-2 px-4 py-3 rounded-xl text-sm font-medium hover:bg-muted transition-colors"
                     >

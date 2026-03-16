@@ -20,6 +20,11 @@ export async function refundRequest(deps: {
         return { status: 400 as const, body: { error: 'Payment already refunded' } };
     }
 
+    // Only COMPLETED payments can request refund (can't refund what hasn't been paid)
+    if (payment.status !== 'COMPLETED') {
+        return { status: 400 as const, body: { error: `Cannot request refund for payment with status ${payment.status}` } };
+    }
+
     await deps.payments.updateRefundMetadataByBookingId({
         bookingId,
         status: 'REFUND_REQUESTED',
@@ -29,14 +34,18 @@ export async function refundRequest(deps: {
         },
     });
 
-    // legacy event (kept)
-    await deps.publisher.publish('payment.refundrequested', {
-        type: 'RefundRequested',
-        bookingId,
-        userId: payment.userId,
-        reason: reason || 'requested',
-        at: new Date().toISOString(),
-    });
+    // Publish event (non-blocking — DB update is the source of truth)
+    try {
+        await deps.publisher.publish('payment.refundrequested', {
+            type: 'RefundRequested',
+            bookingId,
+            userId: payment.userId,
+            reason: reason || 'requested',
+            at: new Date().toISOString(),
+        });
+    } catch (err) {
+        console.error('Failed to publish refund-requested event (non-fatal):', err);
+    }
 
     return { status: 200 as const, body: { success: true, bookingId, status: 'REFUND_REQUESTED' } };
 }

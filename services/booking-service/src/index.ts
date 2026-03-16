@@ -1,7 +1,6 @@
 import express from 'express';
-import { consulRegisterService, createCorrelationIdMiddleware, Logger, loadEnvProfile } from '@travel-web/shared';
+import { consulRegisterService, createCorrelationIdMiddleware, createErrorHandler, Logger, loadEnvProfile, validateEnv, BOOKING_SERVICE_ENV_RULES } from '@travel-web/shared';
 import { bookingRouter } from './interfaces/http/booking.routes';
-import { errorHandler } from './http/middlewares/error-handler';
 import publishOutbox from './lib/outbox-publisher';
 import { startPaymentCompletedConsumer } from './interfaces/events/payment-completed.consumer';
 import { startPaymentRefundEventsConsumer } from './interfaces/events/payment-refund-events.consumer';
@@ -14,7 +13,10 @@ const PORT = process.env.PORT || 3002;
 
 // Load root env + selected profile env (.env.docker/.env.supabase)
 // In docker-compose, env can also be injected by the container; this won't override existing vars.
-loadEnvProfile({ cwd: process.cwd().split('/services/')[0] });
+loadEnvProfile({ cwd: process.cwd().split(/[/\\]services[/\\]/)[0] || process.cwd() });
+
+// Validate required env vars early
+validateEnv({ serviceName: 'booking-service', rules: BOOKING_SERVICE_ENV_RULES });
 
 app.use(createCorrelationIdMiddleware());
 app.use(express.json());
@@ -25,7 +27,7 @@ app.get('/metrics', async (_req, res) => {
   res.setHeader('Content-Type', metricsRegister.contentType);
   res.end(await metricsRegister.metrics());
 });
-app.use(errorHandler);
+app.use(createErrorHandler('booking-service'));
 
 app.listen(PORT, () => {
   logger.info(`Booking Service running on port ${PORT}`);

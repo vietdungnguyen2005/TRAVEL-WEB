@@ -62,8 +62,10 @@ function mapAuthError(err, res) {
         return res.status(400).json({ message: err.message });
     }
     if (err instanceof Error) {
+        console.error('[AuthController] Unhandled error:', err.message, err.stack);
         return res.status(500).json({ message: 'Internal server error' });
     }
+    console.error('[AuthController] Unknown error:', err);
     return res.status(500).json({ message: 'Internal server error' });
 }
 const deps = {
@@ -76,9 +78,9 @@ const deps = {
     webAppUrl: (process.env.WEB_APP_URL || '').replace(/\/+$/, '') || undefined,
 };
 const registerSchema = zod_1.z.object({
-    name: zod_1.z.string().min(2).max(100).optional(),
+    name: zod_1.z.string().min(2, 'Tên phải có ít nhất 2 ký tự').max(100),
     email: zod_1.z.string().email(),
-    password: zod_1.z.string().min(6),
+    password: zod_1.z.string().min(8, 'Mật khẩu phải có ít nhất 8 ký tự'),
     phone: zod_1.z.string().optional(),
 });
 const loginSchema = zod_1.z.object({
@@ -109,7 +111,7 @@ async function register(req, res) {
         }
         setAccessCookie(res, result.accessToken);
         setRefreshCookie(res, result.refreshToken);
-        return res.status(201).json({ message: 'Đăng ký thành công', accessToken: result.accessToken, user: result.user });
+        return res.status(201).json({ message: 'Đăng ký thành công', accessToken: result.accessToken, refreshToken: result.refreshToken, user: result.user });
     }
     catch (err) {
         return mapAuthError(err, res);
@@ -131,7 +133,7 @@ async function login(req, res) {
         });
         setAccessCookie(res, result.accessToken);
         setRefreshCookie(res, result.refreshToken);
-        return res.status(200).json({ message: 'Đăng nhập thành công', accessToken: result.accessToken, user: result.user });
+        return res.status(200).json({ message: 'Đăng nhập thành công', accessToken: result.accessToken, refreshToken: result.refreshToken, user: result.user });
     }
     catch (err) {
         return mapAuthError(err, res);
@@ -153,7 +155,7 @@ async function refresh(req, res) {
         const result = await uc.execute({ refreshToken: token, ip: getClientIp(req), userAgent: getUserAgent(req) });
         setAccessCookie(res, result.accessToken);
         setRefreshCookie(res, result.refreshToken);
-        return res.status(200).json({ accessToken: result.accessToken, user: result.user });
+        return res.status(200).json({ accessToken: result.accessToken, refreshToken: result.refreshToken, user: result.user });
     }
     catch (err) {
         clearAuthCookies(res);

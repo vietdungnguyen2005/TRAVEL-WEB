@@ -1,6 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.Logger = void 0;
+const correlation_1 = require("./observability/correlation");
 function toErrorPayload(error) {
     if (!error)
         return undefined;
@@ -14,16 +15,20 @@ function toErrorPayload(error) {
     return { message: String(error) };
 }
 class Logger {
+    context;
     constructor(context) {
         this.context = context;
     }
     write(level, message, meta, error) {
+        const correlationId = (0, correlation_1.getCorrelationId)();
         const payload = {
             ts: new Date().toISOString(),
             level,
             context: this.context,
             msg: message,
         };
+        if (correlationId)
+            payload.correlationId = correlationId;
         if (typeof meta !== 'undefined')
             payload.meta = meta;
         const err = toErrorPayload(error);
@@ -46,8 +51,13 @@ class Logger {
     warn(message, meta) {
         this.write('warn', message, meta);
     }
-    error(message, error) {
-        this.write('error', message, undefined, error);
+    error(message, metaOrError, maybeError) {
+        if (metaOrError instanceof Error || typeof metaOrError === 'undefined') {
+            this.write('error', message, undefined, metaOrError);
+            return;
+        }
+        const error = maybeError instanceof Error ? maybeError : undefined;
+        this.write('error', message, metaOrError, error);
     }
 }
 exports.Logger = Logger;

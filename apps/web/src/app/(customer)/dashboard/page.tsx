@@ -18,6 +18,7 @@ import {
   AlertTriangle,
   Download,
   Home,
+  Star,
 } from "lucide-react";
 import { format } from "date-fns";
 import Image from "next/image";
@@ -83,7 +84,7 @@ export default function DashboardPage() {
           if (roomRes.ok) {
             const roomData = await roomRes.json();
             const rooms = Array.isArray(roomData) ? roomData : roomData?.data ?? [];
-            const roomMap = new Map(rooms.map((r: any) => [r.id, r]));
+            const roomMap = new Map<string, Booking['room']>(rooms.map((r: any) => [r.id, r]));
             for (const b of rawBookings) {
               if (b.roomId && roomMap.has(b.roomId)) {
                 b.room = roomMap.get(b.roomId);
@@ -168,22 +169,47 @@ export default function DashboardPage() {
     }
   };
 
+  const PaymentStatusBadge = ({ status }: { status: string }) => {
+    const config: Record<string, { label: string; className: string }> = {
+      PAID: { label: "Đã thanh toán", className: "bg-green-100 text-green-700 border-green-200" },
+      COMPLETED: { label: "Đã thanh toán", className: "bg-green-100 text-green-700 border-green-200" },
+      PENDING: { label: "Chờ thanh toán", className: "bg-yellow-100 text-yellow-700 border-yellow-200" },
+      FAILED: { label: "Thanh toán thất bại", className: "bg-red-100 text-red-700 border-red-200" },
+      REFUND_REQUESTED: { label: "Đang chờ duyệt hoàn tiền", className: "bg-orange-100 text-orange-700 border-orange-200" },
+      REFUNDED: { label: "Đã hoàn tiền", className: "bg-blue-100 text-blue-700 border-blue-200" },
+      REFUND_REJECTED: { label: "Yêu cầu hoàn tiền bị từ chối", className: "bg-red-100 text-red-700 border-red-200" },
+      REFUND_FAILED: { label: "Hoàn tiền thất bại", className: "bg-red-100 text-red-700 border-red-200" },
+    };
+    const c = config[status] || { label: status, className: "bg-gray-100 text-gray-600 border-gray-200" };
+    return (
+      <Badge variant="outline" className={`mt-1 text-xs ${c.className}`}>
+        {c.label}
+      </Badge>
+    );
+  };
+
+  const now = new Date();
+  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
   const upcomingBookings = bookings.filter(
     (b) =>
       (b.status === "CONFIRMED" || b.status === "PENDING" || b.status === "ON_HOLD") &&
-      new Date(b.checkIn) > new Date()
+      new Date(b.checkIn) >= todayStart
   );
 
   const pastBookings = bookings.filter(
     (b) =>
       b.status === "COMPLETED" ||
-      (b.status === "CONFIRMED" && new Date(b.checkOut) < new Date())
+      (b.status === "CONFIRMED" && new Date(b.checkOut) < todayStart)
   );
 
   const cancelledBookings = bookings.filter((b) => b.status === "CANCELLED");
 
   const BookingCard = ({ booking }: { booking: Booking }) => {
     const nights = calculateNights(booking.checkIn, booking.checkOut);
+    const isPast =
+      booking.status === "COMPLETED" ||
+      (booking.status === "CONFIRMED" && new Date(booking.checkOut) < new Date());
     const canCancel =
       (booking.status === "CONFIRMED" || booking.status === "PENDING" || booking.status === "ON_HOLD") &&
       new Date(booking.checkIn) > new Date(Date.now() + 24 * 60 * 60 * 1000);
@@ -271,9 +297,9 @@ export default function DashboardPage() {
                 <p className="text-2xl font-bold">
                   {Number(booking.totalPrice).toLocaleString("vi-VN")} VND
                 </p>
-                <p className="text-xs text-muted-foreground mt-1">
-                  Payment: {booking.paymentStatus ?? "N/A"}
-                </p>
+                {booking.paymentStatus && (
+                  <PaymentStatusBadge status={booking.paymentStatus} />
+                )}
                 {booking.status === "ON_HOLD" && booking.holdExpiresAt && (
                   <p className="text-xs text-orange-600 mt-1 font-medium">
                     Hold expires: {format(new Date(booking.holdExpiresAt), "PPP p")}
@@ -281,17 +307,28 @@ export default function DashboardPage() {
                 )}
               </div>
 
-              <div className="flex gap-2">
+              <div className="flex gap-2 flex-wrap">
                 <Link href={`/booking/success/${booking.id}`}>
                   <Button variant="outline" size="sm">
                     <Download className="h-4 w-4 mr-2" />
-                    View Details
+                    Xem chi tiết
                   </Button>
                 </Link>
+
+                {isPast && (
+                  <Link href="/dashboard/reviews">
+                    <Button variant="outline" size="sm" className="text-yellow-600 border-yellow-300 hover:bg-yellow-50">
+                      <Star className="h-4 w-4 mr-2" />
+                      Đánh giá
+                    </Button>
+                  </Link>
+                )}
 
                 <RefundRequestButton
                   bookingId={booking.id}
                   paymentStatus={booking.paymentStatus}
+                  bookingStatus={booking.status}
+                  checkOut={booking.checkOut}
                 />
                 {canCancel && (
                   <Button
@@ -303,12 +340,12 @@ export default function DashboardPage() {
                     {cancellingId === booking.id ? (
                       <>
                         <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                        Cancelling...
+                        Đang hủy...
                       </>
                     ) : (
                       <>
                         <XCircle className="h-4 w-4 mr-2" />
-                        Cancel
+                        Hủy đặt phòng
                       </>
                     )}
                   </Button>

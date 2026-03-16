@@ -1,6 +1,6 @@
 import express from 'express';
 import amqp from 'amqplib';
-import { consulRegisterService, createCorrelationIdMiddleware, loadEnvProfile } from '@travel-web/shared';
+import { consulRegisterService, createCorrelationIdMiddleware, createErrorHandler, loadEnvProfile, validateEnv, PAYMENT_SERVICE_ENV_RULES } from '@travel-web/shared';
 import { startBookingEventsConsumer } from './interfaces/events/booking-created.consumer';
 import { startBookingCancelledConsumer } from './interfaces/events/booking-cancelled.consumer';
 import metricsRegister from './lib/metrics';
@@ -9,6 +9,8 @@ import { createPaymentsRouter } from './interfaces/http/payments.routes';
 
 const app = express();
 const PORT = process.env.PORT || 3004;
+
+// … (health/ready helpers unchanged)
 
 function getTimeoutMs() {
     const raw = process.env.HEALTHCHECK_TIMEOUT_MS;
@@ -47,7 +49,10 @@ async function checkRabbitMq() {
 }
 
 // Load root env + selected profile env (.env.docker/.env.supabase)
-loadEnvProfile({ cwd: process.cwd().split('/services/')[0] });
+loadEnvProfile({ cwd: process.cwd().split(/[/\\]services[/\\]/)[0] || process.cwd() });
+
+// Validate required env vars early
+validateEnv({ serviceName: 'payment-service', rules: PAYMENT_SERVICE_ENV_RULES });
 
 app.use(createCorrelationIdMiddleware());
 app.use(express.json());
@@ -80,6 +85,8 @@ app.get('/ready', async (_req, res) => {
 });
 
 app.use('/api/payments', createPaymentsRouter());
+
+app.use(createErrorHandler('payment-service'));
 
 app.listen(PORT, () => {
     console.log(`Payment Service running on port ${PORT}`);

@@ -49,7 +49,15 @@ export default function ChangePasswordPage() {
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.error || "Failed to change password");
+        // Extract detailed validation errors if available
+        let errorMsg = data.message || data.error || "Failed to change password";
+        if (data.details) {
+          const detailMsgs = Object.values(data.details).flat().filter(Boolean);
+          if (detailMsgs.length > 0) {
+            errorMsg = detailMsgs.join(". ");
+          }
+        }
+        throw new Error(errorMsg);
       }
 
       toast.success("Đổi mật khẩu thành công!");

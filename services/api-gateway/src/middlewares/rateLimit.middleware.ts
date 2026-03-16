@@ -26,9 +26,11 @@ function isProd() {
     return process.env.NODE_ENV === 'production';
 }
 
+const defaultLimit = isProd() ? 100 : 1000;
+
 const rateLimitMiddleware = rateLimit({
     windowMs: 15 * 60 * 1000, // 15 minutes
-    limit: Number(process.env.RATE_LIMIT_MAX || 100),
+    limit: Number(process.env.RATE_LIMIT_MAX || defaultLimit),
     standardHeaders: true,
     legacyHeaders: false,
     message: 'Too many requests, please try again later.',

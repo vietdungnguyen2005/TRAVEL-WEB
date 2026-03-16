@@ -27,10 +27,18 @@ export async function refundReject(deps: {
         return { status: 404, body };
     }
 
-    if (payment.status !== 'REFUND_REQUESTED') {
+    // Already rejected → idempotent
+    if (payment.status === 'REFUND_REJECTED') {
         const body = { success: true, bookingId: deps.bookingId, status: payment.status };
         await deps.idempotency.saveResponse('refund-reject', deps.idemKey, 200, body);
         return { status: 200, body };
+    }
+
+    // Only REFUND_REQUESTED payments can be rejected
+    if (payment.status !== 'REFUND_REQUESTED') {
+        const body = { error: `Cannot reject refund for payment with status ${payment.status}` };
+        await deps.idempotency.saveResponse('refund-reject', deps.idemKey, 400, body);
+        return { status: 400, body };
     }
 
     await deps.payments.updateRefundMetadataByBookingId({

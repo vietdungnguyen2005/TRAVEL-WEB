@@ -22,15 +22,9 @@ err()   { echo -e "${RED}[ERR]${NC}   $*"; }
 
 PORTS=(3000 3001 3002 3003 3004 3005 3006 3007 3008 4000)
 
-# ── kill service ports (Windows) ────────────────────────────��────────────────
+# ── kill service ports (cross-platform via Node) ────────────────────────────
 kill_ports() {
-  for port in "${PORTS[@]}"; do
-    local pid
-    pid=$(netstat -ano 2>/dev/null | grep "LISTENING" | grep ":$port " | head -1 | awk '{print $NF}' || true)
-    if [ -n "$pid" ] && [ "$pid" != "0" ]; then
-      taskkill //F //PID "$pid" >/dev/null 2>&1 || true
-    fi
-  done
+  node "$ROOT_DIR/scripts/kill-ports.js" || true
 }
 
 # ── handle --stop ────────────────────────────────────────────────────────────
@@ -43,9 +37,7 @@ if [[ "${1:-}" == "--stop" ]]; then
   exit 0
 fi
 
-# ── 1. Kill any leftover processes on our ports ──────────────────────────────
-info "Clearing ports..."
-kill_ports
+# ── 1. Ports already cleared by npm predev:start (kill-ports.js) ─────────────
 ok "Ports clear"
 
 # ── 2. Start RabbitMQ via Docker ─────────────────────────────────────────────
@@ -97,6 +89,8 @@ echo "  Auth Service       : http://localhost:3001"
 echo "  Booking Service    : http://localhost:3002"
 echo "  Room Service       : http://localhost:3003"
 echo "  Payment Service    : http://localhost:3004"
+echo "  Review Service     : http://localhost:3005"
+echo "  Notification Svc   : http://localhost:3006"
 echo "  Content Service    : http://localhost:3007"
 echo "  Blog Service       : http://localhost:3008"
 echo ""
@@ -116,6 +110,8 @@ exec npx turbo run dev \
   --filter=blog-service \
   --filter=booking-service \
   --filter=payment-service \
+  --filter=review-service \
+  --filter=notification-service \
   --filter=@travel-web/shared \
   --filter=@travel-web/contracts \
   --concurrency=12

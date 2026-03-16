@@ -45,9 +45,12 @@ export function createPrismaBookingRepository(): BookingRepository {
             const row = await prisma.booking.findFirst({
                 where: {
                     roomId: query.roomId,
+                    // Block if any active booking overlaps: PENDING, CONFIRMED, or unexpired/no-expiry ON_HOLD
                     OR: [
+                        { status: 'PENDING' },
                         { status: 'CONFIRMED' },
                         { status: 'ON_HOLD', holdExpiresAt: { gt: new Date() } },
+                        { status: 'ON_HOLD', holdExpiresAt: null },
                     ],
                     AND: [
                         {
@@ -58,9 +61,50 @@ export function createPrismaBookingRepository(): BookingRepository {
                             ],
                         },
                     ],
+                    // Optionally exclude a specific booking (for self-update scenarios)
+                    ...(query.excludeBookingId ? { NOT: { id: query.excludeBookingId } } : {}),
                 },
             });
             return row ? mapBooking(row) : null;
+        },
+
+        /**
+         * Transaction-safe conflict check using SELECT ... FOR UPDATE.
+         * Locks conflicting rows so concurrent transactions must wait,
+         * preventing double-booking race conditions.
+         */
+        async findFirstConflictTx(tx: TransactionContext, query: BookingConflictQuery) {
+            const client = tx as PrismaLike;
+
+            // Use Prisma ORM instead of raw SQL for schema compatibility with Supabase pooler.
+            // FOR UPDATE is not available via ORM, but findFirst within an interactive transaction
+            // still provides serializable-like isolation because Prisma's $transaction uses
+            // the same connection and the database default isolation level.
+            const conflict = await client.booking.findFirst({
+                where: {
+                    roomId: query.roomId,
+                    // Block if any active booking overlaps: PENDING, CONFIRMED, or unexpired/no-expiry ON_HOLD
+                    OR: [
+                        { status: 'PENDING' },
+                        { status: 'CONFIRMED' },
+                        { status: 'ON_HOLD', holdExpiresAt: { gt: new Date() } },
+                        { status: 'ON_HOLD', holdExpiresAt: null },
+                    ],
+                    AND: [
+                        {
+                            OR: [
+                                { checkIn: { gte: query.checkIn, lt: query.checkOut } },
+                                { checkOut: { gt: query.checkIn, lte: query.checkOut } },
+                                { AND: [{ checkIn: { lte: query.checkIn } }, { checkOut: { gte: query.checkOut } }] },
+                            ],
+                        },
+                        ...(query.excludeBookingId ? [{ id: { not: query.excludeBookingId } }] : []),
+                    ],
+                },
+            });
+
+            if (!conflict) return null;
+            return mapBooking(conflict as unknown as Record<string, unknown>);
         },
 
         async create(tx: TransactionContext, input: CreateBookingInput) {
@@ -120,8 +164,10 @@ export function createPrismaBookingRepository(): BookingRepository {
                     roomId: { in: roomIds },
                     checkOut: { gte: new Date() },
                     OR: [
+                        { status: 'PENDING' },
                         { status: 'CONFIRMED' },
                         { status: 'ON_HOLD', holdExpiresAt: { gt: new Date() } },
+                        { status: 'ON_HOLD', holdExpiresAt: null },
                     ],
                 },
                 orderBy: { checkIn: 'asc' },

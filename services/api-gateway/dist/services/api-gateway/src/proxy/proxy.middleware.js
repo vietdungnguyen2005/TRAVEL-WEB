@@ -23,6 +23,24 @@ function proxyTo(serviceKey, _pathPrefix, opts) {
                 proxyReq.setHeader('x-user-id', auth.userId);
             if (auth?.role)
                 proxyReq.setHeader('x-user-role', auth.role);
+            // Forward idempotency-key for payment operations
+            const idempotencyKey = req.headers['idempotency-key'] || req.headers['x-idempotency-key'];
+            if (idempotencyKey) {
+                proxyReq.setHeader('idempotency-key', idempotencyKey);
+            }
+        },
+        // Strip Set-Cookie from upstream responses.
+        // The web app manages its own cookies via JS (document.cookie).
+        // If upstream httpOnly cookies leak through, they block the JS-set
+        // cookies (RFC 6265) and break client-side auth checks.
+        onProxyRes: (proxyRes) => {
+            delete proxyRes.headers['set-cookie'];
+        },
+        onError: (err, _req, res) => {
+            if (!res.headersSent) {
+                res.writeHead(502, { 'Content-Type': 'application/json' });
+            }
+            res.end(JSON.stringify({ success: false, error: `Service ${serviceKey} unavailable` }));
         },
     });
 }

@@ -4,6 +4,8 @@ export interface JwtService {
     signAccessToken(input: {
         userId: string;
         role: Role;
+        name?: string;
+        email?: string;
     }): AccessToken;
 }
 //# sourceMappingURL=jwt.service.d.ts.map

@@ -48,14 +48,26 @@ export default function LoginPage() {
       // Support both shapes: { token } (contracts) or legacy { accessToken }
       const token = (data?.token || data?.accessToken) as string | undefined;
       if (token) {
-        document.cookie = `access_token=${encodeURIComponent(token)}; Path=/; SameSite=Lax`;
+        // Set Max-Age to match JWT TTL (15 min = 900 s)
+        document.cookie = `access_token=${encodeURIComponent(token)}; Path=/; Max-Age=900; SameSite=Lax`;
+      }
+
+      // Store refresh token for silent token renewal
+      const refreshToken = data?.refreshToken as string | undefined;
+      if (refreshToken) {
+        // Refresh token lives longer (7 days = 604800 s)
+        document.cookie = `refresh_token=${encodeURIComponent(refreshToken)}; Path=/; Max-Age=604800; SameSite=Lax`;
       }
 
       toast.success("Đăng nhập thành công!", {
         description: `Chào mừng ${data?.user?.name || data?.user?.email || email}`,
       });
 
-      if (data?.user?.role === "ADMIN") {
+      // Redirect to the original page if provided, otherwise to default
+      const urlRedirectTarget = new URLSearchParams(window.location.search).get("redirect");
+      if (urlRedirectTarget) {
+        router.push(urlRedirectTarget);
+      } else if (data?.user?.role === "ADMIN") {
         router.push("/admin");
       } else {
         router.push("/dashboard");

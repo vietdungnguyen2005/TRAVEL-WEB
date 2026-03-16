@@ -14,6 +14,11 @@ const logger_1 = require("../logger");
 const node_crypto_1 = require("node:crypto");
 const correlation_1 = require("../observability/correlation");
 const logger = new logger_1.Logger('RabbitMQ');
+/**
+ * Symbol used to mark a ConsumeMessage as already-acked by inner retry logic,
+ * preventing the outer `rabbitConsume` handler from double-acking.
+ */
+const ACK_HANDLED = Symbol('rabbit-ack-handled');
 function sleep(ms) {
     return new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -235,9 +240,15 @@ async function rabbitConsume(opts, handler) {
                 const body = msg.content.toString('utf-8');
                 const payload = body ? JSON.parse(body) : null;
                 await handler(payload, msg);
-                ch.ack(msg);
+                // Skip ack if the handler already acked (e.g., retry logic in rabbitConsumeWithRetry)
+                if (!msg[ACK_HANDLED]) {
+                    ch.ack(msg);
+                }
             }
             catch (err) {
+                // Skip nack if the handler already acked/nacked
+                if (msg[ACK_HANDLED])
+                    return;
                 const error = err;
                 const body = msg.content.toString('utf-8');
                 logger.error('RabbitMQ handler failed', error);
@@ -336,6 +347,8 @@ async function rabbitConsumeWithRetry(opts, handler) {
                 },
             });
             // Ack original so it doesn't go to DLQ yet.
+            // Mark as handled BEFORE acking so rabbitConsume won't double-ack.
+            raw[ACK_HANDLED] = true;
             ch.ack(raw);
             return;
         }

@@ -42,6 +42,7 @@ export class PrismaUserRepository implements UserRepository {
         email: string;
         passwordHash: string;
         name?: string | null;
+        phone?: string | null;
         role: AuthUser['role'];
         isVerified: boolean;
         verificationToken?: string | null;
@@ -51,6 +52,7 @@ export class PrismaUserRepository implements UserRepository {
                 email: input.email,
                 password: input.passwordHash,
                 name: input.name ?? null,
+                phone: input.phone ?? null,
                 role: input.role,
                 isVerified: input.isVerified,
                 verificationToken: input.verificationToken ?? null,

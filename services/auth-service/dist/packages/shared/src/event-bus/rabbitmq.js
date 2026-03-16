@@ -12,9 +12,19 @@ exports.rabbitConsumeWithRetry = rabbitConsumeWithRetry;
 const amqplib_1 = __importDefault(require("amqplib"));
 const logger_1 = require("../logger");
 const node_crypto_1 = require("node:crypto");
+const correlation_1 = require("../observability/correlation");
 const logger = new logger_1.Logger('RabbitMQ');
+/**
+ * Symbol used to mark a ConsumeMessage as already-acked by inner retry logic,
+ * preventing the outer `rabbitConsume` handler from double-acking.
+ */
+const ACK_HANDLED = Symbol('rabbit-ack-handled');
+function sleep(ms) {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+}
 let connection = null;
 let channel = null;
+let connecting = null;
 async function rabbitConnect(config) {
     const url = config?.url || process.env.RABBITMQ_URL;
     const exchange = config?.exchange || process.env.RABBITMQ_EXCHANGE || 'events';
@@ -22,24 +32,69 @@ async function rabbitConnect(config) {
     if (!url) {
         throw new Error('RABBITMQ_URL is not set');
     }
-    if (connection && channel)
+    if (connection && channel) {
+        await channel.assertExchange(exchange, 'topic', { durable: true });
+        await channel.assertExchange(dlxExchange, 'topic', { durable: true });
         return { connection, channel, url, exchange };
-    const conn = await amqplib_1.default.connect(url);
-    const ch = await conn.createChannel();
-    await ch.assertExchange(exchange, 'topic', { durable: true });
-    await ch.assertExchange(dlxExchange, 'topic', { durable: true });
-    connection = conn;
-    channel = ch;
-    conn.on('error', (err) => {
-        logger.error('RabbitMQ connection error', err);
-    });
-    conn.on('close', () => {
-        logger.warn('RabbitMQ connection closed');
-        connection = null;
-        channel = null;
-    });
-    logger.info('RabbitMQ connected', { url, exchange, dlxExchange });
-    return { connection, channel, url, exchange };
+    }
+    if (!connecting) {
+        connecting = (async () => {
+            const timeoutMsRaw = process.env.RABBITMQ_CONNECT_TIMEOUT_MS;
+            const timeoutMs = typeof timeoutMsRaw === 'string' && timeoutMsRaw.length > 0 ? Number(timeoutMsRaw) : 30000;
+            const start = Date.now();
+            let attempt = 0;
+            // eslint-disable-next-line no-constant-condition
+            while (true) {
+                attempt += 1;
+                try {
+                    const conn = await amqplib_1.default.connect(url);
+                    const ch = await conn.createChannel();
+                    connection = conn;
+                    channel = ch;
+                    conn.on('error', (err) => {
+                        logger.error('RabbitMQ connection error', err);
+                    });
+                    conn.on('close', () => {
+                        logger.warn('RabbitMQ connection closed');
+                        connection = null;
+                        channel = null;
+                    });
+                    logger.info('RabbitMQ connected', { url, dlxExchange });
+                    return { connection: conn, channel: ch };
+                }
+                catch (err) {
+                    const elapsed = Date.now() - start;
+                    const remaining = timeoutMs - elapsed;
+                    const error = err;
+                    if (!(Number.isFinite(timeoutMs) && timeoutMs > 0) || remaining <= 0) {
+                        logger.error('RabbitMQ connect failed (giving up)', err);
+                        throw err;
+                    }
+                    const backoffBaseMs = 250;
+                    const backoffMaxMs = 5000;
+                    const exp = Math.min(backoffMaxMs, backoffBaseMs * Math.pow(2, attempt - 1));
+                    const jitter = Math.floor(Math.random() * Math.min(250, exp));
+                    const waitMs = Math.min(remaining, exp + jitter);
+                    logger.warn('RabbitMQ connect failed; retrying', {
+                        attempt,
+                        waitMs,
+                        code: typeof error.code === 'string' ? error.code : undefined,
+                        message: typeof error.message === 'string' ? error.message : undefined,
+                    });
+                    await sleep(waitMs);
+                }
+            }
+        })();
+    }
+    try {
+        const { connection: conn, channel: ch } = await connecting;
+        await ch.assertExchange(exchange, 'topic', { durable: true });
+        await ch.assertExchange(dlxExchange, 'topic', { durable: true });
+        return { connection: conn, channel: ch, url, exchange };
+    }
+    finally {
+        connecting = null;
+    }
 }
 async function rabbitAssertTopology(topology) {
     const { channel: ch } = await rabbitConnect({ exchange: topology.exchange.name });
@@ -92,7 +147,13 @@ async function rabbitPublish({ routingKey, message, options }) {
     if (!ch)
         throw new Error('RabbitMQ channel not initialized');
     const content = Buffer.from(JSON.stringify(message));
-    ch.publish(exchange, routingKey, content, { persistent: true, contentType: 'application/json', ...options });
+    const correlationId = (0, correlation_1.ensureCorrelationId)(options?.correlationId);
+    ch.publish(exchange, routingKey, content, {
+        persistent: true,
+        contentType: 'application/json',
+        ...options,
+        correlationId,
+    });
 }
 async function rabbitRpc({ routingKey, message, timeoutMs = 5000, options }) {
     const { channel: ch, exchange } = await rabbitConnect();
@@ -171,37 +232,48 @@ async function rabbitConsume(opts, handler) {
     await ch.consume(opts.queue, async (msg) => {
         if (!msg)
             return;
-        try {
-            const body = msg.content.toString('utf-8');
-            const payload = body ? JSON.parse(body) : null;
-            await handler(payload, msg);
-            ch.ack(msg);
-        }
-        catch (err) {
-            const error = err;
-            const body = msg.content.toString('utf-8');
-            logger.error('RabbitMQ handler failed', error);
-            logger.warn('RabbitMQ message dead-lettering', {
-                queue: opts.queue,
-                dlxExchange: enableDlq ? dlxExchange : undefined,
-                dlqQueue: enableDlq ? dlqQueue : undefined,
-                dlqRoutingKey: enableDlq ? dlqRoutingKey : undefined,
-                routingKey: msg.fields.routingKey,
-                deliveryTag: msg.fields.deliveryTag,
-                redelivered: msg.fields.redelivered,
-                properties: {
-                    messageId: msg.properties.messageId,
-                    correlationId: msg.properties.correlationId,
-                    timestamp: msg.properties.timestamp,
-                    headers: msg.properties.headers,
-                },
-                payloadPreview: safePreview(body),
-                errorMessage: error.message,
-            });
-            // Requeue=false to avoid poison message infinite loops.
-            // If DLQ is enabled on the queue, this rejection will dead-letter the message.
-            ch.nack(msg, false, false);
-        }
+        const correlationId = (0, correlation_1.ensureCorrelationId)((typeof msg.properties.correlationId === 'string' && msg.properties.correlationId.trim())
+            ? msg.properties.correlationId
+            : msg.properties.headers?.['x-correlation-id']);
+        await (0, correlation_1.runWithCorrelationId)(correlationId, async () => {
+            try {
+                const body = msg.content.toString('utf-8');
+                const payload = body ? JSON.parse(body) : null;
+                await handler(payload, msg);
+                // Skip ack if the handler already acked (e.g., retry logic in rabbitConsumeWithRetry)
+                if (!msg[ACK_HANDLED]) {
+                    ch.ack(msg);
+                }
+            }
+            catch (err) {
+                // Skip nack if the handler already acked/nacked
+                if (msg[ACK_HANDLED])
+                    return;
+                const error = err;
+                const body = msg.content.toString('utf-8');
+                logger.error('RabbitMQ handler failed', error);
+                logger.warn('RabbitMQ message dead-lettering', {
+                    queue: opts.queue,
+                    dlxExchange: enableDlq ? dlxExchange : undefined,
+                    dlqQueue: enableDlq ? dlqQueue : undefined,
+                    dlqRoutingKey: enableDlq ? dlqRoutingKey : undefined,
+                    routingKey: msg.fields.routingKey,
+                    deliveryTag: msg.fields.deliveryTag,
+                    redelivered: msg.fields.redelivered,
+                    properties: {
+                        messageId: msg.properties.messageId,
+                        correlationId: msg.properties.correlationId,
+                        timestamp: msg.properties.timestamp,
+                        headers: msg.properties.headers,
+                    },
+                    payloadPreview: safePreview(body),
+                    errorMessage: error.message,
+                });
+                // Requeue=false to avoid poison message infinite loops.
+                // If DLQ is enabled on the queue, this rejection will dead-letter the message.
+                ch.nack(msg, false, false);
+            }
+        });
     }, { consumerTag: opts.consumerTag });
 }
 function getRetryCount(msg) {
@@ -233,9 +305,33 @@ async function rabbitConsumeWithRetry(opts, handler) {
             }
             const nextRetry = currentRetry + 1;
             const delayMs = retryDelaysMs[nextRetry - 1];
+            const error = err;
+            logger.warn('RabbitMQ handler failed; scheduling retry', {
+                queue: opts.queue,
+                routingKey: raw.fields.routingKey,
+                messageId: raw.properties.messageId,
+                currentRetry,
+                nextRetry,
+                delayMs,
+                reason: error?.message,
+            });
             // Publish into a retry queue (expected to have TTL + DLX back to main exchange).
             const retryRoutingKey = `${opts.queue}.retry.${delayMs}`;
             const content = raw.content;
+            try {
+                opts.onRetryScheduled?.({
+                    queue: opts.queue,
+                    routingKey: raw.fields.routingKey,
+                    messageId: typeof raw.properties.messageId === 'string' ? raw.properties.messageId : undefined,
+                    correlationId: typeof raw.properties.correlationId === 'string' ? raw.properties.correlationId : undefined,
+                    currentRetry,
+                    nextRetry,
+                    delayMs,
+                });
+            }
+            catch {
+                // never block message handling on metrics
+            }
             ch.publish(retryExchange, retryRoutingKey, content, {
                 persistent: true,
                 contentType: raw.properties.contentType || 'application/json',
@@ -244,11 +340,15 @@ async function rabbitConsumeWithRetry(opts, handler) {
                 headers: {
                     ...(raw.properties.headers || {}),
                     'x-retry-count': nextRetry,
+                    'x-retry-delay-ms': delayMs,
+                    'x-retry-reason': error?.message,
                     'x-original-exchange': exchange,
                     'x-original-routing-key': raw.fields.routingKey,
                 },
             });
             // Ack original so it doesn't go to DLQ yet.
+            // Mark as handled BEFORE acking so rabbitConsume won't double-ack.
+            raw[ACK_HANDLED] = true;
             ch.ack(raw);
             return;
         }

@@ -1,10 +1,9 @@
 import express from 'express';
 import cors from 'cors';
-import { createCorrelationIdMiddleware } from '@travel-web/shared';
+import { createCorrelationIdMiddleware, createErrorHandler } from '@travel-web/shared';
 import { healthHandler, readyHandler } from './lib/health';
 import { heroImagesRouter } from './http/routes';
 import { adminHeroImagesRouter } from './http/routes/admin-hero-images';
-import { errorHandler } from './http/middlewares/error-handler';
 
 const app = express();
 const PORT = process.env.PORT || 3007;
@@ -24,7 +23,7 @@ app.get('/ready', readyHandler);
 app.use('/api', heroImagesRouter);
 app.use('/api/admin', adminHeroImagesRouter);
 
-app.use(errorHandler);
+app.use(createErrorHandler('content-service'));
 
 app.listen(PORT, () => {
     console.log(`Content Service running on port ${PORT}`);

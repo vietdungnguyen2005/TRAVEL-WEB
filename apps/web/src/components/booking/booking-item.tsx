@@ -31,6 +31,10 @@ export function BookingItem({ booking }: BookingItemProps) {
         return "bg-yellow-500";
       case "CANCELLED":
         return "bg-red-500";
+      case "COMPLETED":
+        return "bg-blue-500";
+      case "PENDING":
+        return "bg-yellow-500";
       default:
         return "bg-gray-500";
     }
@@ -46,6 +50,8 @@ export function BookingItem({ booking }: BookingItemProps) {
         return "Đã hủy";
       case "PENDING":
         return "Đang xử lý";
+      case "COMPLETED":
+        return "Đã hoàn thành";
       default:
         return status;
     }
@@ -60,12 +66,12 @@ export function BookingItem({ booking }: BookingItemProps) {
         attachAccessToken: true,
       });
 
+      const data = await response.json();
+
       if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || "Payment failed");
+        throw new Error(data.error || "Payment failed");
       }
 
-      const data = await response.json();
       window.location.href = data.url;
     } catch (error: any) {
       toast.error("Thanh toán thất bại", {
